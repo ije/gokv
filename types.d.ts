@@ -27,36 +27,36 @@ export type KVListResult = {
 }
 
 export class KV {
-  constructor(options: { token: string, namespace: string })
+  constructor(options: { token: string })
   get(key: string, options?: { cacheTtl?: number }): Promise<string | null>
-  get(key: string, options: 'text'): Promise<string | null>
-  get(key: string, options: KVGetOptions<'text'>): Promise<string | null>
-  get<T = unknown>(key: string, options: 'json'): Promise<T | null>
-  get<T = unknown>(key: string, options: KVGetOptions<'json'>): Promise<T | null>
-  get(key: string, options: 'arrayBuffer'): Promise<ArrayBuffer | null>
-  get(key: string, options: KVGetOptions<'arrayBuffer'>): Promise<ArrayBuffer | null>
-  get(key: string, options: 'stream'): Promise<ReadableStream | null>
-  get(key: string, options: KVGetOptions<'stream'>): Promise<ReadableStream | null>
+  get(key: string, options: "text"): Promise<string | null>
+  get(key: string, options: KVGetOptions<"text">): Promise<string | null>
+  get<T = unknown>(key: string, options: "json"): Promise<T | null>
+  get<T = unknown>(key: string, options: KVGetOptions<"json">): Promise<T | null>
+  get(key: string, options: "arrayBuffer"): Promise<ArrayBuffer | null>
+  get(key: string, options: KVGetOptions<"arrayBuffer">): Promise<ArrayBuffer | null>
+  get(key: string, options: "stream"): Promise<ReadableStream | null>
+  get(key: string, options: KVGetOptions<"stream">): Promise<ReadableStream | null>
   getWithMetadata<M = unknown>(key: string, options?: { cacheTtl?: number }): Promise<KVGetWithMetadataResult<string, M>>
-  getWithMetadata<M = unknown>(key: string, options: KVGetOptions<'text'>): Promise<KVGetWithMetadataResult<string, M>>
-  getWithMetadata<M = unknown>(key: string, options: 'text'): Promise<KVGetWithMetadataResult<string, M>>
-  getWithMetadata<T = unknown, M = unknown>(key: string, options: KVGetOptions<'json'>): Promise<KVGetWithMetadataResult<T, M>>
-  getWithMetadata<T = unknown, M = unknown>(key: string, options: 'json'): Promise<KVGetWithMetadataResult<T, M>>
-  getWithMetadata<M = unknown>(key: string, options: KVGetOptions<'arrayBuffer'>): Promise<KVGetWithMetadataResult<ArrayBuffer, M>>
-  getWithMetadata<M = unknown>(key: string, options: 'arrayBuffer'): Promise<KVGetWithMetadataResult<ArrayBuffer, M>>
-  getWithMetadata<M = unknown>(key: string, options: KVGetOptions<'stream'>): Promise<KVGetWithMetadataResult<ReadableStream, M>>
-  getWithMetadata<M = unknown>(key: string, options: 'stream'): Promise<KVGetWithMetadataResult<ReadableStream, M>>
+  getWithMetadata<M = unknown>(key: string, options: KVGetOptions<"text">): Promise<KVGetWithMetadataResult<string, M>>
+  getWithMetadata<M = unknown>(key: string, options: "text"): Promise<KVGetWithMetadataResult<string, M>>
+  getWithMetadata<T = unknown, M = unknown>(key: string, options: KVGetOptions<"json">): Promise<KVGetWithMetadataResult<T, M>>
+  getWithMetadata<T = unknown, M = unknown>(key: string, options: "json"): Promise<KVGetWithMetadataResult<T, M>>
+  getWithMetadata<M = unknown>(key: string, options: KVGetOptions<"arrayBuffer">): Promise<KVGetWithMetadataResult<ArrayBuffer, M>>
+  getWithMetadata<M = unknown>(key: string, options: "arrayBuffer"): Promise<KVGetWithMetadataResult<ArrayBuffer, M>>
+  getWithMetadata<M = unknown>(key: string, options: KVGetOptions<"stream">): Promise<KVGetWithMetadataResult<ReadableStream, M>>
+  getWithMetadata<M = unknown>(key: string, options: "stream"): Promise<KVGetWithMetadataResult<ReadableStream, M>>
   put(key: string, value: string | ArrayBuffer | ReadableStream, options?: KVPutOptions): Promise<void>
   delete(key: string): Promise<void>
   list(options: KVListOptions): Promise<KVListResult>
 }
 
 export type DruableKVGetOptions = {
-  allowConcurrency?: boolean, 
+  allowConcurrency?: boolean,
 }
 
 export type DruableKVPutOptions = {
-  allowUnconfirmed?: boolean, 
+  allowUnconfirmed?: boolean,
 }
 
 export type DruableKVListOptions = {
@@ -68,7 +68,7 @@ export type DruableKVListOptions = {
 } & DruableKVGetOptions
 
 export class DruableKV {
-  constructor(options: { token: string, namespace: string, noCache?: boolean })
+  constructor(options: { token: string, noCache?: boolean })
   get<T = any>(key: string, options?: DruableKVGetOptions): Promise<T | undefined>
   get(keys: string[], options?: DruableKVGetOptions): Promise<Map<string, any>>
   put(key: string, value: any, options?: DruableKVPutOptions): Promise<void>
@@ -123,10 +123,6 @@ export class ChatRoom {
   connect(): Promise<Chat>
 }
 
-declare interface Request {
-  session?: DruableKV
-}
-
 export type CoEditOptions<T, U> = {
   id: string,
   type: T,
@@ -134,14 +130,15 @@ export type CoEditOptions<T, U> = {
 }
 
 type gokv = {
-  config: (options: { token: string | Promise<string> }) => void
-  signUserToken(options: { username: string, lifetime?: number }): Promise<string>
-  useSession(request: Request, options: { appKey: string, cookieName?: string, lifetime?: number }): void
-  KV: (namespace: string) => KV
-  DurableKV: (options?: { namespace?: string }) => DruableKV
-  CoEdit(options: CoEditOptions<'text', string>): CoTextEdit
-  CoEdit<T>(options: CoEditOptions<'json', T>): CoDocumentEdit<T>
+  config(options: { token?: string, getUserToken?(): Promise<string> }): void
+  signUserToken(username: string, options?: { lifetime?: number }): Promise<string>
+  Session(request: Request, options?: { cookieName?: string, lifetime?: number }): Promise<DruableKV>
+  Session(response: Response, options?: { cookieName?: string, lifetime?: number }): Promise<Response>
+  KV(): KV
+  DurableKV(): DruableKV
+  CoEdit(options: CoEditOptions<"text", string>): CoTextEdit
+  CoEdit<T>(options: CoEditOptions<"json", T>): CoDocumentEdit<T>
   ChatRoom(options: { roomId: string, rateLimit?: number }): ChatRoom
-}  
+}
 
 export default gokv
