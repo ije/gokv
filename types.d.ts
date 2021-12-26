@@ -27,7 +27,7 @@ export type KVListResult = {
 }
 
 export class KV {
-  constructor(options: { token: string })
+  constructor(options: { token: string, namespace: string })
   get(key: string, options?: { cacheTtl?: number }): Promise<string | null>
   get(key: string, options: "text"): Promise<string | null>
   get(key: string, options: KVGetOptions<"text">): Promise<string | null>
@@ -68,7 +68,7 @@ export type DruableKVListOptions = {
 } & DruableKVGetOptions
 
 export class DruableKV {
-  constructor(options: { token: string, noCache?: boolean })
+  constructor(options: { token: string, namespace: string, noCache?: boolean })
   get<T = any>(key: string, options?: DruableKVGetOptions): Promise<T | undefined>
   get(keys: string[], options?: DruableKVGetOptions): Promise<Map<string, any>>
   put(key: string, value: any, options?: DruableKVPutOptions): Promise<void>
@@ -85,19 +85,30 @@ export type CoTextOp = {
 }
 
 export type CoText = {
-  text: string
-  ops: AsyncIterable<CoTextOp>
+  readonly text: string
+  readonly ops: AsyncIterable<CoTextOp>
   broadcast(...ops: CoTextOp[]): Promise<void>
 }
 
 export class CoTextEdit {
   constructor(options: { token: string, document: { id: string, defaultData?: string } })
-  connect(): Promise<[CoText, unknown]>
+  connect(): Promise<[CoText, CoState]>
 }
 
 export class CoDocumentEdit<T> {
   constructor(options: { token: string, document: { id: string, defaultData?: T } })
-  connect(): Promise<[T, unknown]>
+  connect(): Promise<[T, CoState]>
+}
+
+export type CoUserOp = {
+  readonly username: string
+  readonly type: string
+  readonly data: any
+}
+
+export type CoState = {
+  userOps: AsyncIterable<CoUserOp>
+  broadcast(...ops: CoUserOp[]): Promise<void>
 }
 
 export type ChatMessage = {
@@ -132,10 +143,10 @@ export type CoEditOptions<T, U> = {
 type gokv = {
   config(options: { token?: string, getUserToken?(): Promise<string> }): void
   signUserToken(username: string, options?: { lifetime?: number }): Promise<string>
-  Session(request: Request, options?: { cookieName?: string, lifetime?: number }): Promise<DruableKV>
-  Session(response: Response, options?: { cookieName?: string, lifetime?: number }): Promise<Response>
-  KV(): KV
-  DurableKV(): DruableKV
+  Session(request: Request, options?: { namespace?: string, cookieName?: string, lifetime?: number }): Promise<Map<string, any> | null>
+  Session(response: Response, options?: { namespace?: string, cookieName?: string, lifetime?: number }): Promise<Response>
+  KV(options?: { namespace?: string }): KV
+  DurableKV(options?: { namespace?: string }): DruableKV
   CoEdit(options: CoEditOptions<"text", string>): CoTextEdit
   CoEdit<T>(options: CoEditOptions<"json", T>): CoDocumentEdit<T>
   ChatRoom(options: { roomId: string, rateLimit?: number }): ChatRoom
