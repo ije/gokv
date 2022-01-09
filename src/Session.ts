@@ -4,12 +4,12 @@ import type {
 } from "../types.d.ts"
 
 export default class SessionImpl<Store> implements Session<Store> {
-  kv: DurableKV
-  store: Store
-  cookieName: string
-  sid: string
-  domain?: string
-  path?: string
+  public store: Store
+  private kv: DurableKV
+  private cookieName: string
+  private sid: string
+  private domain?: string
+  private path?: string
 
   constructor(kv: DurableKV, store: Store, cookieName: string, sid: string, domain?: string, path?: string) {
     this.kv = kv
@@ -24,12 +24,12 @@ export default class SessionImpl<Store> implements Session<Store> {
     this.store = store
     await this.kv.put(this.sid, store)
     const cookieValue = [
-      `session=${this.sid}`,
+      `${this.cookieName}=${this.sid}`,
       this.domain && `Domain=${this.domain}`,
       this.path && `Path=${this.path}`,
       "Secure",
       "HttpOnly"
-    ].join("; ")
+    ].filter(Boolean).join("; ")
     res.headers.append("Set-Cookie", cookieValue)
     return res
   }

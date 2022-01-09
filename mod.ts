@@ -33,10 +33,15 @@ class GOKVImpl implements GOKV {
       throw new Error("undefined token")
     }
     const cookieName = options?.cookieName || 'session'
-    const namespace = 'session/' + (options?.namespace || 'default')
+    const namespace = '__session__/' + (options?.namespace || 'default')
     const kv: DurableKV = new DurableKVImpl({ token: this.token, namespace })
-    const sid = parseCookie(req.headers.get("cookie") || "").get(cookieName) || await hashText(this.token + namespace + crypto.randomUUID())
-    const store = await kv.get<T>(sid) || ({} as T)
+    let sid = parseCookie(req.headers.get("cookie") || "").get(cookieName)
+    let store = ({} as T)
+    if (sid) {
+      store = await kv.get<T>(sid) || store
+    } else {
+      sid = await hashText(this.token + namespace + crypto.randomUUID())
+    }
     return new SessionImpl<T>(kv, store, cookieName, sid, options?.domain, options?.path)
   }
 
@@ -60,9 +65,9 @@ class GOKVImpl implements GOKV {
     })
   }
 
-  // CoEdit()  { }
-
   // ChatRoom()  { }
+
+  // CoEdit()  { }
 
 }
 
