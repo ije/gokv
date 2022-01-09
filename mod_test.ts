@@ -4,6 +4,19 @@ import gokv from "./mod.ts"
 
 gokv.config({ token: Deno.env.get("GOKV_TOKEN") })
 
+Deno.test("KV", async () => {
+  const kv = gokv.KV({ namespace: "dev-test" })
+
+  await kv.put("document", `{"id": "xxx", "type": "json"}`, { metadata: { author: "X." } })
+  await kv.put("plain", "Hello world!", { metadata: { keywords: ["foo", "bar"] } })
+  await kv.put("void", "null")
+  await kv.delete("void")
+  assertEquals(await kv.get("document", "json"), { id: "xxx", type: "json" })
+  assertEquals(await kv.getWithMetadata("document", "json"), { value: { id: "xxx", type: "json" }, metadata: { author: "X." } })
+  assertEquals(await kv.get("plain"), "Hello world!")
+  assertEquals(await kv.list(), { keys: [{ name: "document", metadata: { author: "X." } }, { name: "plain", metadata: { keywords: ["foo", "bar"] } }], list_complete: true })
+})
+
 Deno.test("DurationKV", async () => {
   const kv = gokv.DurableKV({ namespace: "dev-test" })
 
