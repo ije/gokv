@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.120.0/http/server.ts"
-import gokv from "https://deno.land/x/gokv/mod.ts"
+import gokv from "https://deno.land/x/gokv@0.0.1/mod.ts"
 
-// get token at https://gokv.io/
+// Log in https://gokv.io/ to get token
 gokv.config({ token: Deno.env.get("GOKV_TOKEN") })
 
 async function handler(req: Request): Promise<Response> {
