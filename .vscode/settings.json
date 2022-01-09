@@ -1,0 +1,15 @@
+{
+  "files.eol": "\n",
+  "files.trimTrailingWhitespace": true,
+  "typescript.format.semicolons": "remove",
+  "typescript.preferences.quoteStyle": "double",
+  "[typescript]": {
+    "editor.defaultFormatter": "vscode.typescript-language-features",
+    "editor.formatOnSave": true
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "vscode.typescript-language-features",
+    "editor.formatOnSave": true
+  },
+  "deno.enable": true
+}

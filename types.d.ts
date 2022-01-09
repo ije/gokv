@@ -1,5 +1,10 @@
+export type Options = {
+  token?: string
+  getUserToken?: () => Promise<string | Response>
+}
+
 export type KVGetOptions<T> = {
-  type: T,
+  type: T
   cacheTtl?: number
 }
 
@@ -9,20 +14,20 @@ export type KVGetWithMetadataResult<T, M> = {
 }
 
 export type KVPutOptions = {
-  expiration?: number,
-  expirationTtl?: number,
+  expiration?: number
+  expirationTtl?: number
   metadata?: any
 }
 
 export type KVListOptions = {
-  limit?: number;
-  prefix?: string;
-  cursor?: string;
+  limit?: number
+  prefix?: string
+  cursor?: string
 }
 
 export type KVListResult = {
-  keys: { name: string, expiration: number, metadata: any }[],
-  list_complete: boolean,
+  keys: { name: string, expiration?: number, metadata?: any }[]
+  list_complete: boolean
   cursor?: string
 }
 
@@ -51,105 +56,123 @@ export class KV {
   list(options: KVListOptions): Promise<KVListResult>
 }
 
-export type DruableKVGetOptions = {
-  allowConcurrency?: boolean,
+export type DurableKVGetOptions = {
+  allowConcurrency?: boolean
 }
 
-export type DruableKVPutOptions = {
-  allowUnconfirmed?: boolean,
+export type DurableKVPutOptions = {
+  allowUnconfirmed?: boolean
 }
 
-export type DruableKVListOptions = {
-  start?: string,
-  end?: string,
-  prefix?: string,
+export type DurableKVDeleteOptions = {
+  valueEq?: string
+  valueIn?: string[]
+} & Omit<DurableKVListOptions, 'allowConcurrency'> & DurableKVPutOptions
+
+export type DurableKVListOptions = {
+  start?: string
+  end?: string
+  prefix?: string
   limit?: number
-  reverse?: boolean,
-} & DruableKVGetOptions
+  reverse?: boolean
+} & DurableKVGetOptions
 
-export class DruableKV {
-  constructor(options: { token: string, namespace: string, noCache?: boolean })
-  get<T = any>(key: string, options?: DruableKVGetOptions): Promise<T | undefined>
-  get(keys: string[], options?: DruableKVGetOptions): Promise<Map<string, any>>
-  put(key: string, value: any, options?: DruableKVPutOptions): Promise<void>
-  put(entries: Record<string, any>, options?: DruableKVPutOptions): Promise<void>
-  delete(key: string, options?: DruableKVPutOptions): Promise<boolean>
-  delete(keys: string[], options?: DruableKVPutOptions): Promise<number>
-  deleteAll(options?: DruableKVPutOptions): Promise<void>
-  list(options?: DruableKVListOptions): Promise<Map<string, any>>
+export class DurableKV {
+  constructor(options: { token: string, namespace: string })
+  get<T = unknown>(key: string, options?: DurableKVGetOptions): Promise<T | undefined>
+  get<T = Record<string, unknown>>(keys: string[], options?: DurableKVGetOptions): Promise<T>
+  put(key: string, value: any, options?: DurableKVPutOptions): Promise<void>
+  put(entries: Record<string, unknown>): Promise<void>
+  delete(key: string, options?: DurableKVPutOptions): Promise<boolean>
+  delete(keys: string[], options?: DurableKVPutOptions): Promise<number>
+  delete(options: DurableKVDeleteOptions): Promise<number>
+  deleteAll(options?: DurableKVPutOptions): Promise<void>
+  list<T = Record<string, unknown>>(options?: DurableKVListOptions): Promise<T>
 }
 
-export type CoTextOp = {
-  readonly text: string
-  readonly range: [number, number]
+export type Session<Store> = {
+  store: Store | null
+  update: (res: Response, store: Store) => Promise<Response>
 }
 
-export type CoText = {
-  readonly text: string
-  readonly ops: AsyncIterable<CoTextOp>
-  broadcast(...ops: CoTextOp[]): Promise<void>
+export type SessionOptions = {
+  namespace?: string
+  cookieName?: string
+  domain?: string
+  path?: string
+  lifetime?: number
 }
 
-export class CoTextEdit {
-  constructor(options: { token: string, document: { id: string, defaultData?: string } })
-  connect(): Promise<[CoText, CoState]>
-}
+// export type CoTextOp = {
+//   readonly text: string
+//   readonly range: [number, number]
+// }
 
-export class CoDocumentEdit<T> {
-  constructor(options: { token: string, document: { id: string, defaultData?: T } })
-  connect(): Promise<[T, CoState]>
-}
+// export type CoText = {
+//   readonly text: string
+//   readonly ops: AsyncIterable<CoTextOp>
+//   broadcast(...ops: CoTextOp[]): Promise<void>
+// }
 
-export type CoUserOp = {
-  readonly username: string
-  readonly type: string
-  readonly data: any
-}
+// export class CoTextEdit {
+//   constructor(options: { token: string, document: { id: string, defaultData?: string } })
+//   connect(): Promise<[CoText, CoState]>
+// }
 
-export type CoState = {
-  userOps: AsyncIterable<CoUserOp>
-  broadcast(...ops: CoUserOp[]): Promise<void>
-}
+// export class CoDocumentEdit<T> {
+//   constructor(options: { token: string, document: { id: string, defaultData?: T } })
+//   connect(): Promise<[T, CoState]>
+// }
 
-export type ChatMessage = {
-  id: string
-  datetime: number
-  by: string
-  type: string
-  content: string
-}
+// export type CoUserOp = {
+//   readonly username: string
+//   readonly type: string
+//   readonly data: any
+// }
 
-export type ChatHistory = {
-  list: (limit: number, cursor?: string) => Promise<{ messages: ChatMessage[], end?: boolean }>
-}
+// export type CoState = {
+//   userOps: AsyncIterable<CoUserOp>
+//   broadcast(...ops: CoUserOp[]): Promise<void>
+// }
 
-export type Chat = {
-  channel: AsyncIterable<ChatMessage>
-  history: ChatHistory
-  send(type: string, content: string): Promise<void>
-}
+// export type ChatMessage = {
+//   id: string
+//   datetime: number
+//   by: string
+//   type: string
+//   content: string
+// }
 
-export class ChatRoom {
-  constructor(options: { token: string, roomId: string, rateLimit?: number })
-  connect(): Promise<Chat>
-}
+// export type ChatHistory = {
+//   list: (limit: number, cursor?: string) => Promise<{ messages: ChatMessage[], end?: boolean }>
+// }
 
-export type CoEditOptions<T, U> = {
-  id: string,
-  type: T,
-  defaultData?: U
-}
+// export type Chat = {
+//   channel: AsyncIterable<ChatMessage>
+//   history: ChatHistory
+//   send(type: string, content: string): Promise<void>
+// }
 
-type gokv = {
-  config(options: { token?: string, getUserToken?(): Promise<string> }): void
-  signUserToken(username: string, options?: { lifetime?: number }): Promise<string>
-  Session(request: Request, options?: { namespace?: string, cookieName?: string, lifetime?: number }): Promise<Map<string, any> | null>
-  Session(response: Response, options?: { namespace?: string, cookieName?: string, lifetime?: number }): Promise<Response>
+// export class ChatRoom {
+//   constructor(options: { token: string, roomId: string, rateLimit?: number })
+//   connect(): Promise<Chat>
+// }
+
+// export type CoEditOptions<T, U> = {
+//   id: string
+//   type: T
+//   defaultData?: U
+// }
+
+export interface GOKV {
+  config(options: Options): void
+  // signUserToken(username: string, options?: { lifetime?: number, readonly?: boolean, isAdmin?: boolean }): Promise<string>
+  Session<T extends object = Record<string, any>>(request: Request, options?: SessionOptions): Promise<Session<T>>
   KV(options?: { namespace?: string }): KV
-  DurableKV(options?: { namespace?: string }): DruableKV
-  CoEdit(options: CoEditOptions<"text", string>): CoTextEdit
-  CoEdit<T>(options: CoEditOptions<"json", T>): CoDocumentEdit<T>
-  ChatRoom(options: { roomId: string, rateLimit?: number }): ChatRoom
+  DurableKV(options?: { namespace?: string }): DurableKV
+  // CoEdit(options: CoEditOptions<"text", string>): CoTextEdit
+  // CoEdit<T>(options: CoEditOptions<"json", T>): CoDocumentEdit<T>
+  // ChatRoom(options: { roomId: string, rateLimit?: number }): ChatRoom
 }
 
-export default gokv
+export default GOKV
