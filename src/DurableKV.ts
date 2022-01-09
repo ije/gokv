@@ -8,12 +8,10 @@ import type {
 import { appendOptionsToHeaders, fetchApi } from "./helper.ts"
 
 export default class DurableKVImpl implements DurableKV {
-  readonly token: string
   readonly namespace: string
   readonly publicHeaders: Record<string, string>
 
   constructor(options: { token: string, namespace: string }) {
-    this.token = options.token
     this.namespace = options.namespace
     this.publicHeaders = {
       Service: "durable-kv",

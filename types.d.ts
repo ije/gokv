@@ -20,9 +20,9 @@ export type KVPutOptions = {
 }
 
 export type KVListOptions = {
-  limit?: number
   prefix?: string
   cursor?: string
+  limit?: number
 }
 
 export type KVListResult = {
@@ -53,7 +53,7 @@ export class KV {
   getWithMetadata<M = unknown>(key: string, options: "stream"): Promise<KVGetWithMetadataResult<ReadableStream, M>>
   put(key: string, value: string | ArrayBuffer | ReadableStream, options?: KVPutOptions): Promise<void>
   delete(key: string): Promise<void>
-  list(options: KVListOptions): Promise<KVListResult>
+  list(options?: KVListOptions): Promise<KVListResult>
 }
 
 export type DurableKVGetOptions = {
@@ -170,9 +170,9 @@ export interface GOKV {
   Session<T extends object = Record<string, any>>(request: Request, options?: SessionOptions): Promise<Session<T>>
   KV(options?: { namespace?: string }): KV
   DurableKV(options?: { namespace?: string }): DurableKV
+  // ChatRoom(options: { roomId: string, rateLimit?: number }): ChatRoom
   // CoEdit(options: CoEditOptions<"text", string>): CoTextEdit
   // CoEdit<T>(options: CoEditOptions<"json", T>): CoDocumentEdit<T>
-  // ChatRoom(options: { roomId: string, rateLimit?: number }): ChatRoom
 }
 
 export default GOKV
