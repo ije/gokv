@@ -1,16 +1,56 @@
 lockfileVersion: 5.3
 
 specifiers:
+  '@peculiar/webcrypto': ^1.2.3
   esbuild: ^0.14.11
   node-fetch: ^3.1.0
 
 dependencies:
+  '@peculiar/webcrypto': 1.2.3
   node-fetch: 3.1.0
 
 devDependencies:
   esbuild: 0.14.11
 
 packages:
+
+  /@peculiar/asn1-schema/2.0.44:
+    resolution: {integrity: sha512-uaCnjQ9A9WwQSMuDJcNOCYEPXTahgKbFMvI7eMOMd8lXgx0J1eU7F3BoMsK5PFxa3dVUxjSQbaOjfgGoeHGgoQ==}
+    dependencies:
+      '@types/asn1js': 2.0.2
+      asn1js: 2.2.0
+      pvtsutils: 1.2.1
+      tslib: 2.3.1
+    dev: false
+
+  /@peculiar/json-schema/1.1.12:
+    resolution: {integrity: sha512-coUfuoMeIB7B8/NMekxaDzLhaYmp0HZNPEjYRm9goRou8UZIC3z21s0sL9AWoCw4EG876QyO3kYrc61WNF9B/w==}
+    engines: {node: '>=8.0.0'}
+    dependencies:
+      tslib: 2.3.1
+    dev: false
+
+  /@peculiar/webcrypto/1.2.3:
+    resolution: {integrity: sha512-q7wDfZy3k/tpnsYB23/MyyDkjn6IdHh8w+xwoVMS5cu6CjVoFzngXDZEOOuSE4zus2yO6ciQhhHxd4XkLpwVnQ==}
+    engines: {node: '>=10.12.0'}
+    dependencies:
+      '@peculiar/asn1-schema': 2.0.44
+      '@peculiar/json-schema': 1.1.12
+      pvtsutils: 1.2.1
+      tslib: 2.3.1
+      webcrypto-core: 1.4.0
+    dev: false
+
+  /@types/asn1js/2.0.2:
+    resolution: {integrity: sha512-t4YHCgtD+ERvH0FyxvNlYwJ2ezhqw7t+Ygh4urQ7dJER8i185JPv6oIM3ey5YQmGN6Zp9EMbpohkjZi9t3UxwA==}
+    dev: false
+
+  /asn1js/2.2.0:
+    resolution: {integrity: sha512-oagLNqpfNv7CvmyMoexMDNyVDSiq1rya0AEUgcLlNHdHgNl6U/hi8xY370n5y+ZIFEXOx0J4B1qF2NDjMRxklA==}
+    engines: {node: '>=6.0.0'}
+    dependencies:
+      pvutils: 1.0.17
+    dev: false
 
   /data-uri-to-buffer/4.0.0:
     resolution: {integrity: sha512-Vr3mLBA8qWmcuschSLAOogKgQ/Jwxulv3RNE4FXnYWRGujzrRWQI4m12fQqRkwX06C0KanhLr4hK+GydchZsaA==}
@@ -209,7 +249,32 @@ packages:
       formdata-polyfill: 4.0.10
     dev: false
 
+  /pvtsutils/1.2.1:
+    resolution: {integrity: sha512-Q867jEr30lBR2YSFFLZ0/XsEvpweqH6Kj096wmlRAFXrdRGPCNq2iz9B5Tk085EZ+OBZyYAVA5UhPkjSHGrUzQ==}
+    dependencies:
+      tslib: 2.3.1
+    dev: false
+
+  /pvutils/1.0.17:
+    resolution: {integrity: sha512-wLHYUQxWaXVQvKnwIDWFVKDJku9XDCvyhhxoq8dc5MFdIlRenyPI9eSfEtcvgHgD7FlvCyGAlWgOzRnZD99GZQ==}
+    engines: {node: '>=6.0.0'}
+    dev: false
+
+  /tslib/2.3.1:
+    resolution: {integrity: sha512-77EbyPPpMz+FRFRuAFlWMtmgUWGe9UOG2Z25NqCwiIjRhOf5iKGuzSe5P2w1laq+FkRy4p+PCuVkJSGkzTEKVw==}
+    dev: false
+
   /web-streams-polyfill/3.2.0:
     resolution: {integrity: sha512-EqPmREeOzttaLRm5HS7io98goBgZ7IVz79aDvqjD0kYXLtFZTc0T/U6wHTPKyIjb+MdN7DFIIX6hgdBEpWmfPA==}
     engines: {node: '>= 8'}
+    dev: false
+
+  /webcrypto-core/1.4.0:
+    resolution: {integrity: sha512-HY3Zo0GcRIQUUDnlZ/shGjN+4f7LVMkdJZoGPog+oHhJsJdMz6iM8Za5xZ0t6qg7Fx/JXXz+oBv2J2p982hGTQ==}
+    dependencies:
+      '@peculiar/asn1-schema': 2.0.44
+      '@peculiar/json-schema': 1.1.12
+      asn1js: 2.2.0
+      pvtsutils: 1.2.1
+      tslib: 2.3.1
     dev: false

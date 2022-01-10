@@ -2,17 +2,17 @@
   "name": "gokv",
   "version": "0.0.1",
   "description": "A global, low-latency, and druable key-value store.",
-  "type": "module",
-  "main": "dist/mod.mjs",
-  "module": "dist/mod.mjs",
+  "module": "dist/index.mjs",
+  "browser": "dist/borwser.mjs",
   "types": "types.d.ts",
   "files": [
     "dist/",
     "types.d.ts"
   ],
   "scripts": {
-    "build": "pnpm esbuild --bundle --minify --format=esm --target=es2021 --external:node-fetch --outfile=dist/mod.mjs node.ts",
-    "prepublishOnly": "pnpm build"
+    "build:browser": "pnpm esbuild --bundle --minify --platform=browser --format=esm --target=es2021 --outfile=dist/borwser.mjs mod.ts",
+    "build:node": "pnpm esbuild --bundle --minify --platform=node --format=esm --target=es2021 --external:node-fetch --external:@peculiar/webcrypto --outfile=dist/index.mjs node.ts",
+    "prepublishOnly": "pnpm build:node && pnpm build:browser"
   },
   "repository": {
     "type": "git",
@@ -24,10 +24,11 @@
   "homepage": "https://gokv.io",
   "author": "ije",
   "license": "MIT",
+  "dependencies": {
+    "@peculiar/webcrypto": "^1.2.3",
+    "node-fetch": "^3.1.0"
+  },
   "devDependencies": {
     "esbuild": "^0.14.11"
-  },
-  "dependencies": {
-    "node-fetch": "^3.1.0"
   }
 }

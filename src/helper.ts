@@ -25,6 +25,13 @@ export async function fetchApi(init?: RequestInit & { resource?: string, ignore4
   return res
 }
 
+export function closeBody(res: Response): Promise<void> {
+  if (res.body?.cancel) {
+    return res.body!.cancel()
+  }
+  return Promise.resolve()
+}
+
 export function splitBy(s: string, searchString: string, fromLast = false): [string, string] {
   const i = fromLast ? s.lastIndexOf(searchString) : s.indexOf(searchString)
   if (i >= 0) {

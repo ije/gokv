@@ -92,7 +92,7 @@ export class DurableKV {
 
 export type Session<Store> = {
   store: Store | null
-  update: (res: Response, store: Store) => Promise<Response>
+  update: (res: Response, store: Store | null) => Promise<Response>
 }
 
 export type SessionOptions = {

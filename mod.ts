@@ -1,6 +1,6 @@
-import SessionImpl from "./src/Session.ts"
 import DurableKVImpl from "./src/DurableKV.ts"
 import KVImpl from "./src/KV.ts"
+import SessionImpl from "./src/Session.ts"
 import { parseCookie, hashText } from "./src/helper.ts"
 import type {
   GOKV,
@@ -32,13 +32,13 @@ class GOKVImpl implements GOKV {
     if (!this.token) {
       throw new Error("undefined token")
     }
-    const cookieName = options?.cookieName || 'session'
-    const namespace = '__session__/' + (options?.namespace || 'default')
+    const cookieName = options?.cookieName || "session"
+    const namespace = "__SESSION_" + (options?.namespace || "default")
     const kv: DurableKV = new DurableKVImpl({ token: this.token, namespace })
     let sid = parseCookie(req.headers.get("cookie") || "").get(cookieName)
-    let store = ({} as T)
+    let store: T | null = null
     if (sid) {
-      store = await kv.get<T>(sid) || store
+      store = await kv.get<T>(sid) || null
     } else {
       sid = await hashText(this.token + namespace + crypto.randomUUID())
     }
