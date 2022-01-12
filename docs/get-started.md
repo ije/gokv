@@ -21,7 +21,7 @@ import gokv from "https://deno.land/x/gokv@0.0.1/mod.ts";
 
 Please log in https://gokv.io to get the access token.
 
-```js
+```ts
 import gokv from "gokv";
 
 gokv.config({ token: "xxx" });
@@ -39,7 +39,7 @@ high read volumes with low-latency.
 > previous version of a given key (including reads that indicated the key did
 > not exist).
 
-```js
+```ts
 import gokv from "gokv";
 
 // specify the `namespace` for current application.
@@ -51,7 +51,7 @@ const kv = gokv.KV({ namespace: "xxx" });
 Refenerce:
 https://developers.cloudflare.com/workers/runtime-apis/kv#writing-key-value-pairs
 
-```js
+```ts
 // the maximum size of a value is 25 MiB.
 await kv.put("foo", "bar");
 
@@ -70,7 +70,7 @@ await kv.put("foo", "bar", {
 Refenerce:
 https://developers.cloudflare.com/workers/runtime-apis/kv#reading-key-value-pairs
 
-```js
+```ts
 await kv.get("foo"); // "bar"
 
 // typed value
@@ -88,7 +88,7 @@ await kv.getWithMetadata("foo"); // { value: "bar", metadata: { baz: "qux" } }
 Refenerce:
 https://developers.cloudflare.com/workers/runtime-apis/kv#deleting-key-value-pairs
 
-```js
+```ts
 await kv.delete("foo");
 ```
 
@@ -97,7 +97,7 @@ await kv.delete("foo");
 Refenerce:
 https://developers.cloudflare.com/workers/runtime-apis/kv#listing-keys
 
-```js
+```ts
 // listing all keys
 await kv.list(); // { keys: [{ name: "foo", metadata: { baz: "qux" }}], list_complete: true }
 
@@ -125,7 +125,7 @@ https://developers.cloudflare.com/workers/runtime-apis/durable-objects#transacti
 
 ### Initialize Durable KV
 
-```js
+```ts
 import gokv from "gokv";
 
 // specify the `namespace` for current application.
@@ -159,13 +159,18 @@ await kv.put("foo", "bar");
 // put multiple records
 await kv.put({ foo: "bar", baz: "qux" });
 
-// By default, the system will pause outgoing network messages from the Durable Object until all previous writes have been confirmed flushed to disk. Set `allowUnconfirmed:true` to true to opt out of the default behavior.
+/*
+ By default, the system will pause outgoing network messages
+ from the Durable Object until all previous writes have been
+ confirmed flushed to disk. Set `allowUnconfirmed:true` to
+ opt out of the default behavior.
+*/
 await kv.put("foo", "bar", { allowUnconfirmed: true });
 ```
 
 ### Deleting key-value pairs
 
-```js
+```ts
 await kv.delete("foo");
 ```
 
@@ -186,6 +191,9 @@ await kv.list({ limit: 10 });
 
 // listing by reverse
 await kv.list({ limit: 10, reverse: ture });
+
+// same as the option to `get()`, above.
+await kv.list({ allowConcurrency: ture });
 ```
 
 <br>
