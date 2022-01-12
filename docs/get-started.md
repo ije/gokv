@@ -83,6 +83,15 @@ await kv.get("foo", { type: "stream" }); // ReadableStream(res.body)
 await kv.getWithMetadata("foo"); // { value: "bar", metadata: { baz: "qux" } }
 ```
 
+### Deleting key-value pairs
+
+Refenerce:
+https://developers.cloudflare.com/workers/runtime-apis/kv#deleting-key-value-pairs
+
+```js
+await kv.delete("foo");
+```
+
 ### Listing keys
 
 Refenerce:
@@ -103,29 +112,83 @@ if (!list_complete) {
 }
 ```
 
-### Deleting key-value pairs
+<br>
 
-Refenerce:
-https://developers.cloudflare.com/workers/runtime-apis/kv#deleting-key-value-pairs
+## Durable KV
+
+**DurableKV** is prowered by Cloudfleare Worker
+[Durable Objects](https://developers.cloudflare.com/workers/learning/using-durable-objects),
+that provides low-latency coordination and consistent storage.
+
+Durable Objects Storage API:
+https://developers.cloudflare.com/workers/runtime-apis/durable-objects#transactional-storage-api
+
+### Initialize Durable KV
+
+```js
+import gokv from "gokv";
+
+// specify the `namespace` for current application.
+const kv = gokv.DurableKV({ namespace: "xxx" });
+```
+
+### Reading key-value pairs
+
+```ts
+await kv.get("foo"); // "bar"
+
+// get multiple records
+await kv.get(["foo", "baz"]); // { foo: "bar", baz: "qux" }
+
+/*
+ By default, the system will pause delivery of I/O events
+ to the object while a storage operation is in progress,
+ in order to avoid unexpected race conditions.
+ Pass `allowConcurrency: true` to opt out of this behavior
+ and allow concurrent events to be delivered.
+*/
+await kv.get("foo", { allowConcurrency: true });
+await kv.get(["foo", "baz"], { allowConcurrency: true });
+```
+
+### Writing key-value pairs
+
+```ts
+await kv.put("foo", "bar");
+
+// put multiple records
+await kv.put({ foo: "bar", baz: "qux" });
+
+// By default, the system will pause outgoing network messages from the Durable Object until all previous writes have been confirmed flushed to disk. Set `allowUnconfirmed:true` to true to opt out of the default behavior.
+await kv.put("foo", "bar", { allowUnconfirmed: true });
+```
+
+### Deleting key-value pairs
 
 ```js
 await kv.delete("foo");
 ```
 
-## Durable KV
+### Listing records
 
-**DurableKV** is prowered by Cloudfleare
-Worker [Durable Objects](https://developers.cloudflare.com/workers/learning/using-durable-objects),
-that provides low-latency coordination and consistent storage.
+```ts
+// listing all records
+await kv.list(); // { foo: "bar", baz: "qux" }
 
-```js
-import gokv from "gokv";
+// listing by prefix
+await kv.list({ prefix: "user:1:" });
 
-const kv = gokv.DurableKV({ namespace: "xxx" });
+// listing by key range
+await kv.list({ start: "foo", end: "baz" });
+
+// listing with limit
+await kv.list({ limit: 10 });
+
+// listing by reverse
+await kv.list({ limit: 10, reverse: ture });
 ```
 
-_Work In Progress_
-
+<br>
 
 ## Session Storage
 
