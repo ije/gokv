@@ -42,6 +42,9 @@ class GOKVImpl implements GOKV {
         const { expires, data } = value
         if (Date.now() < expires) {
           store = data
+        } else {
+          // delete expired session
+          kv.delete(sid, { allowUnconfirmed: true })
         }
       }
     }
