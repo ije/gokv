@@ -25,7 +25,7 @@ export default class SessionImpl<StoreType> implements Session<StoreType> {
     if (options.store !== null) {
       // update expires if the session is already stored
       this._upTimer = setTimeout(() => {
-        options.kv.put(options.sid, { store: options.store, expires: Date.now() + 1000 * this._lifetime }, { allowUnconfirmed: true })
+        options.kv.put(options.sid, { data: options.store, expires: Date.now() + 1000 * this._lifetime }, { allowUnconfirmed: true })
       }, 0)
     }
   }
