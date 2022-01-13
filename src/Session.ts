@@ -5,7 +5,7 @@ import type {
   SessionCookieConfig
 } from "../types.d.ts"
 
-const minLifetime = 60          // on minute
+const minLifetime = 60          // one minute
 const defaultLifetime = 30 * 60 // half an hour
 
 export default class SessionImpl<StoreType> implements Session<StoreType> {
@@ -60,9 +60,9 @@ export default class SessionImpl<StoreType> implements Session<StoreType> {
       cookie.push("Secure")
     }
     cookie.push("HttpOnly")
-    const { headers: resHeaders, body, ...rest } = res
+    const { headers: resHeaders, body, bodyUsed, status, statusText } = res
     const headers = new Headers(resHeaders)
     headers.append("Set-Cookie", cookie.join("; "))
-    return new Response(body, { ...rest, headers })
+    return new Response(!bodyUsed ? body : null, { status, statusText, headers })
   }
 }
