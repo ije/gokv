@@ -40,12 +40,15 @@ export function splitBy(s: string, searchString: string, fromLast = false): [str
   return [s, ""]
 }
 
-export function parseCookie(raw: string): Map<string, string> {
+export function parseCookie(req: Request): Map<string, string> {
   const cookie: Map<string, string> = new Map()
-  raw.split(";").forEach(part => {
-    const [key, value] = splitBy(part.trim(), "=")
-    cookie.set(key, value)
-  })
+  const value = req.headers.get("cookie")
+  if (value) {
+    value.split(";").forEach(part => {
+      const [key, value] = splitBy(part.trim(), "=")
+      cookie.set(key, value)
+    })
+  }
   return cookie
 }
 

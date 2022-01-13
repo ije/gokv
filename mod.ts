@@ -28,13 +28,13 @@ class GOKVImpl implements GOKV {
 
   // signUserToken ()  { }
 
-  async Session<T extends object = Record<string, unknown>>(req: Request, options?: SessionOptions): Promise<Session<T>> {
+  async Session<T extends object = Record<string, unknown>>(req: Request, options?: { namespace?: string } & SessionOptions): Promise<Session<T>> {
     if (!this.token) {
       throw new Error("undefined token")
     }
     const namespace = "__SESSION_" + (options?.namespace || "default")
     const kv: DurableKV = new DurableKVImpl({ token: this.token, namespace })
-    let sid = parseCookie(req.headers.get("cookie") || "").get(options?.cookieName || "session")
+    let sid = parseCookie(req).get(options?.cookieName || "session")
     let store: T | null = null
     if (sid) {
       const value = await kv.get<{ data: T, expires: number }>(sid)
@@ -77,4 +77,9 @@ class GOKVImpl implements GOKV {
 
 }
 
-export default new GOKVImpl()
+export {
+  DurableKVImpl as DurableKV,
+  KVImpl as KV,
+  SessionImpl as Session,
+  GOKVImpl as default
+}

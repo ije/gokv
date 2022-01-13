@@ -1,23 +1,15 @@
 import type {
   DurableKV,
   Session,
+  SessionOptions,
 } from "../types.d.ts"
 
 const minLifetime = 60          // on minute
 const defaultLifetime = 30 * 60 // half an hour
 
-type Options<T> = {
-  kv: DurableKV,
-  store: T | null,
-  sid: string,
-  cookieName?: string,
-  lifetime?: number,
-  domain?: string,
-  path?: string
-}
+export default class SessionImpl<StoreType> implements Session<StoreType> {
+  readonly store: StoreType | null
 
-export default class SessionImpl<Store> implements Session<Store> {
-  public store: Store | null
   private kv: DurableKV
   private cookieName: string
   private sid: string
@@ -25,7 +17,7 @@ export default class SessionImpl<Store> implements Session<Store> {
   private domain?: string
   private path?: string
 
-  constructor(opts: Options<Store>) {
+  constructor(opts: { kv: DurableKV, store: StoreType | null, sid: string } & SessionOptions) {
     this.kv = opts.kv
     this.store = opts.store
     this.cookieName = opts.cookieName || "session"
@@ -35,14 +27,20 @@ export default class SessionImpl<Store> implements Session<Store> {
     this.path = opts.path
   }
 
-  async update(res: Response, store: Store | null): Promise<Response> {
+  async end(res: Response): Promise<Response> {
+    return this.update(res, null)
+  }
+
+  async update(res: Response, store: StoreType | null): Promise<Response> {
     const cookie = []
     if (typeof store === "object" && store !== null) {
       await this.kv.put(this.sid, { data: store, expires: Date.now() + 1000 * this.lifetime })
+      // @ts-expect-error
       this.store = store
       cookie.push(`${this.cookieName}=${this.sid}`)
     } else if (store === null) {
       await this.kv.delete(this.sid)
+      // @ts-expect-error
       this.store = null
       cookie.push(`${this.cookieName}=`, "Expires=Thu, 01 Jan 1970 00:00:01 GMT")
     } else {

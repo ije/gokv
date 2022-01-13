@@ -9,8 +9,8 @@ export type KVGetOptions<T> = {
 }
 
 export type KVGetWithMetadataResult<T, M> = {
-  value: T | null
-  metadata: M | null
+  readonly value: T | null
+  readonly metadata: M | null
 }
 
 export type KVPutOptions = {
@@ -26,13 +26,18 @@ export type KVListOptions = {
 }
 
 export type KVListResult = {
-  keys: { name: string, expiration?: number, metadata?: any }[]
-  list_complete: boolean
-  cursor?: string
+  readonly keys: { name: string, expiration?: number, metadata?: any }[]
+  readonly list_complete: boolean
+  readonly cursor?: string
+}
+
+export type InitKVOptions = {
+  readonly token: string
+  readonly namespace: string
 }
 
 export class KV {
-  constructor(options: { token: string, namespace: string })
+  constructor(options: InitKVOptions)
   get(key: string, options?: { cacheTtl?: number }): Promise<string | null>
   get(key: string, options: "text"): Promise<string | null>
   get(key: string, options: KVGetOptions<"text">): Promise<string | null>
@@ -78,7 +83,7 @@ export type DurableKVListOptions = {
 } & DurableKVGetOptions
 
 export class DurableKV {
-  constructor(options: { token: string, namespace: string })
+  constructor(options: InitKVOptions)
   get<T = unknown>(key: string, options?: DurableKVGetOptions): Promise<T | undefined>
   get<T = Record<string, unknown>>(keys: string[], options?: DurableKVGetOptions): Promise<T>
   put(key: string, value: any, options?: DurableKVPutOptions): Promise<void>
@@ -90,17 +95,18 @@ export class DurableKV {
   list<T = Record<string, unknown>>(options?: DurableKVListOptions): Promise<T>
 }
 
-export type Session<Store> = {
-  store: Store | null
-  update: (res: Response, store: Store | null) => Promise<Response>
-}
-
 export type SessionOptions = {
-  namespace?: string
+  lifetime?: number
   cookieName?: string
   domain?: string
   path?: string
-  lifetime?: number
+}
+
+export class Session<StoreType> {
+  readonly store: StoreType | null
+  constructor(options: { kv: DurableKV, store: StoreType | null, sid: string } & SessionOptions)
+  end: (res: Response) => Promise<Response>
+  update: (res: Response, store: StoreType) => Promise<Response>
 }
 
 // export type CoTextOp = {
@@ -167,7 +173,7 @@ export type SessionOptions = {
 export interface GOKV {
   config(options: Options): void
   // signUserToken(username: string, options?: { lifetime?: number, readonly?: boolean, isAdmin?: boolean }): Promise<string>
-  Session<T extends object = Record<string, any>>(request: Request, options?: SessionOptions): Promise<Session<T>>
+  Session<T extends object = Record<string, any>>(request: Request, options?: { namespace?: string } & SessionOptions): Promise<Session<T>>
   KV(options?: { namespace?: string }): KV
   DurableKV(options?: { namespace?: string }): DurableKV
   // ChatRoom(options: { roomId: string, rateLimit?: number }): ChatRoom
