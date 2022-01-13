@@ -10,4 +10,5 @@ global.Response = global.Response || Response
 global.crypto = global.crypto || new Crypto()
 global.crypto.randomUUID = global.crypto.randomUUID || (() => uuidv4())
 
+export * from "./mod.ts"
 export default mod
