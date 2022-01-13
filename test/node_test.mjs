@@ -85,13 +85,15 @@ await test("Session", async () => {
   assert.deepEqual(session.store, null)
 
   // login as "alice"
-  let res = await session.update(new Response(""), { username: "alice" })
+  let res = await session.update(Response.redirect("https://gokv.io/", 302), { username: "alice" })
+  assert.deepEqual(res.status, 302)
+  assert.deepEqual(res.headers.get("Location"), "https://gokv.io/")
   assert.deepEqual(res.headers.get("Set-Cookie"), `sess=${session.sid}; HttpOnly`)
 
   session = await gokv.Session(new Request("https://gokv.io/", { headers: { "cookie": `sess=${session.sid}` } }), config)
   assert.deepEqual(session.store, { username: "alice" })
 
-  // delete session
+  // end session
   res = await session.end(new Response(""))
   assert.deepEqual(res.headers.get("Set-Cookie"), `sess=; Expires=Thu, 01 Jan 1970 00:00:01 GMT; HttpOnly`)
 

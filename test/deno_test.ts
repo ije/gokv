@@ -75,13 +75,15 @@ Deno.test("Session", async () => {
   assertEquals(session.store, null)
 
   // login as "alice"
-  let res = await session.update(new Response(""), { username: "alice" })
+  let res = await session.update(Response.redirect("https://gokv.io/", 302), { username: "alice" })
+  assertEquals(res.status, 302)
+  assertEquals(res.headers.get("Location"), "https://gokv.io/")
   assertEquals(res.headers.get("Set-Cookie"), `sess=${session.sid}; HttpOnly`)
 
   session = await gokv.Session(new Request("https://gokv.io/", { headers: { "cookie": `sess=${session.sid}` } }), config)
   assertEquals(session.store, { username: "alice" })
 
-  // delete session
+  // end session
   res = await session.end(new Response(""))
   assertEquals(res.headers.get("Set-Cookie"), `sess=; Expires=Thu, 01 Jan 1970 00:00:01 GMT; HttpOnly`)
 
