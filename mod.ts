@@ -80,6 +80,7 @@ class GOKVImpl implements GOKV {
 export {
   DurableKVImpl as DurableKV,
   KVImpl as KV,
-  SessionImpl as Session,
-  GOKVImpl as default
+  SessionImpl as Session
 }
+
+export default new GOKVImpl()
