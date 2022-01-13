@@ -5,10 +5,10 @@ import { parseCookie, hashText } from "./src/helper.ts"
 import type {
   GOKV,
   Options,
+  KV,
+  DurableKV,
   Session,
   SessionOptions,
-  DurableKV,
-  KV,
 } from "./types.d.ts"
 
 class GOKVImpl implements GOKV {
@@ -32,17 +32,23 @@ class GOKVImpl implements GOKV {
     if (!this.token) {
       throw new Error("undefined token")
     }
-    const cookieName = options?.cookieName || "session"
     const namespace = "__SESSION_" + (options?.namespace || "default")
     const kv: DurableKV = new DurableKVImpl({ token: this.token, namespace })
-    let sid = parseCookie(req.headers.get("cookie") || "").get(cookieName)
+    let sid = parseCookie(req.headers.get("cookie") || "").get(options?.cookieName || "session")
     let store: T | null = null
     if (sid) {
-      store = await kv.get<T>(sid) || null
-    } else {
+      const value = await kv.get<{ data: T, expires: number }>(sid)
+      if (value) {
+        const { expires, data } = value
+        if (Date.now() < expires) {
+          store = data
+        }
+      }
+    }
+    if (!sid || !store) {
       sid = await hashText(this.token + namespace + crypto.randomUUID())
     }
-    return new SessionImpl<T>(kv, store, cookieName, sid, options?.domain, options?.path)
+    return new SessionImpl<T>({ ...options, kv, store, sid })
   }
 
   KV(options?: { namespace?: string }): KV {
