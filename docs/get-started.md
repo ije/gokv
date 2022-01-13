@@ -205,7 +205,7 @@ automatically.
 
 ```ts
 import { serve } from "https://deno.land/std@0.120.0/http/server.ts";
-import gokv from "https://deno.land/x/gokv@0.0.5/mod.ts";
+import gokv from "https://deno.land/x/gokv@0.0.6/mod.ts";
 
 gokv.config({ token: "xxx" });
 
