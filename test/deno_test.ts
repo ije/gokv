@@ -66,3 +66,25 @@ Deno.test("DurationKV", async () => {
   assertEquals(await kv.delete(["k-3", "k-4"]), 2)
   assertEquals(await kv.list(), new Array(3).fill(null).reduce((record, val, index) => { record[`k-${index}`] = val; return record }, {}))
 })
+
+
+Deno.test("Session", async () => {
+  const config = { namespace: "dev-test", cookie: { name: "sess" } }
+
+  let session = await gokv.Session(new Request("https://gokv.io/"), config)
+  assertEquals(session.store, null)
+
+  // login as "alice"
+  let res = await session.update(new Response(""), { username: "alice" })
+  assertEquals(res.headers.get("Set-Cookie"), `sess=${session.sid}; HttpOnly`)
+
+  session = await gokv.Session(new Request("https://gokv.io/", { headers: { "cookie": `sess=${session.sid}` } }), config)
+  assertEquals(session.store, { username: "alice" })
+
+  // delete session
+  res = await session.end(new Response(""))
+  assertEquals(res.headers.get("Set-Cookie"), `sess=; Expires=Thu, 01 Jan 1970 00:00:01 GMT; HttpOnly`)
+
+  session = await gokv.Session(new Request("https://gokv.io/", { headers: { "cookie": `sess=${session.sid}` } }), config)
+  assertEquals(session.store, null)
+})
