@@ -99,6 +99,7 @@ export type SessionCookieConfig = {
   name?: string
   domain?: string
   path?: string
+  sameSite?: "Strict" | "Lax" | "None"
   secure?: boolean
 }
 

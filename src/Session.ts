@@ -37,7 +37,7 @@ export default class SessionImpl<StoreType> implements Session<StoreType> {
 
   async update(res: Response, store: StoreType | null): Promise<Response> {
     const { _kv, _sid, _lifetime, _cookieConfig } = this
-    const { name: cookieName, domain, path, secure } = _cookieConfig
+    const { name: cookieName, domain, path, sameSite, secure } = _cookieConfig
     const cookie = []
     if (typeof store === "object" && store !== null) {
       await _kv.put(_sid, { data: store, expires: Date.now() + 1000 * _lifetime })
@@ -56,7 +56,10 @@ export default class SessionImpl<StoreType> implements Session<StoreType> {
     if (path) {
       cookie.push(`Path=${domain}`)
     }
-    if (secure) {
+    if (sameSite) {
+      cookie.push(`SameSite=${sameSite}`)
+    }
+    if (secure || sameSite === "None") {
       cookie.push("Secure")
     }
     cookie.push("HttpOnly")
