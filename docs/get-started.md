@@ -205,7 +205,7 @@ automatically.
 
 ```ts
 import { serve } from "https://deno.land/std@0.120.0/http/server.ts";
-import gokv from "https://deno.land/x/gokv@0.0.4/mod.ts";
+import gokv from "https://deno.land/x/gokv@0.0.5/mod.ts";
 
 gokv.config({ token: "xxx" });
 
@@ -215,7 +215,6 @@ async function handler(req: Request): Promise<Response> {
   try {
     const session = await gokv.Session<{ username: string }>(req, {
       namespace: "xxx",
-      cookieName: "session",
     });
     switch (url.pathname) {
       case "/login":
@@ -223,7 +222,10 @@ async function handler(req: Request): Promise<Response> {
         const username = form.get("username");
         const password = form.get("password");
         if (checkPassword(username, password)) {
-          return session.update(Response.redirect(`https://${url.host}/`, 302), { username });
+          return session.update(
+            Response.redirect(`https://${url.host}/`, 302),
+            { username },
+          );
         }
         return new Response("Invalid username or password", { status: 400 });
       case "/logout":
