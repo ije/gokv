@@ -4,10 +4,12 @@ specifiers:
   '@peculiar/webcrypto': ^1.2.3
   esbuild: ^0.14.11
   node-fetch: ^3.1.0
+  uuid: ^8.3.2
 
 dependencies:
   '@peculiar/webcrypto': 1.2.3
   node-fetch: 3.1.0
+  uuid: 8.3.2
 
 devDependencies:
   esbuild: 0.14.11
@@ -262,6 +264,11 @@ packages:
 
   /tslib/2.3.1:
     resolution: {integrity: sha512-77EbyPPpMz+FRFRuAFlWMtmgUWGe9UOG2Z25NqCwiIjRhOf5iKGuzSe5P2w1laq+FkRy4p+PCuVkJSGkzTEKVw==}
+    dev: false
+
+  /uuid/8.3.2:
+    resolution: {integrity: sha512-+NYs2QeMWy+GWFOEm9xnn6HCDp0l7QBD7ml8zLUmJ+93Q5NF0NocErnwkTkXVFNiX3/fpC6afS8Dhb/gz7R7eg==}
+    hasBin: true
     dev: false
 
   /web-streams-polyfill/3.2.0:
