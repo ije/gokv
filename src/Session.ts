@@ -2,29 +2,33 @@ import type {
   DurableKV,
   Session,
   SessionOptions,
+  SessionCookieConfig
 } from "../types.d.ts"
 
 const minLifetime = 60          // on minute
 const defaultLifetime = 30 * 60 // half an hour
 
 export default class SessionImpl<StoreType> implements Session<StoreType> {
-  readonly store: StoreType | null
-
-  private kv: DurableKV
-  private cookieName: string
-  private sid: string
-  private lifetime: number
-  private domain?: string
-  private path?: string
+  private _kv: DurableKV
+  private _store: StoreType | null
+  private _sid: string
+  private _lifetime: number
+  private _cookieConfig: SessionCookieConfig
 
   constructor(opts: { kv: DurableKV, store: StoreType | null, sid: string } & SessionOptions) {
-    this.kv = opts.kv
-    this.store = opts.store
-    this.cookieName = opts.cookieName || "session"
-    this.sid = opts.sid
-    this.domain = opts.domain
-    this.lifetime = Math.max(opts.lifetime || defaultLifetime, minLifetime)
-    this.path = opts.path
+    this._kv = opts.kv
+    this._store = opts.store
+    this._sid = opts.sid
+    this._lifetime = Math.max(opts.lifetime || defaultLifetime, minLifetime)
+    this._cookieConfig = { name: "session", ...opts.cookie }
+  }
+
+  get sid(): string {
+    return this._sid
+  }
+
+  get store(): StoreType | null {
+    return this._store
   }
 
   async end(res: Response): Promise<Response> {
@@ -32,27 +36,30 @@ export default class SessionImpl<StoreType> implements Session<StoreType> {
   }
 
   async update(res: Response, store: StoreType | null): Promise<Response> {
+    const { _kv, _sid, _lifetime, _cookieConfig } = this
+    const { name: cookieName, domain, path, secure } = _cookieConfig
     const cookie = []
     if (typeof store === "object" && store !== null) {
-      await this.kv.put(this.sid, { data: store, expires: Date.now() + 1000 * this.lifetime })
-      // @ts-expect-error
-      this.store = store
-      cookie.push(`${this.cookieName}=${this.sid}`)
+      await _kv.put(_sid, { data: store, expires: Date.now() + 1000 * _lifetime })
+      this._store = store
+      cookie.push(`${cookieName}=${_sid}`)
     } else if (store === null) {
-      await this.kv.delete(this.sid)
-      // @ts-expect-error
-      this.store = null
-      cookie.push(`${this.cookieName}=`, "Expires=Thu, 01 Jan 1970 00:00:01 GMT")
+      await _kv.delete(_sid)
+      this._store = null
+      cookie.push(`${cookieName}=`, "Expires=Thu, 01 Jan 1970 00:00:01 GMT")
     } else {
       throw new Error("store must be a valid object")
     }
-    if (this.domain) {
-      cookie.push(`Domain=${this.domain}`)
+    if (domain) {
+      cookie.push(`Domain=${domain}`)
     }
-    if (this.path) {
-      cookie.push(`Path=${this.domain}`)
+    if (path) {
+      cookie.push(`Path=${domain}`)
     }
-    cookie.push("Secure", "HttpOnly")
+    if (secure) {
+      cookie.push("Secure")
+    }
+    cookie.push("HttpOnly")
     const { headers: resHeaders, body, ...rest } = res
     const headers = new Headers(resHeaders)
     headers.append("Set-Cookie", cookie.join("; "))

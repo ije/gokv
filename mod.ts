@@ -34,7 +34,7 @@ class GOKVImpl implements GOKV {
     }
     const namespace = "__SESSION_" + (options?.namespace || "default")
     const kv: DurableKV = new DurableKVImpl({ token: this.token, namespace })
-    let sid = parseCookie(req).get(options?.cookieName || "session")
+    let sid = parseCookie(req).get(options?.cookie?.name || "session")
     let store: T | null = null
     if (sid) {
       const value = await kv.get<{ data: T, expires: number }>(sid)

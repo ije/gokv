@@ -95,14 +95,20 @@ export class DurableKV {
   list<T = Record<string, unknown>>(options?: DurableKVListOptions): Promise<T>
 }
 
-export type SessionOptions = {
-  lifetime?: number
-  cookieName?: string
+export type SessionCookieConfig = {
+  name?: string
   domain?: string
   path?: string
+  secure?: boolean
+}
+
+export type SessionOptions = {
+  lifetime?: number
+  cookie?: SessionCookieConfig
 }
 
 export class Session<StoreType> {
+  readonly sid: string
   readonly store: StoreType | null
   constructor(options: { kv: DurableKV, store: StoreType | null, sid: string } & SessionOptions)
   end: (res: Response) => Promise<Response>
