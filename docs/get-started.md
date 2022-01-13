@@ -227,12 +227,12 @@ async function handler(req: Request): Promise<Response> {
         }
         return new Response("Invalid username or password", { status: 400 });
       case "/logout":
-        return session.update(Response.redirect("/", 302), null);
+        return session.end(Response.redirect("/", 302));
       default:
         if (session.store) {
-          return new Response(`logined as ${session.store.username}`);
+          return new Response(`Logined as ${session.store.username}`);
         }
-        return new Response("please login");
+        return new Response("Please login");
     }
   } catch (e) {
     return new Response(e.message, { status: 500 });
