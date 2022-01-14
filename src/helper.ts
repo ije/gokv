@@ -1,18 +1,48 @@
-export const apiUrlOrigin = "https://api.gokv.io"
-
 const enc = new TextEncoder()
 
-export function hex(buf: ArrayBuffer) {
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("")
-}
-
 export async function hashText(text: string, hash = "SHA-1") {
-  const hashBuffer = await crypto.subtle.digest({ name: hash }, enc.encode(text))
-  return hex(hashBuffer)
+  const sum = await crypto.subtle.digest({ name: hash }, enc.encode(text))
+  return Array.from(new Uint8Array(sum)).map(b => b.toString(16).padStart(2, "0")).join("")
 }
 
-export async function fetchApi(init?: RequestInit & { resource?: string, ignore404?: boolean }) {
-  const url = new URL(apiUrlOrigin)
+export function parseCookie(req: Request): Map<string, string> {
+  const cookie: Map<string, string> = new Map()
+  const value = req.headers.get("cookie")
+  if (value) {
+    value.split(";").forEach(part => {
+      const [key, value] = part.trim().split("=")
+      if (key && value) {
+        cookie.set(key, value)
+      }
+    })
+  }
+  return cookie
+}
+
+export function appendOptionsToHeaders(options: Record<string, any>, headers: Record<string, string>) {
+  Object.entries(options).forEach(([key, value]) => {
+    switch (typeof value) {
+      case "string":
+        headers[key] = value
+        break
+      case "number":
+        headers[key] = value.toString(10)
+        break
+      case "boolean":
+        headers[key] = value ? "1" : "0"
+        break
+      case "object":
+        if (Array.isArray(value)) {
+          headers[key] = value.join(",")
+        } else {
+          headers[key] = JSON.stringify(value)
+        }
+    }
+  })
+}
+
+export async function fetchApi(service: string, init?: RequestInit & { resource?: string, ignore404?: boolean }) {
+  const url = new URL(`https://${service}.gokv.io`)
   if (init?.resource) {
     url.pathname = `/${init.resource}`
   }
@@ -30,46 +60,4 @@ export function closeBody(res: Response): Promise<void> {
     return res.body!.cancel()
   }
   return Promise.resolve()
-}
-
-export function splitBy(s: string, searchString: string, fromLast = false): [string, string] {
-  const i = fromLast ? s.lastIndexOf(searchString) : s.indexOf(searchString)
-  if (i >= 0) {
-    return [s.slice(0, i), s.slice(i + 1)]
-  }
-  return [s, ""]
-}
-
-export function parseCookie(req: Request): Map<string, string> {
-  const cookie: Map<string, string> = new Map()
-  const value = req.headers.get("cookie")
-  if (value) {
-    value.split(";").forEach(part => {
-      const [key, value] = splitBy(part.trim(), "=")
-      cookie.set(key, value)
-    })
-  }
-  return cookie
-}
-
-export function appendOptionsToHeaders(options: Record<string, any>, headers: Record<string, string>) {
-  Object.entries(options).forEach(([key, value]) => {
-    switch (typeof value) {
-      case "string":
-        headers[key] = value
-        break
-      case "number":
-        headers[key] = value.toString(10)
-        break
-      case "boolean":
-        headers[key] = '1'
-        break
-      case "object":
-        if (Array.isArray(value)) {
-          headers[key] = value.join(',')
-        } else {
-          headers[key] = JSON.stringify(value)
-        }
-    }
-  })
 }

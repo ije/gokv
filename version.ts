@@ -1,5 +1,5 @@
 /** `VERSION` managed by https://deno.land/x/publish */
-export const VERSION = "0.0.7"
+export const VERSION = "0.0.8"
 
 /** `prepublish` will be invoked before publish */
 export async function prepublish(version: string) {
@@ -25,14 +25,13 @@ export async function postpublish(version: string) {
 }
 
 async function replaceVersion(filename: string, version: string) {
-  const readme = await Deno.readTextFile(filename)
-
+  const text = await Deno.readTextFile(filename)
   if (filename === "package.json") {
-    const json = JSON.parse(readme)
+    const json = JSON.parse(text)
     json.version = version
     await Deno.writeTextFile(filename, JSON.stringify(json, null, 2))
   } else {
-    await Deno.writeTextFile(filename, readme.replace(
+    await Deno.writeTextFile(filename, text.replace(
       /\/\/deno\.land\/x\/gokv@[\d\.]+\//,
       `//deno.land/x/gokv@${version}/`
     ))

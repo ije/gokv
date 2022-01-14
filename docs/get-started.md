@@ -9,10 +9,16 @@ the origin usages.
 npm install gokv
 ```
 
+```ts
+import gokv from "gokv";
+// web polyfill for node port, no needed for Cloudflear Worker
+import "gokv/web-polyfill.mjs";
+```
+
 For deno users:
 
 ```ts
-import gokv from "https://deno.land/x/gokv@0.0.7/mod.ts";
+import gokv from "https://deno.land/x/gokv@0.0.8/mod.ts";
 ```
 
 ## Usage
@@ -246,9 +252,13 @@ await serve(handler);
 
 Try online: https://dash.deno.com/playground/gokv-session-example
 
+<br>
+
 ## Chat Room
 
 _Work In Progress_
+
+<br>
 
 ## Co Editing
 

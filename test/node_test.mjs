@@ -1,6 +1,7 @@
 import assert from "node:assert";
 import fs from "node:fs"
 import gokv from "../dist/index.mjs"
+import "../web-polyfill.mjs"
 
 try {
   const content = fs.readFileSync(".env", "utf-8")

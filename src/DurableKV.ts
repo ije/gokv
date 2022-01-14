@@ -8,11 +8,10 @@ import type {
 import { appendOptionsToHeaders, closeBody, fetchApi } from "./helper.ts"
 
 export default class DurableKVImpl implements DurableKV {
-  readonly coreHeaders: Record<string, string>
+  private readonly accessHeaders: Record<string, string>
 
   constructor(options: { token: string, namespace: string }) {
-    this.coreHeaders = {
-      Service: "durable-kv",
+    this.accessHeaders = {
       Namespace: options.namespace,
       Authorization: `Bearer ${options.token}`
     }
@@ -30,7 +29,7 @@ export default class DurableKVImpl implements DurableKV {
       return undefined
     }
 
-    const headers: Record<string, string> = { ...this.coreHeaders }
+    const headers: Record<string, string> = { ...this.accessHeaders }
     if (multipleKeys) {
       headers.multipleKeys = "1"
     }
@@ -38,7 +37,7 @@ export default class DurableKVImpl implements DurableKV {
       appendOptionsToHeaders(options, headers)
     }
 
-    const res = await fetchApi({ resource, headers, ignore404: true })
+    const res = await fetchApi('durable-kv', { resource, headers, ignore404: true })
     if (res.status === 404) {
       return closeBody(res)  // release body
     }
@@ -64,7 +63,7 @@ export default class DurableKVImpl implements DurableKV {
   }
 
   async put(keyOrEntries: string | Record<string, any>, value?: any, options?: DurableKVPutOptions): Promise<void> {
-    const headers: Record<string, string> = { ...this.coreHeaders }
+    const headers: Record<string, string> = { ...this.accessHeaders }
     let resource: string | undefined = undefined
     let body: string | undefined = undefined
     if (typeof keyOrEntries === "string") {
@@ -97,12 +96,12 @@ export default class DurableKVImpl implements DurableKV {
       throw new Error("Invalid value type: not a record")
     }
 
-    const res = await fetchApi({ resource, method: "PUT", headers, body })
+    const res = await fetchApi('durable-kv', { resource, method: "PUT", headers, body })
     await closeBody(res) // release body
   }
 
   async delete(keyOrKeysOrOptions: string | string[] | DurableKVDeleteOptions, options?: DurableKVPutOptions): Promise<any> {
-    const headers: Record<string, string> = { ...this.coreHeaders }
+    const headers: Record<string, string> = { ...this.accessHeaders }
     let resource: string | undefined = undefined
     let multipleKeys: boolean
     if (multipleKeys = Array.isArray(keyOrKeysOrOptions)) {
@@ -123,7 +122,7 @@ export default class DurableKVImpl implements DurableKV {
       appendOptionsToHeaders(options, headers)
     }
 
-    const res = await fetchApi({ resource, method: "DELETE", headers })
+    const res = await fetchApi('durable-kv', { resource, method: "DELETE", headers })
     const ret = await res.text()
     if (typeof keyOrKeysOrOptions === "string") {
       return ret === "true"
@@ -132,20 +131,20 @@ export default class DurableKVImpl implements DurableKV {
   }
 
   async deleteAll(options?: DurableKVPutOptions): Promise<void> {
-    const headers: Record<string, string> = { ...this.coreHeaders, deleteAll: "1" }
+    const headers: Record<string, string> = { ...this.accessHeaders, deleteAll: "1" }
     if (options) {
       appendOptionsToHeaders(options, headers)
     }
-    const res = await fetchApi({ method: "DELETE", headers })
+    const res = await fetchApi('durable-kv', { method: "DELETE", headers })
     await closeBody(res) // release body
   }
 
   async list<T = Record<string, unknown>>(options?: DurableKVListOptions): Promise<T> {
-    const headers: Record<string, string> = { ...this.coreHeaders }
+    const headers: Record<string, string> = { ...this.accessHeaders }
     if (options) {
       appendOptionsToHeaders(options, headers)
     }
-    const res = await fetchApi({ headers })
+    const res = await fetchApi('durable-kv', { headers })
     return res.json()
   }
 }
