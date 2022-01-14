@@ -1,5 +1,5 @@
 /** `VERSION` managed by https://deno.land/x/publish */
-export const VERSION = "0.0.8"
+export const VERSION = "0.0.9"
 
 /** `prepublish` will be invoked before publish */
 export async function prepublish(version: string) {
@@ -32,8 +32,8 @@ async function replaceVersion(filename: string, version: string) {
     await Deno.writeTextFile(filename, JSON.stringify(json, null, 2))
   } else {
     await Deno.writeTextFile(filename, text.replace(
-      /\/\/deno\.land\/x\/gokv@[\d\.]+\//,
-      `//deno.land/x/gokv@${version}/`
+      /(\/\/deno\.land\/x\/gokv@)[\d\.]+\//g,
+      `$1${version}/`
     ))
   }
 }

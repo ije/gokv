@@ -4,6 +4,8 @@ import type {
   SessionOptions,
   SessionCookieConfig
 } from "../types.d.ts"
+import DurableKVImpl from "./DurableKV.ts"
+import { parseCookie, hashText, hmacSign, splitByChar } from "./helper.ts"
 
 const minLifetime = 60          // one minute
 const defaultLifetime = 30 * 60 // half an hour
@@ -11,15 +13,44 @@ const defaultLifetime = 30 * 60 // half an hour
 export default class SessionImpl<StoreType> implements Session<StoreType> {
   private _kv: DurableKV
   private _store: StoreType | null
-  private _sid: string
+  private _id: string
   private _upTimer: number | null = null
   private _lifetime: number
   private _cookieConfig: SessionCookieConfig
 
+  static async create<T>(options: { token: string, namespace?: string, sid?: string, request?: Request } & SessionOptions): Promise<Session<T>> {
+    const { token, request } = options
+    const namespace = "__SESSION_" + (options.namespace || "default")
+    const kv: DurableKV = new DurableKVImpl({ token: token, namespace })
+    let sid = request ? parseCookie(request).get(options.cookie?.name || "session") : options.sid
+    let store: T | null = null
+    if (sid) {
+      const [rid, signature] = splitByChar(sid, ".")
+      if (signature && signature === await hmacSign(rid, token, "SHA-256")) {
+        const value = await kv.get<{ data: T, expires: number }>(sid)
+        if (value) {
+          const { expires, data } = value
+          if (Date.now() < expires) {
+            store = data
+          } else {
+            // delete expired session
+            kv.delete(sid, { allowUnconfirmed: true })
+          }
+        }
+      }
+    }
+    if (!sid || !store) {
+      const rid = await hashText(token + namespace + crypto.randomUUID(), "SHA-1")
+      const signature = await hmacSign(rid, token, "SHA-256")
+      sid = rid + "." + signature
+    }
+    return new SessionImpl<T>({ ...options, kv, store, sid })
+  }
+
   constructor(options: { kv: DurableKV, store: StoreType | null, sid: string } & SessionOptions) {
     this._kv = options.kv
     this._store = options.store
-    this._sid = options.sid
+    this._id = options.sid
     this._lifetime = Math.max(options.lifetime || defaultLifetime, minLifetime)
     this._cookieConfig = { name: "session", ...options.cookie }
     if (options.store !== null) {
@@ -30,24 +61,24 @@ export default class SessionImpl<StoreType> implements Session<StoreType> {
     }
   }
 
-  get sid(): string {
-    return this._sid
+  get id(): string {
+    return this._id
   }
 
   get store(): StoreType | null {
     return this._store
   }
 
-  async end(res: Response): Promise<Response> {
-    return this.update(res, null)
+  async end(): Promise<string> {
+    return this.update(null)
   }
 
-  async update(res: Response, store: StoreType | null): Promise<Response> {
+  async update(store: StoreType | null): Promise<string> {
     if (typeof store !== "object") {
       throw new Error("store must be a valid object")
     }
 
-    const { _kv, _sid, _lifetime, _cookieConfig } = this
+    const { _kv, _id, _lifetime, _cookieConfig } = this
     const { name: cookieName, domain, path, sameSite, secure } = _cookieConfig
     const cookie = []
     if (this._upTimer) {
@@ -55,13 +86,13 @@ export default class SessionImpl<StoreType> implements Session<StoreType> {
       this._upTimer = null
     }
     if (store === null) {
-      await _kv.delete(_sid)
+      await _kv.delete(_id)
       this._store = null
       cookie.push(`${cookieName}=`, "Expires=Thu, 01 Jan 1970 00:00:01 GMT")
     } else {
-      await _kv.put(_sid, { data: store, expires: Date.now() + 1000 * _lifetime })
+      await _kv.put(_id, { data: store, expires: Date.now() + 1000 * _lifetime })
       this._store = store
-      cookie.push(`${cookieName}=${_sid}`)
+      cookie.push(`${cookieName}=${_id}`)
     }
     if (domain) {
       cookie.push(`Domain=${domain}`)
@@ -76,9 +107,6 @@ export default class SessionImpl<StoreType> implements Session<StoreType> {
       cookie.push("Secure")
     }
     cookie.push("HttpOnly")
-    const { headers: resHeaders, body, bodyUsed, status, statusText } = res
-    const headers = new Headers(resHeaders)
-    headers.append("Set-Cookie", cookie.join("; "))
-    return new Response(!bodyUsed ? body : null, { status, statusText, headers })
+    return cookie.join("; ")
   }
 }

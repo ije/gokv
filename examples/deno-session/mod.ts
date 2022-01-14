@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.120.0/http/server.ts"
-import gokv from "https://deno.land/x/gokv@0.0.8/mod.ts"
+import gokv from "https://deno.land/x/gokv@0.0.9/mod.ts"
 
 // Log in https://gokv.io/ to get token
 gokv.config({ token: Deno.env.get("GOKV_TOKEN") })
@@ -8,7 +8,8 @@ async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url)
 
   try {
-    const session = await gokv.Session<{ username: string }>(req, {
+    const session = await gokv.Session<{ username: string }>({
+      request: req,
       namespace: "gokv-session-example",
       cookie: {
         sameSite: "None"
@@ -20,11 +21,19 @@ async function handler(req: Request): Promise<Response> {
         const username = form.get("username")
         const password = form.get("password")
         if (checkPassword(username, password)) {
-          return session.update(Response.redirect(`https://${url.host}/`, 302), { username })
+          const cookie = await session.update({ username })
+          return new Response(null, {
+            status: 302,
+            headers: { "location": "/", "set-cookie": cookie },
+          })
         }
         return new Response("Invalid username or password", { status: 400 })
       case "/logout":
-        return session.end(Response.redirect(`https://${url.host}/`, 302))
+        const cookie = await session.end()
+        return new Response(null, {
+          status: 302,
+          headers: { "location": "/", "set-cookie": cookie },
+        })
       default:
         if (session.store) {
           return new Response(`

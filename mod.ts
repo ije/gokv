@@ -1,7 +1,3 @@
-import DurableKVImpl from "./src/DurableKV.ts"
-import KVImpl from "./src/KV.ts"
-import SessionImpl from "./src/Session.ts"
-import { parseCookie, hashText } from "./src/helper.ts"
 import type {
   GOKV,
   Options,
@@ -10,6 +6,9 @@ import type {
   Session,
   SessionOptions,
 } from "./types.d.ts"
+import KVImpl from "./src/KV.ts"
+import DurableKVImpl from "./src/DurableKV.ts"
+import SessionImpl from "./src/Session.ts"
 
 class GOKVImpl implements GOKV {
   token: string | null = null
@@ -28,30 +27,12 @@ class GOKVImpl implements GOKV {
 
   // signUserToken ()  { }
 
-  async Session<T extends object = Record<string, unknown>>(req: Request, options?: { namespace?: string } & SessionOptions): Promise<Session<T>> {
+  Session<T extends object = Record<string, unknown>>(options?: { namespace?: string, sid?: string, request?: Request } & SessionOptions): Promise<Session<T>> {
     if (!this.token) {
       throw new Error("undefined token")
     }
-    const namespace = "__SESSION_" + (options?.namespace || "default")
-    const kv: DurableKV = new DurableKVImpl({ token: this.token, namespace })
-    let sid = parseCookie(req).get(options?.cookie?.name || "session")
-    let store: T | null = null
-    if (sid) {
-      const value = await kv.get<{ data: T, expires: number }>(sid)
-      if (value) {
-        const { expires, data } = value
-        if (Date.now() < expires) {
-          store = data
-        } else {
-          // delete expired session
-          kv.delete(sid, { allowUnconfirmed: true })
-        }
-      }
-    }
-    if (!sid || !store) {
-      sid = await hashText(this.token + namespace + crypto.randomUUID())
-    }
-    return new SessionImpl<T>({ ...options, kv, store, sid })
+
+    return SessionImpl.create<T>({ ...options, token: this.token })
   }
 
   KV(options?: { namespace?: string }): KV {
@@ -81,9 +62,9 @@ class GOKVImpl implements GOKV {
 }
 
 export {
-  DurableKVImpl as DurableKV,
   KVImpl as KV,
-  SessionImpl as Session
+  DurableKVImpl as DurableKV,
+  SessionImpl as Session,
 }
 
 export default new GOKVImpl()

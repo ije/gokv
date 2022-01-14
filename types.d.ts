@@ -109,11 +109,11 @@ export type SessionOptions = {
 }
 
 export class Session<StoreType> {
-  readonly sid: string
+  readonly id: string
   readonly store: StoreType | null
   constructor(options: { kv: DurableKV, store: StoreType | null, sid: string } & SessionOptions)
-  end: (res: Response) => Promise<Response>
-  update: (res: Response, store: StoreType) => Promise<Response>
+  update: (store: StoreType) => Promise<string>
+  end: () => Promise<string>
 }
 
 // export type CoTextOp = {
@@ -180,7 +180,7 @@ export class Session<StoreType> {
 export interface GOKV {
   config(options: Options): void
   // signUserToken(username: string, options?: { lifetime?: number, readonly?: boolean, isAdmin?: boolean }): Promise<string>
-  Session<T extends object = Record<string, any>>(request: Request, options?: { namespace?: string } & SessionOptions): Promise<Session<T>>
+  Session<T extends object = Record<string, any>>(options?: { namespace?: string, sid?: string, request?: Request } & SessionOptions): Promise<Session<T>>
   KV(options?: { namespace?: string }): KV
   DurableKV(options?: { namespace?: string }): DurableKV
   // ChatRoom(options: { roomId: string, rateLimit?: number }): ChatRoom

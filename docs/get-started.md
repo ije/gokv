@@ -1,7 +1,9 @@
 # Get Started
 
-**gokv** is on top of Cloudflare Worker KV via https, most APIs are same with
-the origin usages.
+**gokv** is built on top of Cloudflare Worker edge network via HTTP, most APIs
+are same with the origin usages.
+
+<br>
 
 ## Installation
 
@@ -9,19 +11,15 @@ the origin usages.
 npm install gokv
 ```
 
-```ts
-import gokv from "gokv";
-// web polyfill for node port, no needed for Cloudflear Worker
-import "gokv/web-polyfill.mjs";
-```
-
-For deno users:
+For Deno users:
 
 ```ts
-import gokv from "https://deno.land/x/gokv@0.0.8/mod.ts";
+import gokv from "https://deno.land/x/gokv@0.0.9/mod.ts";
 ```
 
-## Usage
+<br>
+
+## Setup
 
 ### Set Access Token
 
@@ -33,7 +31,18 @@ import gokv from "gokv";
 gokv.config({ token: "xxx" });
 ```
 
-### Initialize KV
+### Import `Web-Polyfill`
+
+**gokv** uses the standard web `fetch` and `crypto` API, you need to import the
+`Web-Polyfill` in Nodejs environment.
+
+```ts
+import "gokv/web-ployfill.mjs";
+```
+
+<br>
+
+## KV
 
 **KV** is a global, low-latency, key-value data store. It supports exceptionally
 high read volumes with low-latency.
@@ -45,10 +54,13 @@ high read volumes with low-latency.
 > previous version of a given key (including reads that indicated the key did
 > not exist).
 
+### Initialize KV
+
+You can specify the `namespace` for current application, default is `"default"`.
+
 ```ts
 import gokv from "gokv";
 
-// specify the `namespace` for current application.
 const kv = gokv.KV({ namespace: "xxx" });
 ```
 
@@ -131,20 +143,21 @@ https://developers.cloudflare.com/workers/runtime-apis/durable-objects#transacti
 
 ### Initialize Durable KV
 
+You can specify the `namespace` for current application, default is `"default"`.
+
 ```ts
 import gokv from "gokv";
 
-// specify the `namespace` for current application.
-const kv = gokv.DurableKV({ namespace: "xxx" });
+const dkv = gokv.DurableKV({ namespace: "xxx" });
 ```
 
 ### Reading key-value pairs
 
 ```ts
-await kv.get("foo"); // "bar"
+await dkv.get("foo"); // "bar"
 
 // get multiple records
-await kv.get(["foo", "baz"]); // { foo: "bar", baz: "qux" }
+await dkv.get(["foo", "baz"]); // { foo: "bar", baz: "qux" }
 
 /*
  By default, the system will pause delivery of I/O events
@@ -153,17 +166,17 @@ await kv.get(["foo", "baz"]); // { foo: "bar", baz: "qux" }
  Pass `allowConcurrency: true` to opt out of this behavior
  and allow concurrent events to be delivered.
 */
-await kv.get("foo", { allowConcurrency: true });
-await kv.get(["foo", "baz"], { allowConcurrency: true });
+await dkv.get("foo", { allowConcurrency: true });
+await dkv.get(["foo", "baz"], { allowConcurrency: true });
 ```
 
 ### Writing key-value pairs
 
 ```ts
-await kv.put("foo", "bar");
+await dkv.put("foo", "bar");
 
 // put multiple records
-await kv.put({ foo: "bar", baz: "qux" });
+await dkv.put({ foo: "bar", baz: "qux" });
 
 /*
  By default, the system will pause outgoing network messages
@@ -171,35 +184,35 @@ await kv.put({ foo: "bar", baz: "qux" });
  confirmed flushed to disk. Set `allowUnconfirmed:true` to
  opt out of the default behavior.
 */
-await kv.put("foo", "bar", { allowUnconfirmed: true });
+await dkv.put("foo", "bar", { allowUnconfirmed: true });
 ```
 
 ### Deleting key-value pairs
 
 ```ts
-await kv.delete("foo");
+await dkv.delete("foo");
 ```
 
 ### Listing records
 
 ```ts
 // listing all records
-await kv.list(); // { foo: "bar", baz: "qux" }
+await dkv.list(); // { foo: "bar", baz: "qux" }
 
 // listing by prefix
-await kv.list({ prefix: "user:1:" });
+await dkv.list({ prefix: "user:1:" });
 
 // listing by key range
-await kv.list({ start: "foo", end: "baz" });
+await dkv.list({ start: "foo", end: "baz" });
 
 // listing with limit
-await kv.list({ limit: 10 });
+await dkv.list({ limit: 10 });
 
 // listing by reverse
-await kv.list({ limit: 10, reverse: ture });
+await dkv.list({ limit: 10, reverse: ture });
 
 // same as the option to `get()`, above.
-await kv.list({ allowConcurrency: ture });
+await dkv.list({ allowConcurrency: ture });
 ```
 
 <br>
@@ -211,7 +224,7 @@ automatically.
 
 ```ts
 import { serve } from "https://deno.land/std@0.120.0/http/server.ts";
-import gokv from "https://deno.land/x/gokv@0.0.7/mod.ts";
+import gokv from "https://deno.land/x/gokv@0.0.9/mod.ts";
 
 gokv.config({ token: "xxx" });
 
@@ -219,7 +232,8 @@ async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url);
 
   try {
-    const session = await gokv.Session<{ username: string }>(req, {
+    const session = await gokv.Session<{ username: string }>({
+      request: req,
       namespace: "xxx",
     });
     switch (url.pathname) {
@@ -228,14 +242,19 @@ async function handler(req: Request): Promise<Response> {
         const username = form.get("username");
         const password = form.get("password");
         if (checkPassword(username, password)) {
-          return session.update(
-            Response.redirect(`https://${url.host}/`, 302),
-            { username },
-          );
+          const cookie = await session.update({ username });
+          return new Response(null, {
+            status: 302,
+            headers: { "location": "/", "set-cookie": cookie },
+          });
         }
         return new Response("Invalid username or password", { status: 400 });
       case "/logout":
-        return session.end(Response.redirect(`https://${url.host}/`, 302));
+        const cookie = await session.end();
+        return new Response(null, {
+          status: 302,
+          headers: { "location": "/", "set-cookie": cookie },
+        });
       default:
         if (session.store) {
           return new Response(`Logined as ${session.store.username}`);

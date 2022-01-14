@@ -1,8 +1,33 @@
 const enc = new TextEncoder()
 
+export const splitByChar = (str: string, char: string) => {
+  for (let i = 0; i < str.length; i++) {
+    if (str.charAt(i) === char) {
+      return [str.slice(0, i), str.slice(i + 1)]
+    }
+  }
+  return [str, ""]
+}
+
+export function toHex(buf: ArrayBuffer) {
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(36).padStart(2, "0")).join("")
+}
+
 export async function hashText(text: string, hash = "SHA-1") {
-  const sum = await crypto.subtle.digest({ name: hash }, enc.encode(text))
-  return Array.from(new Uint8Array(sum)).map(b => b.toString(16).padStart(2, "0")).join("")
+  const hashBuffer = await crypto.subtle.digest({ name: hash }, enc.encode(text))
+  return toHex(hashBuffer)
+}
+
+export async function hmacSign(data: string, secret: string, hash = "SHA-256") {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(secret),
+    { name: "HMAC", hash: { name: hash } },
+    false,
+    ["sign", "verify"]
+  )
+  const signature = await crypto.subtle.sign("HMAC", key, enc.encode(data))
+  return toHex(signature)
 }
 
 export function parseCookie(req: Request): Map<string, string> {
@@ -10,7 +35,7 @@ export function parseCookie(req: Request): Map<string, string> {
   const value = req.headers.get("cookie")
   if (value) {
     value.split(";").forEach(part => {
-      const [key, value] = part.trim().split("=")
+      const [key, value] = splitByChar(part.trim(), "=")
       if (key && value) {
         cookie.set(key, value)
       }
