@@ -34,7 +34,7 @@ await test("DurationKV", async () => {
 
   // delete all records firstly
   await kv.deleteAll()
-  assert.deepEqual(await kv.list(), {})
+  assert.deepEqual(await kv.list(), new Map())
 
   let records = {
     foo: "bar",
@@ -48,35 +48,35 @@ await test("DurationKV", async () => {
     await kv.put(key, value)
     assert.deepEqual(await kv.get(key), value)
   }))
-  assert.deepEqual(await kv.list(), records)
+  assert.deepEqual(await kv.list(), new Map(Object.entries(records)))
 
   // delete all records one by one
   await Promise.all(Object.keys(records).map(key => kv.delete(key)))
-  assert.deepEqual(await kv.list(), {})
+  assert.deepEqual(await kv.list(), new Map())
 
   // put multiple records
   await kv.put(records)
-  assert.deepEqual(await kv.get(["foo", "num"]), { foo: "bar", num: 123 })
-  assert.deepEqual(await kv.list(), records)
+  assert.deepEqual(await kv.get(["foo", "num"]), new Map([["foo", "bar"], ["num", 123]]))
+  assert.deepEqual(await kv.list(), new Map(Object.entries(records)))
 
   // flush
   await kv.deleteAll()
-  assert.deepEqual(await kv.list(), {})
+  assert.deepEqual(await kv.list(), new Map())
 
-  // put 100 records concurrency
+  // put 10 records concurrency
   await Promise.all(new Array(10).fill(null).map((val, index) => kv.put(`k-${index}`, val)))
-  assert.deepEqual(await kv.list(), new Array(10).fill(null).reduce((record, val, index) => { record[`k-${index}`] = val; return record }, {}))
-  assert.deepEqual(await kv.list({ prefix: "k-" }), new Array(10).fill(null).reduce((record, val, index) => { record[`k-${index}`] = val; return record }, {}))
-  assert.deepEqual(await kv.list({ limit: 5 }), new Array(5).fill(null).reduce((record, val, index) => { record[`k-${index}`] = val; return record }, {}))
-  assert.deepEqual(await kv.list({ limit: 3, reverse: true }), { "k-7": null, "k-8": null, "k-9": null })
-  assert.deepEqual(await kv.list({ start: "k-7" }), { "k-7": null, "k-8": null, "k-9": null })
-  assert.deepEqual(await kv.list({ start: "k-7", limit: 2 }), { "k-7": null, "k-8": null })
-  assert.deepEqual(await kv.list({ start: "k-7", end: "k-9" }), { "k-7": null, "k-8": null })
+  assert.deepEqual(await kv.list(), new Map(new Array(10).fill(0).map((_, index) => [`k-${index}`, null])))
+  assert.deepEqual(await kv.list({ prefix: "k-" }), new Map(new Array(10).fill(0).map((_, index) => [`k-${index}`, null])))
+  assert.deepEqual(await kv.list({ limit: 5 }), new Map(new Array(5).fill(0).map((_, index) => [`k-${index}`, null])))
+  assert.deepEqual(await kv.list({ limit: 3, reverse: true }), new Map([["k-7", null], ["k-8", null], ["k-9", null]]))
+  assert.deepEqual(await kv.list({ start: "k-7" }), new Map([["k-7", null], ["k-8", null], ["k-9", null]]))
+  assert.deepEqual(await kv.list({ start: "k-7", limit: 2 }), new Map([["k-7", null], ["k-8", null]]))
+  assert.deepEqual(await kv.list({ start: "k-7", end: "k-9" }), new Map([["k-7", null], ["k-8", null]]))
 
   // delete by list condition
   assert.deepEqual(await kv.delete({ limit: 5, reverse: true }), 5)
   assert.deepEqual(await kv.delete(["k-3", "k-4"]), 2)
-  assert.deepEqual(await kv.list(), new Array(3).fill(null).reduce((record, val, index) => { record[`k-${index}`] = val; return record }, {}))
+  assert.deepEqual(await kv.list(), new Map(new Array(3).fill(0).map((_, index) => [`k-${index}`, null])))
 })
 
 await test("Session", async () => {

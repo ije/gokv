@@ -22,7 +22,7 @@ Deno.test("DurationKV", async () => {
 
   // delete all records firstly
   await kv.deleteAll()
-  assertEquals(await kv.list(), {})
+  assertEquals(await kv.list(), new Map())
 
   let records: Record<string, any> = {
     foo: "bar",
@@ -36,35 +36,35 @@ Deno.test("DurationKV", async () => {
     await kv.put(key, value)
     assertEquals(await kv.get(key), value)
   }))
-  assertEquals(await kv.list(), records)
+  assertEquals(await kv.list(), new Map(Object.entries(records)))
 
   // delete all records one by one
   await Promise.all(Object.keys(records).map(key => kv.delete(key)))
-  assertEquals(await kv.list(), {})
+  assertEquals(await kv.list(), new Map())
 
   // put multiple records
   await kv.put(records)
-  assertEquals(await kv.get(["foo", "num"]), { foo: "bar", num: 123 })
-  assertEquals(await kv.list(), records)
+  assertEquals(await kv.get(["foo", "num"]), new Map<string, unknown>([["foo", "bar"], ["num", 123]]))
+  assertEquals(await kv.list(), new Map(Object.entries(records)))
 
   // flush
   await kv.deleteAll()
-  assertEquals(await kv.list(), {})
+  assertEquals(await kv.list(), new Map())
 
-  // put 100 records concurrency
+  // put 10 records concurrency
   await Promise.all(new Array(10).fill(null).map((val, index) => kv.put(`k-${index}`, val)))
-  assertEquals(await kv.list(), new Array(10).fill(null).reduce((record, val, index) => { record[`k-${index}`] = val; return record }, {}))
-  assertEquals(await kv.list({ prefix: "k-" }), new Array(10).fill(null).reduce((record, val, index) => { record[`k-${index}`] = val; return record }, {}))
-  assertEquals(await kv.list({ limit: 5 }), new Array(5).fill(null).reduce((record, val, index) => { record[`k-${index}`] = val; return record }, {}))
-  assertEquals(await kv.list({ limit: 3, reverse: true }), { "k-7": null, "k-8": null, "k-9": null })
-  assertEquals(await kv.list({ start: "k-7" }), { "k-7": null, "k-8": null, "k-9": null })
-  assertEquals(await kv.list({ start: "k-7", limit: 2 }), { "k-7": null, "k-8": null })
-  assertEquals(await kv.list({ start: "k-7", end: "k-9" }), { "k-7": null, "k-8": null })
+  assertEquals(await kv.list(), new Map(new Array(10).fill(0).map((_, index) => [`k-${index}`, null])))
+  assertEquals(await kv.list({ prefix: "k-" }), new Map(new Array(10).fill(0).map((_, index) => [`k-${index}`, null])))
+  assertEquals(await kv.list({ limit: 5 }), new Map(new Array(5).fill(0).map((_, index) => [`k-${index}`, null])))
+  assertEquals(await kv.list({ limit: 3, reverse: true }), new Map([["k-7", null], ["k-8", null], ["k-9", null]]))
+  assertEquals(await kv.list({ start: "k-7" }), new Map([["k-7", null], ["k-8", null], ["k-9", null]]))
+  assertEquals(await kv.list({ start: "k-7", limit: 2 }), new Map([["k-7", null], ["k-8", null]]))
+  assertEquals(await kv.list({ start: "k-7", end: "k-9" }), new Map([["k-7", null], ["k-8", null]]))
 
   // delete by list condition
   assertEquals(await kv.delete({ limit: 5, reverse: true }), 5)
   assertEquals(await kv.delete(["k-3", "k-4"]), 2)
-  assertEquals(await kv.list(), new Array(3).fill(null).reduce((record, val, index) => { record[`k-${index}`] = val; return record }, {}))
+  assertEquals(await kv.list(), new Map(new Array(3).fill(0).map((_, index) => [`k-${index}`, null])))
 })
 
 
