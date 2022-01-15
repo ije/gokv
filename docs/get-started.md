@@ -14,7 +14,7 @@ npm install gokv
 For Deno users:
 
 ```ts
-import gokv from "https://deno.land/x/gokv@0.0.10/mod.ts";
+import gokv from "https://deno.land/x/gokv@0.0.11/mod.ts";
 ```
 
 <br>
@@ -224,7 +224,7 @@ automatically, easy to use.
 
 ```ts
 import { serve } from "https://deno.land/std@0.120.0/http/server.ts";
-import gokv from "https://deno.land/x/gokv@0.0.10/mod.ts";
+import gokv from "https://deno.land/x/gokv@0.0.11/mod.ts";
 
 gokv.config({ token: "xxx" });
 
