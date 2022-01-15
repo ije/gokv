@@ -85,14 +85,14 @@ export type DurableKVListOptions = {
 export class DurableKV {
   constructor(options: InitKVOptions)
   get<T = unknown>(key: string, options?: DurableKVGetOptions): Promise<T | undefined>
-  get<T = Record<string, unknown>>(keys: string[], options?: DurableKVGetOptions): Promise<T>
+  get<T = unknown>(keys: string[], options?: DurableKVGetOptions): Promise<Map<string, T>>
   put(key: string, value: any, options?: DurableKVPutOptions): Promise<void>
   put(entries: Record<string, unknown>): Promise<void>
   delete(key: string, options?: DurableKVPutOptions): Promise<boolean>
   delete(keys: string[], options?: DurableKVPutOptions): Promise<number>
   delete(options: DurableKVDeleteOptions): Promise<number>
   deleteAll(options?: DurableKVPutOptions): Promise<void>
-  list<T = Record<string, unknown>>(options?: DurableKVListOptions): Promise<T>
+  list<T = unknown>(options?: DurableKVListOptions): Promise<Map<string, T>>
 }
 
 export type SessionCookieConfig = {

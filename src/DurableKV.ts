@@ -43,7 +43,14 @@ export default class DurableKVImpl implements DurableKV {
     }
 
     if (multipleKeys) {
-      return res.json()
+      const data = await res.json()
+      const map = new Map<string, unknown>()
+      if (Array.isArray(data)) {
+        for (const [key, value] of data) {
+          map.set(key, value)
+        }
+      }
+      return map
     } else {
       const vtype = res.headers.get("vType")
       switch (vtype) {
@@ -139,12 +146,19 @@ export default class DurableKVImpl implements DurableKV {
     await closeBody(res) // release body
   }
 
-  async list<T = Record<string, unknown>>(options?: DurableKVListOptions): Promise<T> {
+  async list<T = unknown>(options?: DurableKVListOptions): Promise<Map<string, T>> {
     const headers: Record<string, string> = { ...this.accessHeaders }
     if (options) {
       appendOptionsToHeaders(options, headers)
     }
     const res = await fetchApi('durable-kv', { headers })
-    return res.json()
+    const data = await res.json()
+    const map = new Map<string, T>()
+    if (Array.isArray(data)) {
+      for (const [key, value] of data) {
+        map.set(key, value)
+      }
+    }
+    return map
   }
 }
