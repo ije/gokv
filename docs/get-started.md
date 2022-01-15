@@ -14,7 +14,7 @@ npm install gokv
 For Deno users:
 
 ```ts
-import gokv from "https://deno.land/x/gokv@0.0.9/mod.ts";
+import gokv from "https://deno.land/x/gokv@0.0.10/mod.ts";
 ```
 
 <br>
@@ -220,11 +220,11 @@ await dkv.list({ allowConcurrency: ture });
 ## Session Storage
 
 **Session** uses the **DurableKV** to store session, and add session cookie
-automatically.
+automatically, easy to use.
 
 ```ts
 import { serve } from "https://deno.land/std@0.120.0/http/server.ts";
-import gokv from "https://deno.land/x/gokv@0.0.9/mod.ts";
+import gokv from "https://deno.land/x/gokv@0.0.10/mod.ts";
 
 gokv.config({ token: "xxx" });
 
@@ -242,18 +242,18 @@ async function handler(req: Request): Promise<Response> {
         const username = form.get("username");
         const password = form.get("password");
         if (checkPassword(username, password)) {
-          const cookie = await session.update({ username });
+          await session.update({ username });
           return new Response(null, {
             status: 302,
-            headers: { "location": "/", "set-cookie": cookie },
+            headers: { "location": "/", "set-cookie": session.cookie },
           });
         }
         return new Response("Invalid username or password", { status: 400 });
       case "/logout":
-        const cookie = await session.end();
+        await session.end();
         return new Response(null, {
           status: 302,
-          headers: { "location": "/", "set-cookie": cookie },
+          headers: { "location": "/", "set-cookie": session.cookie },
         });
       default:
         if (session.store) {
