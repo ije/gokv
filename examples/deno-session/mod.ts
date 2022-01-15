@@ -21,18 +21,20 @@ async function handler(req: Request): Promise<Response> {
         const username = form.get("username")
         const password = form.get("password")
         if (checkPassword(username, password)) {
-          const cookie = await session.update({ username })
+          // update store
+          await session.update({ username })
           return new Response(null, {
             status: 302,
-            headers: { "location": "/", "set-cookie": cookie },
+            headers: { "location": "/", "set-cookie": session.cookie },
           })
         }
         return new Response("Invalid username or password", { status: 400 })
       case "/logout":
-        const cookie = await session.end()
+        // end session
+        await session.end()
         return new Response(null, {
           status: 302,
-          headers: { "location": "/", "set-cookie": cookie },
+          headers: { "location": "/", "set-cookie": session.cookie },
         })
       default:
         if (session.store) {
