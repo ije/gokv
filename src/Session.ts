@@ -69,29 +69,13 @@ export default class SessionImpl<StoreType> implements Session<StoreType> {
     return this._store
   }
 
-  async end(): Promise<string> {
-    return this.update(null)
-  }
-
-  async update(store: StoreType | null): Promise<string> {
-    if (typeof store !== "object") {
-      throw new Error("store must be a valid object")
-    }
-
-    const { _kv, _id, _lifetime, _cookieConfig } = this
+  get cookie(): string {
+    const { _id, _cookieConfig } = this
     const { name: cookieName, domain, path, sameSite, secure } = _cookieConfig
     const cookie = []
-    if (this._upTimer) {
-      clearTimeout(this._upTimer)
-      this._upTimer = null
-    }
-    if (store === null) {
-      await _kv.delete(_id)
-      this._store = null
+    if (this._store === null) {
       cookie.push(`${cookieName}=`, "Expires=Thu, 01 Jan 1970 00:00:01 GMT")
     } else {
-      await _kv.put(_id, { data: store, expires: Date.now() + 1000 * _lifetime })
-      this._store = store
       cookie.push(`${cookieName}=${_id}`)
     }
     if (domain) {
@@ -108,5 +92,27 @@ export default class SessionImpl<StoreType> implements Session<StoreType> {
     }
     cookie.push("HttpOnly")
     return cookie.join("; ")
+  }
+
+  async end(): Promise<void> {
+    return this.update(null)
+  }
+
+  async update(store: StoreType | null): Promise<void> {
+    if (typeof store !== "object") {
+      throw new Error("store must be a valid object")
+    }
+
+    if (this._upTimer) {
+      clearTimeout(this._upTimer)
+      this._upTimer = null
+    }
+    if (store === null) {
+      await this._kv.delete(this._id)
+      this._store = null
+    } else {
+      await this._kv.put(this._id, { data: store, expires: Date.now() + 1000 * this._lifetime })
+      this._store = store
+    }
   }
 }

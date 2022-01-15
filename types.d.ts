@@ -111,9 +111,10 @@ export type SessionOptions = {
 export class Session<StoreType> {
   readonly id: string
   readonly store: StoreType | null
+  readonly cookie: string
   constructor(options: { kv: DurableKV, store: StoreType | null, sid: string } & SessionOptions)
-  update: (store: StoreType) => Promise<string>
-  end: () => Promise<string>
+  update: (store: StoreType) => Promise<void>
+  end: () => Promise<void>
 }
 
 // export type CoTextOp = {
