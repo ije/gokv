@@ -1,6 +1,5 @@
 export type Options = {
   token?: string
-  getUserToken?: () => Promise<string | Response>
 }
 
 export type KVGetOptions<T> = {
@@ -104,7 +103,7 @@ export type SessionCookieConfig = {
 }
 
 export type SessionOptions = {
-  lifetime?: number
+  maxAge?: number
   cookie?: SessionCookieConfig
 }
 
@@ -117,76 +116,12 @@ export class Session<StoreType> {
   end: () => Promise<void>
 }
 
-// export type CoTextOp = {
-//   readonly text: string
-//   readonly range: [number, number]
-// }
-
-// export type CoText = {
-//   readonly text: string
-//   readonly ops: AsyncIterable<CoTextOp>
-//   broadcast(...ops: CoTextOp[]): Promise<void>
-// }
-
-// export class CoTextEdit {
-//   constructor(options: { token: string, document: { id: string, defaultData?: string } })
-//   connect(): Promise<[CoText, CoState]>
-// }
-
-// export class CoDocumentEdit<T> {
-//   constructor(options: { token: string, document: { id: string, defaultData?: T } })
-//   connect(): Promise<[T, CoState]>
-// }
-
-// export type CoUserOp = {
-//   readonly username: string
-//   readonly type: string
-//   readonly data: any
-// }
-
-// export type CoState = {
-//   userOps: AsyncIterable<CoUserOp>
-//   broadcast(...ops: CoUserOp[]): Promise<void>
-// }
-
-// export type ChatMessage = {
-//   id: string
-//   datetime: number
-//   by: string
-//   type: string
-//   content: string
-// }
-
-// export type ChatHistory = {
-//   list: (limit: number, cursor?: string) => Promise<{ messages: ChatMessage[], end?: boolean }>
-// }
-
-// export type Chat = {
-//   channel: AsyncIterable<ChatMessage>
-//   history: ChatHistory
-//   send(type: string, content: string): Promise<void>
-// }
-
-// export class ChatRoom {
-//   constructor(options: { token: string, roomId: string, rateLimit?: number })
-//   connect(): Promise<Chat>
-// }
-
-// export type CoEditOptions<T, U> = {
-//   id: string
-//   type: T
-//   defaultData?: U
-// }
-
 export interface GOKV {
   config(options: Options): void
-  // signUserToken(username: string, options?: { lifetime?: number, readonly?: boolean, isAdmin?: boolean }): Promise<string>
-  Session<T extends object = Record<string, any>>(options?: { namespace?: string, sid?: string, request?: Request } & SessionOptions): Promise<Session<T>>
+  signAccessToken<T extends { uid: number | string }>(payload: T, options?: { maxAge?: number, readonly?: boolean }): Promise<string>
+  Session<T extends object = Record<string, any>>(options?: { namespace?: string, request?: Request, sid?: string } & SessionOptions): Promise<Session<T>>
   KV(options?: { namespace?: string }): KV
   DurableKV(options?: { namespace?: string }): DurableKV
-  // ChatRoom(options: { roomId: string, rateLimit?: number }): ChatRoom
-  // CoEdit(options: CoEditOptions<"text", string>): CoTextEdit
-  // CoEdit<T>(options: CoEditOptions<"json", T>): CoDocumentEdit<T>
 }
 
 export default GOKV

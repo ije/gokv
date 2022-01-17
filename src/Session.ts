@@ -7,15 +7,15 @@ import type {
 import DurableKVImpl from "./DurableKV.ts"
 import { parseCookie, hashText, hmacSign, splitByChar } from "./helper.ts"
 
-const minLifetime = 60          // one minute
-const defaultLifetime = 30 * 60 // half an hour
+const minMaxAge = 60          // one minute
+const defaultMaxAge = 30 * 60 // half an hour
 
 export default class SessionImpl<StoreType> implements Session<StoreType> {
   private _kv: DurableKV
   private _store: StoreType | null
   private _id: string
   private _upTimer: number | null = null
-  private _lifetime: number
+  private _maxAge: number
   private _cookieConfig: SessionCookieConfig
 
   static async create<T>(options: { token: string, namespace?: string, sid?: string, request?: Request } & SessionOptions): Promise<Session<T>> {
@@ -51,12 +51,12 @@ export default class SessionImpl<StoreType> implements Session<StoreType> {
     this._kv = options.kv
     this._store = options.store
     this._id = options.sid
-    this._lifetime = Math.max(options.lifetime || defaultLifetime, minLifetime)
+    this._maxAge = Math.max(options.maxAge || defaultMaxAge, minMaxAge)
     this._cookieConfig = { name: "session", ...options.cookie }
     if (options.store !== null) {
       // update expires if the session is already stored
       this._upTimer = setTimeout(() => {
-        options.kv.put(options.sid, { data: options.store, expires: Date.now() + 1000 * this._lifetime }, { allowUnconfirmed: true })
+        options.kv.put(options.sid, { data: options.store, expires: Date.now() + 1000 * this._maxAge }, { allowUnconfirmed: true })
       }, 0)
     }
   }
@@ -111,7 +111,7 @@ export default class SessionImpl<StoreType> implements Session<StoreType> {
       await this._kv.delete(this._id)
       this._store = null
     } else {
-      await this._kv.put(this._id, { data: store, expires: Date.now() + 1000 * this._lifetime })
+      await this._kv.put(this._id, { data: store, expires: Date.now() + 1000 * this._maxAge })
       this._store = store
     }
   }

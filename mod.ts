@@ -1,6 +1,6 @@
 import type {
-  GOKV,
   Options,
+  GOKV,
   KV,
   DurableKV,
   Session,
@@ -9,23 +9,33 @@ import type {
 import KVImpl from "./src/KV.ts"
 import DurableKVImpl from "./src/DurableKV.ts"
 import SessionImpl from "./src/Session.ts"
+import { fetchApi } from "./src/helper.ts"
 
 class GOKVImpl implements GOKV {
-  token: string | null = null
-  getUserToken: null | (() => Promise<string | Response>) = null
+  token?: string
 
-  config({ token, getUserToken }: Options) {
-    if (token) {
-      this.token = token
-    }
-    if (getUserToken) {
-      this.getUserToken = getUserToken
-    } else if (token) {
-      this.getUserToken = () => Promise.resolve(token)
-    }
+  config({ token }: Options) {
+    this.token = token
   }
 
-  // signUserToken ()  { }
+  async signAccessToken<T extends { uid: number | string }>(payload: T, options?: { maxAge?: number, readonly?: boolean }): Promise<string> {
+    if (!this.token) {
+      throw new Error("undefined token")
+    }
+
+    const res = await fetchApi("sign-access-token", {
+      method: "POST",
+      body: JSON.stringify(payload),
+      headers: {
+        Authorization: `Bearer ${this.token}`,
+        Config: JSON.stringify(options || {})
+      }
+    })
+    if (res.status >= 400) {
+      return Promise.reject(new Error(`<${res.status}> ${await res.text()}`))
+    }
+    return res.text()
+  }
 
   Session<T extends object = Record<string, unknown>>(options?: { namespace?: string, sid?: string, request?: Request } & SessionOptions): Promise<Session<T>> {
     if (!this.token) {
@@ -54,11 +64,6 @@ class GOKVImpl implements GOKV {
       namespace: options?.namespace || "default"
     })
   }
-
-  // ChatRoom()  { }
-
-  // CoEdit()  { }
-
 }
 
 export {
