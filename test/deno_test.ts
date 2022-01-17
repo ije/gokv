@@ -4,6 +4,36 @@ import gokv from "../mod.ts"
 
 gokv.config({ token: Deno.env.get("GOKV_TOKEN") })
 
+Deno.test("signAccessToken", async () => {
+  const token = await gokv.signAccessToken({
+    uid: 123,
+    name: "Guest",
+    username: "guest",
+    role: "guest"
+  }, { readonly: true })
+  assertEquals(token.startsWith("JWT "), true)
+
+  let [payload64] = token.slice(4).split(".")
+  const b = payload64.length % 4
+  if (b === 3) {
+    payload64 += "="
+  } else if (b === 2) {
+    payload64 += "=="
+  } else if (b === 1) {
+    throw new TypeError("Illegal base64 Url String")
+  }
+  payload64 = payload64.replace(/\-/g, "+").replace(/_/g, "/")
+
+  const payload = JSON.parse(atob(payload64))
+  assertEquals(payload.uid, 123)
+  assertEquals(payload.name, "Guest")
+  assertEquals(payload.username, "guest")
+  assertEquals(payload.role, "guest")
+  assertEquals(typeof payload.$gokvUID, "string")
+  assertEquals(typeof payload.$expires, "number")
+  assertEquals(payload.$readonly, true)
+})
+
 Deno.test("KV", async () => {
   const kv = gokv.KV({ namespace: "dev-test" })
 

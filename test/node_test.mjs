@@ -16,6 +16,36 @@ async function test(name, fn) {
   process.stdout.write(`\x1b[32mok\x1b[0m \x1b[2m(${Math.round((Date.now() - t) / 1000)}s)\x1b[0m\n`)
 }
 
+await test("signAccessToken", async () => {
+  const token = await gokv.signAccessToken({
+    uid: 123,
+    name: "Guest",
+    username: "guest",
+    role: "guest"
+  }, { readonly: true })
+  assert.deepEqual(token.startsWith("JWT "), true)
+
+  let [payload64] = token.slice(4).split(".")
+  const b = payload64.length % 4
+  if (b === 3) {
+    payload64 += "="
+  } else if (b === 2) {
+    payload64 += "=="
+  } else if (b === 1) {
+    throw new TypeError("Illegal base64 Url String")
+  }
+  payload64 = payload64.replace(/\-/g, "+").replace(/_/g, "/")
+
+  const payload = JSON.parse(Buffer.from(payload64, "base64").toString())
+  assert.deepEqual(payload.uid, 123)
+  assert.deepEqual(payload.name, "Guest")
+  assert.deepEqual(payload.username, "guest")
+  assert.deepEqual(payload.role, "guest")
+  assert.deepEqual(typeof payload.$gokvUID, "string")
+  assert.deepEqual(typeof payload.$expires, "number")
+  assert.deepEqual(payload.$readonly, true)
+})
+
 await test("KV", async () => {
   const kv = gokv.KV({ namespace: "dev-test" })
 
