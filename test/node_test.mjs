@@ -18,29 +18,36 @@ async function test(name, fn) {
 
 await test("signAccessToken", async () => {
   const token = await gokv.signAccessToken({
-    uid: 123,
-    name: "Guest",
-    username: "guest",
-    role: "guest"
-  }, { readonly: true })
+    type: "chat-room",
+    roomId: "room-id",
+    user: {
+      uid: 123,
+      name: "Guest",
+      username: "guest",
+      role: "guest"
+    },
+    readonly: true
+  })
   assert.deepEqual(token.startsWith("JWT "), true)
 
-  let [payload64] = token.slice(4).split(".")
-  const b = payload64.length % 4
+  let [data] = token.slice(4).split(".")
+  const b = data.length % 4
   if (b === 3) {
-    payload64 += "="
+    data += "="
   } else if (b === 2) {
-    payload64 += "=="
+    data += "=="
   } else if (b === 1) {
     throw new TypeError("Illegal base64 Url String")
   }
-  payload64 = payload64.replace(/\-/g, "+").replace(/_/g, "/")
+  data = data.replace(/\-/g, "+").replace(/_/g, "/")
 
-  const payload = JSON.parse(Buffer.from(payload64, "base64").toString())
-  assert.deepEqual(payload.uid, 123)
-  assert.deepEqual(payload.name, "Guest")
-  assert.deepEqual(payload.username, "guest")
-  assert.deepEqual(payload.role, "guest")
+  const payload = JSON.parse(Buffer.from(data, "base64").toString())
+  assert.deepEqual(payload.type, "chat-room")
+  assert.deepEqual(payload.roomId, "room-id")
+  assert.deepEqual(payload.user.uid, 123)
+  assert.deepEqual(payload.user.name, "Guest")
+  assert.deepEqual(payload.user.username, "guest")
+  assert.deepEqual(payload.user.role, "guest")
   assert.deepEqual(typeof payload.$gokvUID, "string")
   assert.deepEqual(typeof payload.$expires, "number")
   assert.deepEqual(payload.$readonly, true)

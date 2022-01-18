@@ -6,29 +6,36 @@ gokv.config({ token: Deno.env.get("GOKV_TOKEN") })
 
 Deno.test("signAccessToken", async () => {
   const token = await gokv.signAccessToken({
-    uid: 123,
-    name: "Guest",
-    username: "guest",
-    role: "guest"
-  }, { readonly: true })
+    type: "chat-room",
+    roomId: "room-id",
+    user: {
+      uid: 123,
+      name: "Guest",
+      username: "guest",
+      role: "guest"
+    },
+    readonly: true
+  })
   assertEquals(token.startsWith("JWT "), true)
 
-  let [payload64] = token.slice(4).split(".")
-  const b = payload64.length % 4
+  let [data] = token.slice(4).split(".")
+  const b = data.length % 4
   if (b === 3) {
-    payload64 += "="
+    data += "="
   } else if (b === 2) {
-    payload64 += "=="
+    data += "=="
   } else if (b === 1) {
     throw new TypeError("Illegal base64 Url String")
   }
-  payload64 = payload64.replace(/\-/g, "+").replace(/_/g, "/")
+  data = data.replace(/\-/g, "+").replace(/_/g, "/")
 
-  const payload = JSON.parse(atob(payload64))
-  assertEquals(payload.uid, 123)
-  assertEquals(payload.name, "Guest")
-  assertEquals(payload.username, "guest")
-  assertEquals(payload.role, "guest")
+  const payload = JSON.parse(atob(data))
+  assertEquals(payload.type, "chat-room")
+  assertEquals(payload.roomId, "room-id")
+  assertEquals(payload.user.uid, 123)
+  assertEquals(payload.user.name, "Guest")
+  assertEquals(payload.user.username, "guest")
+  assertEquals(payload.user.role, "guest")
   assertEquals(typeof payload.$gokvUID, "string")
   assertEquals(typeof payload.$expires, "number")
   assertEquals(payload.$readonly, true)
