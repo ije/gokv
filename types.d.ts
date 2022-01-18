@@ -1,7 +1,3 @@
-export type Options = {
-  token?: string
-}
-
 export type KVGetOptions<T> = {
   type: T
   cacheTtl?: number
@@ -116,9 +112,25 @@ export class Session<StoreType> {
   end: () => Promise<void>
 }
 
+export type Options = {
+  token?: string
+}
+
+export type AccessTokenOptions<U extends { uid: number | string }> = {
+  user: U
+  maxAge?: number
+  readonly?: boolean
+} & ({
+  type: "chat-room"
+  roomId: string
+} | {
+  type: "co-editing"
+  documentId: string
+})
+
 export interface GOKV {
   config(options: Options): void
-  signAccessToken<T extends { uid: number | string }>(payload: T, options?: { maxAge?: number, readonly?: boolean }): Promise<string>
+  signAccessToken<U extends { uid: number | string }>(options: AccessTokenOptions<U>): Promise<string>
   Session<T extends object = Record<string, any>>(options?: { namespace?: string, request?: Request, sid?: string } & SessionOptions): Promise<Session<T>>
   KV(options?: { namespace?: string }): KV
   DurableKV(options?: { namespace?: string }): DurableKV

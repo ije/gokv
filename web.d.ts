@@ -2,8 +2,11 @@ export type UserOp<U extends { uid: number | string }> = {
   readonly type: "join" | "leave"
   readonly user: U
 } | {
+  readonly type: "input"
+  readonly uid: number | string
+} | {
   readonly type: "mousemove"
-  readonly user: U
+  readonly uid: number | string
   readonly mouseX: number
   readonly mouseY: number
 }
@@ -34,7 +37,7 @@ export type ChatMessage = {
 
 export type Chat<U extends { uid: number | string }> = {
   channel: AsyncIterable<ChatMessage | UserOp<U>>
-  dispatchEvent(type: "userinput"): void
+  dispatchEvent(type: "input"): void
   requestHistory(n?: number): void
   send(content: string, contentType?: string): void
 }

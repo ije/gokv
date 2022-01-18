@@ -1,5 +1,6 @@
 import type {
   Options,
+  AccessTokenOptions,
   GOKV,
   KV,
   DurableKV,
@@ -18,17 +19,16 @@ class GOKVImpl implements GOKV {
     this.token = token
   }
 
-  async signAccessToken<T extends { uid: number | string }>(payload: T, options?: { maxAge?: number, readonly?: boolean }): Promise<string> {
+  async signAccessToken<U extends { uid: number | string }>(options: AccessTokenOptions<U>): Promise<string> {
     if (!this.token) {
       throw new Error("undefined token")
     }
 
     const res = await fetchApi("sign-access-token", {
       method: "POST",
-      body: JSON.stringify(payload),
+      body: JSON.stringify(options),
       headers: {
-        Authorization: `Bearer ${this.token}`,
-        Config: JSON.stringify(options || {})
+        Authorization: `Bearer ${this.token}`
       }
     })
     if (res.status >= 400) {
