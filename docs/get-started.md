@@ -34,7 +34,7 @@ gokv.config({ token: "xxx" });
 ### Import `Web-Polyfill`
 
 **gokv** uses the standard web `fetch` and `crypto` API, you need to import the
-`Web-Polyfill` in Nodejs environment.
+`Web-Polyfill` in Node.js environment.
 
 ```ts
 import "gokv/web-ployfill.mjs";
@@ -73,9 +73,9 @@ https://developers.cloudflare.com/workers/runtime-apis/kv#writing-key-value-pair
 // the maximum size of a value is 25 MiB.
 await kv.put("foo", "bar");
 
-// ​expiring keys
+// expiring keys
 await kv.put("foo", "bar", { expiration: secondsSinceEpoch });
-await kv.put("foo", "bar", { expiration: secondsFromNow });
+await kv.put("foo", "bar", { expirationTtl: secondsFromNow });
 
 // with metadata
 await kv.put("foo", "bar", {
