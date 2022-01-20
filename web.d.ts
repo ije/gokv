@@ -33,6 +33,8 @@ export type ChatMessage = {
   datetime: number
   contentType: string
   content: string
+  edited?: boolean
+  removed?: boolean
 }
 
 export type Chat<U extends { uid: number | string }> = {
@@ -52,4 +54,20 @@ export type ChatRoomOptions = {
 export class ChatRoom<U extends { uid: number | string }> {
   constructor(options: ChatRoomOptions)
   connect(): Promise<Chat<U>>
+}
+
+export type UploaderOptions = {
+  getAccessToken: () => Promise<string | Response>
+  acceptTypes?: string[]
+  limit?: number
+}
+
+export type UploadResult = {
+  url: string
+}
+
+export class Uploader {
+  constructor(options: UploaderOptions)
+  upload(file: File): Promise<UploadResult>
+  upload(files: File[]): Promise<UploadResult[]>
 }
