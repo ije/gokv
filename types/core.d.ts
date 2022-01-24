@@ -89,33 +89,29 @@ export class DurableKV {
   list<T = unknown>(options?: DurableKVListOptions): Promise<Map<string, T>>
 }
 
-export type SessionCookieConfig = {
-  name?: string
-  domain?: string
-  path?: string
-  sameSite?: "Strict" | "Lax" | "None"
-  secure?: boolean
-}
-
 export type SessionOptions = {
   maxAge?: number
-  cookie?: SessionCookieConfig
-}
+  cookieName?: string
+  cookieDomain?: string
+  cookiePath?: string
+  cookieSameSite?: "Strict" | "Lax" | "None"
+  cookieSecure?: boolean
+} & InitKVOptions
 
 export class Session<StoreType> {
   readonly id: string
   readonly store: StoreType | null
   readonly cookie: string
   constructor(options: { kv: DurableKV, store: StoreType | null, sid: string } & SessionOptions)
-  update: (store: StoreType) => Promise<void>
-  end: () => Promise<void>
+  update(stor: StoreType): Promise<void>
+  update(fn: (prev: StoreType | null) => StoreType): Promise<void>
+  end(): Promise<void>
 }
 
 export type UploaderOptions = {
-  namespace?: string
   acceptTypes?: string[]
   limit?: number
-}
+} & InitKVOptions
 
 export type UploadResult = {
   readonly id: string
@@ -139,9 +135,9 @@ export type ModuleConfigOptions = {
 export interface Module {
   config(options: ModuleConfigOptions): void
   signAccessToken<U extends { uid: number | string }>(user: U): { fetch: (request: Request) => Promise<Response> }
-  Session<T extends object = Record<string, any>>(options?: { namespace?: string, request?: Request, sid?: string } & SessionOptions): Promise<Session<T>>
-  KV(options?: { namespace?: string }): KV
-  DurableKV(options?: { namespace?: string }): DurableKV
+  Session<T extends object = Record<string, any>>(request: Request | { cookies: Record<string, any> }, options?: SessionOptions): Promise<Session<T>>
+  KV(options?: InitKVOptions): KV
+  DurableKV(options?: InitKVOptions): DurableKV
   Uploader(options?: UploaderOptions): Uploader
 }
 

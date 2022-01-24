@@ -269,8 +269,7 @@ async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url);
 
   try {
-    const session = await gokv.Session<{ username: string }>({
-      request: req,
+    const session = await gokv.Session<{ username: string }>(req, {
       namespace: "xxx",
     });
     switch (url.pathname) {

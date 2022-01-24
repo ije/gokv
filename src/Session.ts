@@ -1,8 +1,7 @@
 import type {
   DurableKV,
   Session,
-  SessionOptions,
-  SessionCookieConfig
+  SessionOptions
 } from "../types/core.d.ts"
 import DurableKVImpl from "./DurableKV.ts"
 import atm from "./AccessTokenManager.ts"
@@ -17,13 +16,18 @@ export default class SessionImpl<StoreType> implements Session<StoreType> {
   private _id: string
   private _upTimer: number | null = null
   private _maxAge: number
-  private _cookieConfig: SessionCookieConfig
+  private _cookieName: string
+  private _cookieDomain?: string
+  private _cookiePath?: string
+  private _cookieSameSite?: "Strict" | "Lax" | "None"
+  private _cookieSecure?: boolean
 
-  static async create<T>(options?: { namespace?: string, sid?: string, request?: Request } & SessionOptions): Promise<Session<T>> {
+  static async create<T>(request: Request | { cookies: Record<string, any> }, options?: SessionOptions): Promise<Session<T>> {
     const namespace = "__SESSION_" + (options?.namespace || "default")
+    const cookieName = options?.cookieName || "session"
     const kv: DurableKV = new DurableKVImpl({ namespace })
     const [_, token] = await atm.getAccessToken()
-    let sid = options?.request ? parseCookie(options.request).get(options.cookie?.name || "session") : options?.sid
+    let sid = request instanceof Request ? parseCookie(request).get(cookieName) : request.cookies[cookieName]
     let store: T | null = null
     if (sid) {
       const [rid, signature] = splitByChar(sid, ".")
@@ -53,7 +57,11 @@ export default class SessionImpl<StoreType> implements Session<StoreType> {
     this._store = options.store
     this._id = options.sid
     this._maxAge = Math.max(options.maxAge || defaultMaxAge, minMaxAge)
-    this._cookieConfig = { name: "session", ...options.cookie }
+    this._cookieName = options.cookieName || "session"
+    this._cookieDomain = options.cookieDomain
+    this._cookiePath = options.cookiePath
+    this._cookieSameSite = options.cookieSameSite
+    this._cookieSecure = options.cookieSecure
     if (options.store !== null) {
       // update expires if the session is already stored
       this._upTimer = setTimeout(() => {
@@ -71,24 +79,23 @@ export default class SessionImpl<StoreType> implements Session<StoreType> {
   }
 
   get cookie(): string {
-    const { _id, _cookieConfig } = this
-    const { name: cookieName, domain, path, sameSite, secure } = _cookieConfig
+    const { _cookieName, _cookieDomain, _cookiePath, _cookieSameSite, _cookieSecure } = this
     const cookie = []
     if (this._store === null) {
-      cookie.push(`${cookieName}=`, "Expires=Thu, 01 Jan 1970 00:00:01 GMT")
+      cookie.push(`${_cookieName}=`, "Expires=Thu, 01 Jan 1970 00:00:01 GMT")
     } else {
-      cookie.push(`${cookieName}=${_id}`)
+      cookie.push(`${_cookieName}=${this._id}`)
     }
-    if (domain) {
-      cookie.push(`Domain=${domain}`)
+    if (_cookieDomain) {
+      cookie.push(`Domain=${_cookieDomain}`)
     }
-    if (path) {
-      cookie.push(`Path=${domain}`)
+    if (_cookiePath) {
+      cookie.push(`Path=${_cookiePath}`)
     }
-    if (sameSite) {
-      cookie.push(`SameSite=${sameSite}`)
+    if (_cookieSameSite) {
+      cookie.push(`SameSite=${_cookieSameSite}`)
     }
-    if (secure || sameSite === "None") {
+    if (_cookieSecure || _cookieSameSite === "None") {
       cookie.push("Secure")
     }
     cookie.push("HttpOnly")
@@ -99,21 +106,29 @@ export default class SessionImpl<StoreType> implements Session<StoreType> {
     return this.update(null)
   }
 
-  async update(store: StoreType | null): Promise<void> {
-    if (typeof store !== "object") {
-      throw new Error("store must be a valid object")
+  async update(store: StoreType | null | ((prev: StoreType | null) => StoreType | null)): Promise<void> {
+    if (typeof store !== "object" && typeof store !== "function") {
+      throw new Error("store must be a valid object or a function")
+    }
+
+    let nextStore: StoreType | null
+    if (typeof store === "object") {
+      nextStore = store
+    } else {
+      // @ts-ignore
+      nextStore = store(this._store)
     }
 
     if (this._upTimer) {
       clearTimeout(this._upTimer)
       this._upTimer = null
     }
-    if (store === null) {
+    if (nextStore === null) {
       await this._kv.delete(this._id)
       this._store = null
     } else {
-      await this._kv.put(this._id, { data: store, expires: Date.now() + 1000 * this._maxAge })
-      this._store = store
+      await this._kv.put(this._id, { data: nextStore, expires: Date.now() + 1000 * this._maxAge })
+      this._store = nextStore
     }
   }
 }

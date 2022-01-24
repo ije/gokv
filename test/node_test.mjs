@@ -23,14 +23,14 @@ await test("signAccessToken", async () => {
     username: "guest",
     role: "guest"
   }).fetch(new Request("https://gokv.io", {
+    method: "POST",
     body: JSON.stringify({
       type: "chat-room",
       roomId: "room-id",
     })
   })).then(res => res.text())
-  assert.deepEqual(token.startsWith("JWT "), true)
 
-  let [data] = token.slice(4).split(".")
+  let [data] = token.split(".")
   const b = data.length % 4
   if (b === 3) {
     data += "="
@@ -116,22 +116,25 @@ await test("DurationKV", async () => {
 })
 
 await test("Session", async () => {
-  const config = { namespace: "dev-test", cookie: { name: "sess" } }
+  const config = { namespace: "dev-test", cookieName: "sess" }
 
-  let session = await gokv.Session(config)
+  let session = await gokv.Session(new Request("https://gokv.io/"), config)
   assert.deepEqual(session.store, null)
 
   // login as "alice"
   await session.update({ username: "alice" })
   assert.deepEqual(session.cookie, `sess=${session.id}; HttpOnly`)
 
-  session = await gokv.Session({ ...config, request: new Request("https://gokv.io/", { headers: { "cookie": `sess=${session.id}` } }) })
+  session = await gokv.Session(new Request("https://gokv.io/", { headers: { "cookie": `sess=${session.id}` } }), config)
+  assert.deepEqual(session.store, { username: "alice" })
+
+  session = await gokv.Session({ cookies: { sess: session.id } }, config)
   assert.deepEqual(session.store, { username: "alice" })
 
   // end session
   await session.end()
   assert.deepEqual(session.cookie, `sess=; Expires=Thu, 01 Jan 1970 00:00:01 GMT; HttpOnly`)
 
-  session = await gokv.Session({ ...config, sid: session.id })
+  session = await gokv.Session({ cookies: { sess: session.id } }, config)
   assert.deepEqual(session.store, null)
 })

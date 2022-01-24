@@ -1,5 +1,6 @@
 import type {
   DurableKV,
+  InitKVOptions,
   Module,
   ModuleConfigOptions,
   KV,
@@ -30,19 +31,19 @@ class ModuleImpl implements Module {
     }
   }
 
-  Session<T extends object = Record<string, unknown>>(options?: { namespace?: string, sid?: string, request?: Request } & SessionOptions): Promise<Session<T>> {
-    return SessionImpl.create<T>(options)
+  Session<T extends object = Record<string, unknown>>(request: Request | { cookies: Record<string, any> }, options?: SessionOptions): Promise<Session<T>> {
+    return SessionImpl.create<T>(request, options)
   }
 
-  KV(options?: { namespace?: string }): KV {
+  KV(options?: InitKVOptions): KV {
     return new KVImpl(options)
   }
 
-  DurableKV(options?: { namespace?: string }): DurableKV {
+  DurableKV(options?: InitKVOptions): DurableKV {
     return new DurableKVImpl(options)
   }
 
-  Uploader(options?: { namespace?: string } & UploaderOptions): Uploader {
+  Uploader(options?: UploaderOptions): Uploader {
     return new UploaderImpl(options)
   }
 }
