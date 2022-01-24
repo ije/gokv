@@ -1,68 +1,49 @@
 import type {
-  Options,
-  AccessTokenOptions,
-  GOKV,
-  KV,
   DurableKV,
+  Module,
+  ModuleConfigOptions,
+  KV,
   Session,
   SessionOptions,
-} from "./types.d.ts"
+  Uploader,
+  UploaderOptions,
+} from "./types/core.d.ts"
+import atm from "./src/AccessTokenManager.ts"
 import KVImpl from "./src/KV.ts"
 import DurableKVImpl from "./src/DurableKV.ts"
 import SessionImpl from "./src/Session.ts"
-import { fetchApi } from "./src/helper.ts"
+import UploaderImpl from "./src/Uploader.ts"
+import { fetchApi } from "./src/utils.ts"
 
-class GOKVImpl implements GOKV {
-  token?: string
-
-  config({ token }: Options) {
-    this.token = token
+class ModuleImpl implements Module {
+  config({ token }: ModuleConfigOptions) {
+    atm.setToken(token)
   }
 
-  async signAccessToken<U extends { uid: number | string }>(options: AccessTokenOptions<U>): Promise<string> {
-    if (!this.token) {
-      throw new Error("undefined token")
+  signAccessToken<U extends { uid: number | string }>(user: U): { fetch: (reqest: Request) => Promise<Response> } {
+    return {
+      fetch: async (req: Request) => fetchApi("sign-access-token", {
+        method: "POST",
+        body: JSON.stringify({ ...(await req.json()), user }),
+        headers: await atm.accessHeaders(),
+      })
     }
-
-    const res = await fetchApi("sign-access-token", {
-      method: "POST",
-      body: JSON.stringify(options),
-      headers: {
-        Authorization: `Bearer ${this.token}`
-      }
-    })
-    if (res.status >= 400) {
-      return Promise.reject(new Error(`<${res.status}> ${await res.text()}`))
-    }
-    return res.text()
   }
 
   Session<T extends object = Record<string, unknown>>(options?: { namespace?: string, sid?: string, request?: Request } & SessionOptions): Promise<Session<T>> {
-    if (!this.token) {
-      throw new Error("undefined token")
-    }
-
-    return SessionImpl.create<T>({ ...options, token: this.token })
+    return SessionImpl.create<T>(options)
   }
 
   KV(options?: { namespace?: string }): KV {
-    if (!this.token) {
-      throw new Error("undefined token")
-    }
-    return new KVImpl({
-      token: this.token,
-      namespace: options?.namespace || "default"
-    })
+    return new KVImpl(options)
   }
 
   DurableKV(options?: { namespace?: string }): DurableKV {
-    if (!this.token) {
-      throw new Error("undefined token")
-    }
-    return new DurableKVImpl({
-      token: this.token,
-      namespace: options?.namespace || "default"
-    })
+    return new DurableKVImpl(options)
+  }
+
+  Uploader(options?: { namespace?: string } & UploaderOptions): Uploader {
+    return new UploaderImpl(options)
   }
 }
 
@@ -70,6 +51,7 @@ export {
   KVImpl as KV,
   DurableKVImpl as DurableKV,
   SessionImpl as Session,
+  UploaderImpl as Uploader,
 }
 
-export default new GOKVImpl()
+export default new ModuleImpl()

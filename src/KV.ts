@@ -4,26 +4,24 @@ import type {
   KVListOptions,
   KVListResult,
   KVGetWithMetadataResult
-} from "../types.d.ts"
-import { appendOptionsToHeaders, closeBody, fetchApi } from "./helper.ts"
+} from "../types/core.d.ts"
+import atm from "./AccessTokenManager.ts"
+import { appendOptionsToHeaders, closeBody, fetchApi } from "./utils.ts"
 
 export default class KVImpl implements KV {
-  private readonly accessHeaders: Record<string, string>
+  private readonly _options?: { namespace?: string }
 
-  constructor(options: { token: string, namespace: string }) {
-    this.accessHeaders = {
-      Namespace: options.namespace,
-      Authorization: `Bearer ${options.token}`
-    }
+  constructor(options?: { namespace?: string }) {
+    this._options = options
   }
 
   async get(key: string, options?: string | { type?: string, cacheTtl?: number }): Promise<any> {
-    const headers: Record<string, string> = { ...this.accessHeaders }
+    const headers = await atm.accessHeaders(this._options)
     if (options && typeof options !== "string") {
       appendOptionsToHeaders(options, headers)
     }
 
-    const res = await fetchApi('kv', { resource: key, headers, ignore404: true })
+    const res = await fetchApi("kv", { resource: key, headers, ignore404: true })
     if (res.status == 404) {
       await closeBody(res)
       return null
@@ -48,12 +46,12 @@ export default class KVImpl implements KV {
   }
 
   async getWithMetadata<M = unknown>(key: string, options?: string | { type?: string, cacheTtl?: number }): Promise<KVGetWithMetadataResult<any, M>> {
-    const headers: Record<string, string> = { ...this.accessHeaders, "accept-metadata": "1" }
+    const headers = await atm.accessHeaders({ ...this._options, "accept-metadata": "1" })
     if (options && typeof options !== "string") {
       appendOptionsToHeaders(options, headers)
     }
 
-    const res = await fetchApi('kv', { resource: key, headers, ignore404: true })
+    const res = await fetchApi("kv", { resource: key, headers, ignore404: true })
     if (res.status == 404) {
       await closeBody(res)
       return { value: null, metadata: null }
@@ -91,26 +89,26 @@ export default class KVImpl implements KV {
   }
 
   async put(key: string, value: string | ArrayBuffer | ReadableStream, options?: KVPutOptions): Promise<void> {
-    const headers: Record<string, string> = { ...this.accessHeaders, "accept-metadata": "1" }
+    const headers = await atm.accessHeaders({ ...this._options, "accept-metadata": "1" })
     if (options) {
       appendOptionsToHeaders(options, headers)
     }
-    const res = await fetchApi('kv', { method: "PUT", resource: key, headers, body: value })
+    const res = await fetchApi("kv", { method: "PUT", resource: key, headers, body: value })
     await closeBody(res) // release body
   }
 
   async delete(key: string): Promise<void> {
-    const headers: Record<string, string> = { ...this.accessHeaders }
-    const res = await fetchApi('kv', { method: "DELETE", resource: key, headers })
+    const headers: Record<string, string> = await atm.accessHeaders(this._options)
+    const res = await fetchApi("kv", { method: "DELETE", resource: key, headers })
     await closeBody(res) // release body
   }
 
   async list(options?: KVListOptions): Promise<KVListResult> {
-    const headers: Record<string, string> = { ...this.accessHeaders }
+    const headers: Record<string, string> = await atm.accessHeaders(this._options)
     if (options) {
       appendOptionsToHeaders(options, headers)
     }
-    const res = await fetchApi('kv', { headers })
+    const res = await fetchApi("kv", { headers })
     return res.json()
   }
 }

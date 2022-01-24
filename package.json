@@ -5,19 +5,18 @@
   "type": "module",
   "main": "./dist/index.mjs",
   "module": "./dist/index.mjs",
-  "types": "./types.d.ts",
+  "types": "./types/core.d.ts",
   "sideEffects": false,
   "exports": {
     "./web": {
       "module": "./dist/web.mjs",
       "import": "./dist/web.mjs",
-      "types": "./web.d.ts"
+      "types": "./types/web.d.ts"
     }
   },
   "files": [
     "dist/",
-    "types.d.ts",
-    "web.d.ts",
+    "types/",
     "web-polyfill.mjs"
   ],
   "scripts": {

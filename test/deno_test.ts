@@ -2,20 +2,21 @@ import { assertEquals } from "https://deno.land/std@0.120.0/testing/asserts.ts"
 import "https://deno.land/x/dotenv@v3.1.0/load.ts"
 import gokv from "../mod.ts"
 
-gokv.config({ token: Deno.env.get("GOKV_TOKEN") })
+gokv.config({ token: Deno.env.get("GOKV_TOKEN")! })
 
 Deno.test("signAccessToken", async () => {
   const token = await gokv.signAccessToken({
-    type: "chat-room",
-    roomId: "room-id",
-    user: {
-      uid: 123,
-      name: "Guest",
-      username: "guest",
-      role: "guest"
-    },
-    readonly: true
-  })
+    uid: 123,
+    name: "Guest",
+    username: "guest",
+    role: "guest"
+  }).fetch(new Request("https://gokv.io", {
+    method: "POST",
+    body: JSON.stringify({
+      type: "chat-room",
+      roomId: "room-id",
+    })
+  })).then(res => res.text())
   assertEquals(token.startsWith("JWT "), true)
 
   let [data] = token.slice(4).split(".")
@@ -38,7 +39,6 @@ Deno.test("signAccessToken", async () => {
   assertEquals(payload.user.role, "guest")
   assertEquals(typeof payload.$gokvUID, "string")
   assertEquals(typeof payload.$expires, "number")
-  assertEquals(payload.$readonly, true)
 })
 
 Deno.test("KV", async () => {
@@ -103,7 +103,6 @@ Deno.test("DurationKV", async () => {
   assertEquals(await kv.delete(["k-3", "k-4"]), 2)
   assertEquals(await kv.list(), new Map(new Array(3).fill(0).map((_, index) => [`k-${index}`, null])))
 })
-
 
 Deno.test("Session", async () => {
   const config = { namespace: "dev-test", cookie: { name: "sess" } }

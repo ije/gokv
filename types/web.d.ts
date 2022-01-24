@@ -16,7 +16,6 @@ export type Co<U extends { uid: number | string }> = {
 }
 
 export type CoEditOptions<T> = {
-  getAccessToken: () => Promise<string | Response>
   documentId: string,
   defaultData?: T
 }
@@ -27,25 +26,24 @@ export class CoEdit<T, U extends { uid: number | string }> {
 }
 
 export type ChatMessage = {
-  type: "message"
-  id: string
-  uid: number | string
-  datetime: number
-  contentType: string
-  content: string
-  edited?: boolean
-  removed?: boolean
+  readonly type: "message"
+  readonly id: string
+  readonly uid: number | string
+  readonly datetime: number
+  readonly contentType: string
+  readonly content: string
+  readonly edited?: boolean
+  readonly removed?: boolean
 }
 
 export type Chat<U extends { uid: number | string }> = {
-  channel: AsyncIterable<ChatMessage | UserOp<U>>
+  readonly channel: AsyncIterable<ChatMessage | UserOp<U>>
   dispatchEvent(type: "input"): void
   requestHistory(n?: number): void
   send(content: string, contentType?: string): void
 }
 
 export type ChatRoomOptions = {
-  getAccessToken: () => Promise<string | Response>
   roomId: string
   history?: number
   rateLimit?: number // in ms
@@ -57,17 +55,33 @@ export class ChatRoom<U extends { uid: number | string }> {
 }
 
 export type UploaderOptions = {
-  getAccessToken: () => Promise<string | Response>
+  namespace?: string
   acceptTypes?: string[]
   limit?: number
 }
 
+
 export type UploadResult = {
-  url: string
+  readonly id: string
+  readonly url: string
+  readonly filname: string
+  readonly filesize: number
+  readonly filetype: string
+  readonly uploadedAt: number
+  readonly lastModified: number
 }
 
 export class Uploader {
   constructor(options: UploaderOptions)
   upload(file: File): Promise<UploadResult>
-  upload(files: File[]): Promise<UploadResult[]>
 }
+
+export type ModuleConfigOptions = {
+  signUrl: string
+}
+
+export interface Module {
+  config(options: ModuleConfigOptions): void
+}
+
+export default Module

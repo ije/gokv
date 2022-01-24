@@ -18,16 +18,16 @@ async function test(name, fn) {
 
 await test("signAccessToken", async () => {
   const token = await gokv.signAccessToken({
-    type: "chat-room",
-    roomId: "room-id",
-    user: {
-      uid: 123,
-      name: "Guest",
-      username: "guest",
-      role: "guest"
-    },
-    readonly: true
-  })
+    uid: 123,
+    name: "Guest",
+    username: "guest",
+    role: "guest"
+  }).fetch(new Request("https://gokv.io", {
+    body: JSON.stringify({
+      type: "chat-room",
+      roomId: "room-id",
+    })
+  })).then(res => res.text())
   assert.deepEqual(token.startsWith("JWT "), true)
 
   let [data] = token.slice(4).split(".")
@@ -50,7 +50,6 @@ await test("signAccessToken", async () => {
   assert.deepEqual(payload.user.role, "guest")
   assert.deepEqual(typeof payload.$gokvUID, "string")
   assert.deepEqual(typeof payload.$expires, "number")
-  assert.deepEqual(payload.$readonly, true)
 })
 
 await test("KV", async () => {

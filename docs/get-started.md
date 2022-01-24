@@ -217,6 +217,43 @@ await dkv.list({ allowConcurrency: ture });
 
 <br>
 
+## Uploader
+
+```ts
+import gokv from "https://deno.land/x/gokv@0.0.11/mod.ts";
+
+gokv.config({ token: "xxx" });
+
+const up = gokv.Uploader();
+const txtFile = new File(["Hello world"], "hello.txt", { type: "text/plain" });
+const { url } = await up.upload(txtFile); // url -> https://file.gokv.io/xxx-xxx-xxx-xxx
+```
+
+### Upload image files
+
+```ts
+const imageFile = new File(
+  [await Deno.readFile("/Users/x/avatar.png")],
+  "avatar.png",
+  { type: "image/png" },
+);
+const { url } = await up.upload(imageFile); // url -> https://img.gokv.io/xxx-xxx-xxx-xxx
+```
+
+### Resizing images
+
+Using presets:
+
+```txt
+https://img.gokv.io/xxx-xxx-xxx-xxx/4k
+https://img.gokv.io/xxx-xxx-xxx-xxx/1080p (default)
+https://img.gokv.io/xxx-xxx-xxx-xxx/thumb512
+https://img.gokv.io/xxx-xxx-xxx-xxx/thumb256
+https://img.gokv.io/xxx-xxx-xxx-xxx/thumb128
+```
+
+<br>
+
 ## Session Storage
 
 **Session** uses the **DurableKV** to store session, and add session cookie
@@ -270,15 +307,3 @@ await serve(handler);
 ```
 
 Try online: https://dash.deno.com/playground/gokv-session-example
-
-<br>
-
-## Chat Room
-
-_Work In Progress_
-
-<br>
-
-## Co Editing
-
-_Work In Progress_

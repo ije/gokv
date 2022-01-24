@@ -3,9 +3,10 @@ import type {
   Session,
   SessionOptions,
   SessionCookieConfig
-} from "../types.d.ts"
+} from "../types/core.d.ts"
 import DurableKVImpl from "./DurableKV.ts"
-import { parseCookie, hashText, hmacSign, splitByChar } from "./helper.ts"
+import atm from "./AccessTokenManager.ts"
+import { parseCookie, hashText, hmacSign, splitByChar } from "./utils.ts"
 
 const minMaxAge = 60          // one minute
 const defaultMaxAge = 30 * 60 // half an hour
@@ -18,11 +19,11 @@ export default class SessionImpl<StoreType> implements Session<StoreType> {
   private _maxAge: number
   private _cookieConfig: SessionCookieConfig
 
-  static async create<T>(options: { token: string, namespace?: string, sid?: string, request?: Request } & SessionOptions): Promise<Session<T>> {
-    const { token, request } = options
-    const namespace = "__SESSION_" + (options.namespace || "default")
-    const kv: DurableKV = new DurableKVImpl({ token: token, namespace })
-    let sid = request ? parseCookie(request).get(options.cookie?.name || "session") : options.sid
+  static async create<T>(options?: { namespace?: string, sid?: string, request?: Request } & SessionOptions): Promise<Session<T>> {
+    const namespace = "__SESSION_" + (options?.namespace || "default")
+    const kv: DurableKV = new DurableKVImpl({ namespace })
+    const [_, token] = await atm.getAccessToken()
+    let sid = options?.request ? parseCookie(options.request).get(options.cookie?.name || "session") : options?.sid
     let store: T | null = null
     if (sid) {
       const [rid, signature] = splitByChar(sid, ".")

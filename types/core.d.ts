@@ -27,8 +27,7 @@ export type KVListResult = {
 }
 
 export type InitKVOptions = {
-  readonly token: string
-  readonly namespace: string
+  namespace?: string
 }
 
 export class KV {
@@ -112,28 +111,38 @@ export class Session<StoreType> {
   end: () => Promise<void>
 }
 
-export type Options = {
-  token?: string
+export type UploaderOptions = {
+  namespace?: string
+  acceptTypes?: string[]
+  limit?: number
 }
 
-export type AccessTokenOptions<U extends { uid: number | string }> = {
-  user: U
-  maxAge?: number
-  readonly?: boolean
-} & ({
-  type: "chat-room"
-  roomId: string
-} | {
-  type: "co-editing"
-  documentId: string
-})
+export type UploadResult = {
+  readonly id: string
+  readonly url: string
+  readonly filname: string
+  readonly filesize: number
+  readonly filetype: string
+  readonly uploadedAt: number
+  readonly lastModified: number
+}
 
-export interface GOKV {
-  config(options: Options): void
-  signAccessToken<U extends { uid: number | string }>(options: AccessTokenOptions<U>): Promise<string>
+export class Uploader {
+  constructor(options: UploaderOptions)
+  upload(file: File): Promise<UploadResult>
+}
+
+export type ModuleConfigOptions = {
+  token: string
+}
+
+export interface Module {
+  config(options: ModuleConfigOptions): void
+  signAccessToken<U extends { uid: number | string }>(user: U): { fetch: (request: Request) => Promise<Response> }
   Session<T extends object = Record<string, any>>(options?: { namespace?: string, request?: Request, sid?: string } & SessionOptions): Promise<Session<T>>
   KV(options?: { namespace?: string }): KV
   DurableKV(options?: { namespace?: string }): DurableKV
+  Uploader(options?: UploaderOptions): Uploader
 }
 
-export default GOKV
+export default Module
