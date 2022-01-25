@@ -14,7 +14,7 @@ Deno.test("signAccessToken", async () => {
     method: "POST",
     body: JSON.stringify({
       type: "chat-room",
-      roomId: "room-id",
+      namespace: "room-id",
     })
   })).then(res => res.text())
 
@@ -31,7 +31,7 @@ Deno.test("signAccessToken", async () => {
 
   const payload = JSON.parse(atob(data))
   assertEquals(payload.type, "chat-room")
-  assertEquals(payload.roomId, "room-id")
+  assertEquals(payload.namespace, "room-id")
   assertEquals(payload.user.uid, 123)
   assertEquals(payload.user.name, "Guest")
   assertEquals(payload.user.username, "guest")

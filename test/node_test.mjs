@@ -26,7 +26,7 @@ await test("signAccessToken", async () => {
     method: "POST",
     body: JSON.stringify({
       type: "chat-room",
-      roomId: "room-id",
+      namespace: "room-id",
     })
   })).then(res => res.text())
 
@@ -43,7 +43,7 @@ await test("signAccessToken", async () => {
 
   const payload = JSON.parse(Buffer.from(data, "base64").toString())
   assert.deepEqual(payload.type, "chat-room")
-  assert.deepEqual(payload.roomId, "room-id")
+  assert.deepEqual(payload.namespace, "room-id")
   assert.deepEqual(payload.user.uid, 123)
   assert.deepEqual(payload.user.name, "Guest")
   assert.deepEqual(payload.user.username, "guest")
