@@ -5,7 +5,6 @@ export const VERSION = "0.0.12"
 export async function prepublish(version: string) {
   for (const filename of [
     "package.json",
-    "./docs/get-started.md",
     "./examples/deno-hello-server/mod.ts",
     "./examples/deno-session/mod.ts",
   ]) {

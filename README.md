@@ -18,3 +18,7 @@ gokv supports any kind of serverless framework & platform at edge.
 ## Getting Started
 
 Visit https://gokv.io/docs/get-started to get started with **gokv**.
+
+## License
+
+MIT
