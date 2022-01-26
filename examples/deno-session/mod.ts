@@ -8,12 +8,9 @@ async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url)
 
   try {
-    const session = await gokv.Session<{ username: string }>({
-      request: req,
+    const session = await gokv.Session<{ username: string }>(req, {
       namespace: "gokv-session-example",
-      cookie: {
-        sameSite: "None"
-      },
+      cookieSameSite: "None" // allow cookie in iframe
     })
     switch (url.pathname) {
       case "/login":
