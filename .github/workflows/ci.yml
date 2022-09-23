@@ -8,7 +8,7 @@ on:
 
 jobs:
   format:
-    name: Lint
+    name: Code Lint
     runs-on: ubuntu-latest
 
     steps:
@@ -27,12 +27,8 @@ jobs:
         run: deno lint
 
   test:
-    name: Test
-    runs-on: ${{ matrix.os }}
-
-    strategy:
-      matrix:
-        os: [macOS-latest, windows-latest, ubuntu-latest]
+    name: Test API
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
