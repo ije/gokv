@@ -1,4 +1,4 @@
-name: Aleph.js CI
+name: gokv CI
 
 on:
   push:
@@ -44,4 +44,6 @@ jobs:
           deno-version: v1.x
 
       - name: Deno test
+        env:
+          GOKV_TOKEN: ${{ secrets.GOKV_TOKEN }}
         run: deno test -A test/deno_test.ts
