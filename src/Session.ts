@@ -10,7 +10,7 @@ import { parseCookie, hashText, hmacSign, splitByChar } from "./utils.ts"
 const minMaxAge = 60          // one minute
 const defaultMaxAge = 30 * 60 // half an hour
 
-export default class SessionImpl<StoreType> implements Session<StoreType> {
+export default class SessionImpl<StoreType extends Record<string, unknown>> implements Session<StoreType> {
   private _kv: DurableKV
   private _store: StoreType | null
   private _id: string
@@ -22,7 +22,7 @@ export default class SessionImpl<StoreType> implements Session<StoreType> {
   private _cookieSameSite?: "Strict" | "Lax" | "None"
   private _cookieSecure?: boolean
 
-  static async create<T>(request: Request | { cookies: Record<string, any> }, options?: SessionOptions): Promise<Session<T>> {
+  static async create<T extends Record<string, unknown>>(request: Request | { cookies: Record<string, string> }, options?: SessionOptions): Promise<Session<T>> {
     const namespace = "__SESSION_" + (options?.namespace || "default")
     const cookieName = options?.cookieName || "session"
     const kv: DurableKV = new DurableKVImpl({ namespace })
@@ -102,21 +102,16 @@ export default class SessionImpl<StoreType> implements Session<StoreType> {
     return cookie.join("; ")
   }
 
-  async end(): Promise<void> {
-    return this.update(null)
-  }
-
-  async update(store: StoreType | null | ((prev: StoreType | null) => StoreType | null)): Promise<void> {
+  async #update(store: StoreType | null | ((prev: StoreType | null) => StoreType | null)): Promise<void> {
     if (typeof store !== "object" && typeof store !== "function") {
       throw new Error("store must be a valid object or a function")
     }
 
     let nextStore: StoreType | null
-    if (typeof store === "object") {
-      nextStore = store
-    } else {
-      // @ts-ignore
+    if (typeof store === "function") {
       nextStore = store(this._store)
+    } else {
+      nextStore = store
     }
 
     if (this._upTimer) {
@@ -130,5 +125,21 @@ export default class SessionImpl<StoreType> implements Session<StoreType> {
       await this._kv.put(this._id, { data: nextStore, expires: Date.now() + 1000 * this._maxAge })
       this._store = nextStore
     }
+  }
+
+  async end(redirectTo: string): Promise<Response> {
+    await this.#update(null)
+    return new Response("", {
+      status: 302,
+      headers: { "Set-Cookie": this.cookie, "Location": redirectTo },
+    })
+  }
+
+  async update(store: StoreType | ((prev: StoreType | null) => StoreType), redirectTo: string): Promise<Response> {
+    await this.#update(store)
+    return new Response("", {
+      status: 302,
+      headers: { "Set-Cookie": this.cookie, "Location": redirectTo },
+    })
   }
 }

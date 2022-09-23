@@ -11,7 +11,7 @@ export type KVGetWithMetadataResult<T, M> = {
 export type KVPutOptions = {
   expiration?: number
   expirationTtl?: number
-  metadata?: any
+  metadata?: Record<string, unknown>
 }
 
 export type KVListOptions = {
@@ -21,7 +21,7 @@ export type KVListOptions = {
 }
 
 export type KVListResult = {
-  readonly keys: { name: string, expiration?: number, metadata?: any }[]
+  readonly keys: { name: string, expiration?: number, metadata?: Record<string, unknown> }[]
   readonly list_complete: boolean
   readonly cursor?: string
 }
@@ -80,7 +80,7 @@ export class DurableKV {
   constructor(options: InitKVOptions)
   get<T = unknown>(key: string, options?: DurableKVGetOptions): Promise<T | undefined>
   get<T = unknown>(keys: string[], options?: DurableKVGetOptions): Promise<Map<string, T>>
-  put(key: string, value: any, options?: DurableKVPutOptions): Promise<void>
+  put(key: string, value: unknown, options?: DurableKVPutOptions): Promise<void>
   put(entries: Record<string, unknown>): Promise<void>
   delete(key: string, options?: DurableKVPutOptions): Promise<boolean>
   delete(keys: string[], options?: DurableKVPutOptions): Promise<number>
@@ -98,14 +98,13 @@ export type SessionOptions = {
   cookieSecure?: boolean
 } & InitKVOptions
 
-export class Session<StoreType> {
+export class Session<StoreType extends Record<string, unknown>> {
   readonly id: string
   readonly store: StoreType | null
   readonly cookie: string
   constructor(options: { kv: DurableKV, store: StoreType | null, sid: string } & SessionOptions)
-  update(stor: StoreType): Promise<void>
-  update(fn: (prev: StoreType | null) => StoreType): Promise<void>
-  end(): Promise<void>
+  update(store: StoreType | ((store: StoreType | null) => StoreType), redirectTo: string): Promise<Response>
+  end(redirectTo: string): Promise<Response>
 }
 
 export type UploaderOptions = {
@@ -135,7 +134,7 @@ export type ModuleConfigOptions = {
 export interface Module {
   config(options: ModuleConfigOptions): void
   signAccessToken<U extends { uid: number | string }>(user: U): { fetch: (request: Request) => Promise<Response> }
-  Session<T extends object = Record<string, any>>(request: Request | { cookies: Record<string, any> }, options?: SessionOptions): Promise<Session<T>>
+  Session<T extends Record<string, unknown> = Record<string, unknown>>(request: Request | { cookies: Record<string, string> }, options?: SessionOptions): Promise<Session<T>>
   KV(options?: InitKVOptions): KV
   DurableKV(options?: InitKVOptions): DurableKV
   Uploader(options?: UploaderOptions): Uploader

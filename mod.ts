@@ -31,7 +31,7 @@ class ModuleImpl implements Module {
     }
   }
 
-  Session<T extends object = Record<string, unknown>>(request: Request | { cookies: Record<string, any> }, options?: SessionOptions): Promise<Session<T>> {
+  Session<T extends Record<string, unknown> = Record<string, unknown>>(request: Request | { cookies: Record<string, string> }, options?: SessionOptions): Promise<Session<T>> {
     return SessionImpl.create<T>(request, options)
   }
 
