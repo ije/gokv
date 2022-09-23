@@ -1,0 +1,6 @@
+{
+  "imports": {
+    "gokv": "./mod.ts",
+    "gokv/": "./"
+  }
+}

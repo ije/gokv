@@ -1,0 +1,11 @@
+{
+  "tasks": {
+    "test": "deno test -A test/deno_test.ts"
+  },
+  "importMap": "./import_map.json",
+  "fmt": {
+    "options": {
+      "lineWidth": 120
+    }
+  }
+}
