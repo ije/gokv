@@ -6,6 +6,22 @@
   "fmt": {
     "options": {
       "lineWidth": 120
+    },
+    "files": {
+      "exclude": [
+        ".vscode/",
+        "dist/",
+        "node_modules/",
+        "CODE_OF_CONDUCT.md"
+      ]
+    }
+  },
+  "lint": {
+    "files": {
+      "exclude": [
+        "dist/",
+        "node_modules/"
+      ]
     }
   }
 }
