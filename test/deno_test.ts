@@ -1,5 +1,5 @@
 import { assertEquals } from "https://deno.land/std@0.155.0/testing/asserts.ts";
-import "https://deno.land/x/dotenv@v3.2.0/load.ts";
+import "https://deno.land/std@0.155.0/dotenv/load.ts";
 import gokv from "gokv";
 
 gokv.config({ token: Deno.env.get("GOKV_TOKEN")! });
