@@ -3,6 +3,7 @@ import fs from "node:fs"
 import gokv from "../dist/index.mjs"
 import "../web-polyfill.mjs"
 
+// load .env
 try {
   const content = fs.readFileSync(".env", "utf-8")
   const token = content.split("=")[1].trim()
@@ -72,7 +73,7 @@ await test("DurationKV", async () => {
   await kv.deleteAll()
   assert.deepEqual(await kv.list(), new Map())
 
-  let records = {
+  const records = {
     foo: "bar",
     num: 123,
     yes: true,
@@ -122,8 +123,10 @@ await test("Session", async () => {
   assert.deepEqual(session.store, null)
 
   // login as "alice"
-  await session.update({ username: "alice" })
-  assert.deepEqual(session.cookie, `sess=${session.id}; HttpOnly`)
+  const res = await session.update({ username: "alice" }, "/")
+  assert.equal(res.headers.get("Set-Cookie"), `sess=${session.id}; HttpOnly`);
+  assert.equal(res.headers.get("Location"), "/");
+  assert.equal(res.status, 302);
 
   session = await gokv.Session(new Request("https://gokv.io/", { headers: { "cookie": `sess=${session.id}` } }), config)
   assert.deepEqual(session.store, { username: "alice" })
@@ -132,8 +135,10 @@ await test("Session", async () => {
   assert.deepEqual(session.store, { username: "alice" })
 
   // end session
-  await session.end()
-  assert.deepEqual(session.cookie, `sess=; Expires=Thu, 01 Jan 1970 00:00:01 GMT; HttpOnly`)
+  const res2 = await session.end("/")
+  assert.equal(res2.headers.get("Set-Cookie"), `sess=; Expires=Thu, 01 Jan 1970 00:00:01 GMT; HttpOnly`);
+  assert.equal(res2.headers.get("Location"), "/");
+  assert.equal(res2.status, 302);
 
   session = await gokv.Session({ cookies: { sess: session.id } }, config)
   assert.deepEqual(session.store, null)
