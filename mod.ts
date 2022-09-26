@@ -27,14 +27,14 @@ class ModuleImpl implements Module {
         fetchApi("sign-access-token", {
           method: "POST",
           body: JSON.stringify({ ...(await req.json()), user }),
-          headers: await atm.accessHeaders(),
+          headers: await atm.headers(),
         }),
     };
   }
 
   Session<T extends Record<string, unknown> = Record<string, unknown>>(
     request: Request | { cookies: Record<string, string> },
-    options?: SessionOptions,
+    options?: SessionOptions & InitKVOptions,
   ): Promise<Session<T>> {
     return SessionImpl.create<T>(request, options);
   }

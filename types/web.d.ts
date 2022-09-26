@@ -1,56 +1,35 @@
-export type UserOp<U extends { uid: number | string }> = {
-  readonly type: "join" | "leave";
-  readonly user: U;
-} | {
-  readonly type: "input";
-  readonly uid: number | string;
-} | {
-  readonly type: "mousemove";
-  readonly uid: number | string;
-  readonly mouseX: number;
-  readonly mouseY: number;
+export type AuthUser = {
+  uid: number | string;
+  group?: string[];
 };
 
-export type Co<U extends { uid: number | string }> = {
-  readonly ops: AsyncIterable<UserOp<U>>;
-};
-
-export type CoEditOptions<T> = {
-  documentId: string;
-  defaultData?: T;
-};
-
-export class CoEdit<T, U extends { uid: number | string }> {
-  constructor(options: CoEditOptions<T>);
-  connect(): Promise<[T, Co<U>]>;
+export class CoEdit<T, U extends AuthUser> {
+  constructor(documentId: string, user: U, initData?: T);
+  connect(): Promise<T>;
 }
 
-export type ChatMessage = {
-  readonly type: "message";
-  readonly id: string;
-  readonly uid: number | string;
-  readonly datetime: number;
-  readonly contentType: string;
-  readonly content: string;
-  readonly edited?: boolean;
-  readonly removed?: boolean;
+export type ChatMessage<U> = {
+  id: string;
+  content: string;
+  contentType?: string;
+  createdAt: number;
+  editedAt?: number;
+  by: U;
 };
 
-export type Chat<U extends { uid: number | string }> = {
-  readonly channel: AsyncIterable<ChatMessage | UserOp<U>>;
-  dispatchEvent(type: "input"): void;
-  requestHistory(n?: number): void;
+export type Chat<U> = {
+  readonly channel: AsyncIterable<ChatMessage<U>>;
+  pullHistory(n?: number): void;
   send(content: string, contentType?: string): void;
 };
 
 export type ChatRoomOptions = {
-  roomId: string;
   history?: number;
   rateLimit?: number; // in ms
 };
 
-export class ChatRoom<U extends { uid: number | string }> {
-  constructor(options: ChatRoomOptions);
+export class ChatRoom<U extends AuthUser> {
+  constructor(roomId: string, user: U, options?: ChatRoomOptions);
   connect(): Promise<Chat<U>>;
 }
 

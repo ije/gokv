@@ -10,10 +10,10 @@ import atm from "./AccessTokenManager.ts";
 import { appendOptionsToHeaders, closeBody, fetchApi } from "./utils.ts";
 
 export default class DurableKVImpl implements DurableKV {
-  private readonly _options?: { namespace?: string };
+  readonly #options?: { namespace?: string };
 
   constructor(options?: { namespace?: string }) {
-    this._options = options;
+    this.#options = options;
   }
 
   async get(keyOrKeys: string | string[], options?: DurableKVGetOptions): Promise<any> {
@@ -28,7 +28,7 @@ export default class DurableKVImpl implements DurableKV {
       return undefined;
     }
 
-    const headers = await atm.accessHeaders(this._options);
+    const headers = await atm.headers(this.#options);
     if (multipleKeys) {
       headers.multipleKeys = "1";
     }
@@ -70,7 +70,7 @@ export default class DurableKVImpl implements DurableKV {
   }
 
   async put(keyOrEntries: string | Record<string, any>, value?: any, options?: DurableKVPutOptions): Promise<void> {
-    const headers = await atm.accessHeaders(this._options);
+    const headers = await atm.headers(this.#options);
     let resource: string | undefined = undefined;
     let body: string | undefined = undefined;
     if (typeof keyOrEntries === "string") {
@@ -111,7 +111,7 @@ export default class DurableKVImpl implements DurableKV {
     keyOrKeysOrOptions: string | string[] | DurableKVDeleteOptions,
     options?: DurableKVPutOptions,
   ): Promise<any> {
-    const headers = await atm.accessHeaders(this._options);
+    const headers = await atm.headers(this.#options);
     let resource: string | undefined = undefined;
     const multipleKeys = Array.isArray(keyOrKeysOrOptions);
     if (multipleKeys) {
@@ -141,7 +141,7 @@ export default class DurableKVImpl implements DurableKV {
   }
 
   async deleteAll(options?: DurableKVPutOptions): Promise<void> {
-    const headers = await atm.accessHeaders({ ...this._options, deleteAll: "1" });
+    const headers = await atm.headers({ ...this.#options, deleteAll: "1" });
     if (options) {
       appendOptionsToHeaders(options, headers);
     }
@@ -150,7 +150,7 @@ export default class DurableKVImpl implements DurableKV {
   }
 
   async list<T = unknown>(options?: DurableKVListOptions): Promise<Map<string, T>> {
-    const headers = await atm.accessHeaders(this._options);
+    const headers = await atm.headers(this.#options);
     if (options) {
       appendOptionsToHeaders(options, headers);
     }

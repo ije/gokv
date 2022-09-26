@@ -111,13 +111,12 @@ export type SessionOptions = {
   cookiePath?: string;
   cookieSameSite?: "Strict" | "Lax" | "None";
   cookieSecure?: boolean;
-} & InitKVOptions;
+};
 
 export class Session<StoreType extends Record<string, unknown>> {
   readonly id: string;
   readonly store: StoreType | null;
-  readonly cookie: string;
-  constructor(options: { kv: DurableKV; store: StoreType | null; sid: string } & SessionOptions);
+  constructor(sid: string, kv: DurableKV, initStore: StoreType | null, options: SessionOptions);
   update(store: StoreType | ((store: StoreType | null) => StoreType), redirectTo: string): Promise<Response>;
   end(redirectTo: string): Promise<Response>;
 }
