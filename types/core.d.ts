@@ -147,7 +147,7 @@ export type ModuleConfigOptions = {
 
 export interface Module {
   config(options: ModuleConfigOptions): void;
-  signAccessToken<U extends { uid: number | string }>(user: U): { fetch: (request: Request) => Promise<Response> };
+  signAccessToken<T extends { user: { uid: number | string } }>(payload: T): Promise<string>;
   Session<T extends Record<string, unknown> = Record<string, unknown>>(
     request: Request | { cookies: Record<string, string> },
     options?: SessionOptions,

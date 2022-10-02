@@ -21,15 +21,12 @@ class ModuleImpl implements Module {
     atm.setToken(token);
   }
 
-  signAccessToken<U extends { uid: number | string }>(user: U): { fetch: (reqest: Request) => Promise<Response> } {
-    return {
-      fetch: async (req: Request) =>
-        fetchApi("sign-access-token", {
-          method: "POST",
-          body: JSON.stringify({ ...(await req.json()), user }),
-          headers: await atm.headers(),
-        }),
-    };
+  async signAccessToken<T extends { user: { uid: number | string } }>(payload: T): Promise<string> {
+    return fetchApi("sign-access-token", {
+      method: "POST",
+      body: JSON.stringify(payload),
+      headers: await atm.headers(),
+    }).then((res) => res.text());
   }
 
   Session<T extends Record<string, unknown> = Record<string, unknown>>(
