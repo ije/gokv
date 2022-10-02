@@ -21,19 +21,15 @@ async function test(name, fn) {
 
 await test("signAccessToken", async () => {
   const token = await gokv.signAccessToken({
-    uid: 123,
-    name: "Guest",
-    username: "guest",
-    role: "guest",
-  }).fetch(
-    new Request("https://gokv.io", {
-      method: "POST",
-      body: JSON.stringify({
-        type: "chat-room",
-        namespace: "room-id",
-      }),
-    }),
-  ).then((res) => res.text());
+    type: "chat-room",
+    namespace: "room-id",
+    user: {
+      uid: 123,
+      name: "Guest",
+      username: "guest",
+      role: "guest",
+    },
+  });
 
   let [data] = token.split(".");
   const b = data.length % 4;
