@@ -20,6 +20,7 @@ export type ChatMessage<U> = {
 export type Chat<U> = {
   readonly channel: AsyncIterable<ChatMessage<U>>;
   pullHistory(n?: number): void;
+  on(type: string, listener: (event: { type: string; user: U }) => void): () => void;
   send(content: string, contentType?: string): void;
 };
 
