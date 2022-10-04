@@ -7,13 +7,13 @@ import type {
   DurableKVPutOptions,
 } from "../types/core.d.ts";
 import atm from "./AccessTokenManager.ts";
-import { appendOptionsToHeaders, closeBody, fetchApi } from "./utils.ts";
+import { appendOptionsToHeaders, closeBody, fetchApi } from "./common/utils.ts";
 
 export default class DurableKVImpl implements DurableKV {
-  readonly #options?: { namespace?: string };
+  readonly #namespace: string;
 
   constructor(options?: { namespace?: string }) {
-    this.#options = options;
+    this.#namespace = options?.namespace ?? "default";
   }
 
   async get(keyOrKeys: string | string[], options?: DurableKVGetOptions): Promise<any> {
@@ -28,9 +28,9 @@ export default class DurableKVImpl implements DurableKV {
       return undefined;
     }
 
-    const headers = await atm.headers(this.#options);
+    const headers = await atm.headers({ namespace: this.#namespace });
     if (multipleKeys) {
-      headers.multipleKeys = "1";
+      headers.append("multipleKeys", "1");
     }
     if (options) {
       appendOptionsToHeaders(options, headers);
@@ -70,7 +70,7 @@ export default class DurableKVImpl implements DurableKV {
   }
 
   async put(keyOrEntries: string | Record<string, any>, value?: any, options?: DurableKVPutOptions): Promise<void> {
-    const headers = await atm.headers(this.#options);
+    const headers = await atm.headers({ namespace: this.#namespace });
     let resource: string | undefined = undefined;
     let body: string | undefined = undefined;
     if (typeof keyOrEntries === "string") {
@@ -92,7 +92,7 @@ export default class DurableKVImpl implements DurableKV {
         default:
           throw new Error("Invalid value type: " + vType);
       }
-      headers.vType = vType;
+      headers.append("vType", vType);
       if (options) {
         appendOptionsToHeaders(options, headers);
       }
@@ -111,7 +111,7 @@ export default class DurableKVImpl implements DurableKV {
     keyOrKeysOrOptions: string | string[] | DurableKVDeleteOptions,
     options?: DurableKVPutOptions,
   ): Promise<any> {
-    const headers = await atm.headers(this.#options);
+    const headers = await atm.headers({ namespace: this.#namespace });
     let resource: string | undefined = undefined;
     const multipleKeys = Array.isArray(keyOrKeysOrOptions);
     if (multipleKeys) {
@@ -126,7 +126,7 @@ export default class DurableKVImpl implements DurableKV {
     }
 
     if (multipleKeys) {
-      headers.multipleKeys = "1";
+      headers.append("multipleKeys", "1");
     }
     if (options) {
       appendOptionsToHeaders(options, headers);
@@ -141,7 +141,7 @@ export default class DurableKVImpl implements DurableKV {
   }
 
   async deleteAll(options?: DurableKVPutOptions): Promise<void> {
-    const headers = await atm.headers({ ...this.#options, deleteAll: "1" });
+    const headers = await atm.headers({ namespace: this.#namespace, deleteAll: "1" });
     if (options) {
       appendOptionsToHeaders(options, headers);
     }
@@ -150,7 +150,7 @@ export default class DurableKVImpl implements DurableKV {
   }
 
   async list<T = unknown>(options?: DurableKVListOptions): Promise<Map<string, T>> {
-    const headers = await atm.headers(this.#options);
+    const headers = await atm.headers({ namespace: this.#namespace });
     if (options) {
       appendOptionsToHeaders(options, headers);
     }

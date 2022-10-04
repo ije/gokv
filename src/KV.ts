@@ -2,17 +2,17 @@
 
 import type { KV, KVGetWithMetadataResult, KVListOptions, KVListResult, KVPutOptions } from "../types/core.d.ts";
 import atm from "./AccessTokenManager.ts";
-import { appendOptionsToHeaders, closeBody, fetchApi } from "./utils.ts";
+import { appendOptionsToHeaders, closeBody, fetchApi } from "./common/utils.ts";
 
 export default class KVImpl implements KV {
-  readonly #options?: { namespace?: string };
+  readonly #namespace: string;
 
   constructor(options?: { namespace?: string }) {
-    this.#options = options;
+    this.#namespace = options?.namespace ?? "default";
   }
 
   async get(key: string, options?: string | { type?: string; cacheTtl?: number }): Promise<any> {
-    const headers = await atm.headers(this.#options);
+    const headers = await atm.headers({ namespace: this.#namespace });
     if (options && typeof options !== "string") {
       appendOptionsToHeaders(options, headers);
     }
@@ -45,7 +45,7 @@ export default class KVImpl implements KV {
     key: string,
     options?: string | { type?: string; cacheTtl?: number },
   ): Promise<KVGetWithMetadataResult<any, M>> {
-    const headers = await atm.headers({ ...this.#options, "accept-metadata": "1" });
+    const headers = await atm.headers({ namespace: this.#namespace, "accept-metadata": "1" });
     if (options && typeof options !== "string") {
       appendOptionsToHeaders(options, headers);
     }
@@ -90,7 +90,7 @@ export default class KVImpl implements KV {
   }
 
   async put(key: string, value: string | ArrayBuffer | ReadableStream, options?: KVPutOptions): Promise<void> {
-    const headers = await atm.headers({ ...this.#options, "accept-metadata": "1" });
+    const headers = await atm.headers({ namespace: this.#namespace, "accept-metadata": "1" });
     if (options) {
       appendOptionsToHeaders(options, headers);
     }
@@ -99,13 +99,13 @@ export default class KVImpl implements KV {
   }
 
   async delete(key: string): Promise<void> {
-    const headers: Record<string, string> = await atm.headers(this.#options);
+    const headers = await atm.headers({ namespace: this.#namespace });
     const res = await fetchApi("kv", { method: "DELETE", resource: key, headers });
     await closeBody(res); // release body
   }
 
   async list(options?: KVListOptions): Promise<KVListResult> {
-    const headers: Record<string, string> = await atm.headers(this.#options);
+    const headers = await atm.headers({ namespace: this.#namespace });
     if (options) {
       appendOptionsToHeaders(options, headers);
     }

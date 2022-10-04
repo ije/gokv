@@ -9,9 +9,9 @@ export class AccessTokenManager {
   #tokenCache?: string;
   #tokenExpires?: number;
 
-  constructor(options: { token?: string; signUrl?: string }) {
-    this.#token = options.token;
-    this.#signUrl = options.signUrl;
+  constructor(options?: { token?: string; signUrl?: string }) {
+    this.#token = options?.token;
+    this.#signUrl = options?.signUrl;
   }
 
   setToken(token: string): void {
@@ -25,11 +25,12 @@ export class AccessTokenManager {
   async getAccessToken(payload?: AccessTokenPayload): Promise<Readonly<[string, string]>> {
     if (this.#token) {
       return ["Bearer", this.#token];
-    } else if (this.#tokenCache && this.#tokenExpires && this.#tokenExpires > Date.now()) {
-      return ["JWT", this.#tokenCache];
     } else if (this.#signUrl) {
       if (!payload) {
         throw new Error("missing payload");
+      }
+      if (this.#tokenCache && this.#tokenExpires && this.#tokenExpires > Date.now()) {
+        return ["JWT", this.#tokenCache];
       }
       const now = Date.now();
       const res = await fetch(this.#signUrl, { method: "POST", body: JSON.stringify(payload) });
@@ -45,23 +46,11 @@ export class AccessTokenManager {
     }
   }
 
-  async headers(
-    init?: Record<string, string | undefined>,
-    payload?: AccessTokenPayload,
-  ): Promise<Record<string, string>> {
-    const headers: Record<string, string> = {};
-    if (init) {
-      Object.entries(init).forEach(([key, value]) => {
-        if (key && value) {
-          headers[key] = value;
-        }
-      });
-    }
-    headers.Authorization = (await this.getAccessToken(payload)).join(" ");
+  async headers(init?: HeadersInit, payload?: AccessTokenPayload): Promise<Headers> {
+    const headers = new Headers(init);
+    headers.set("Authorization", (await this.getAccessToken(payload)).join(" "));
     return headers;
   }
 }
 
-export default new AccessTokenManager({
-  signUrl: "/gokv-sign",
-});
+export default new AccessTokenManager();

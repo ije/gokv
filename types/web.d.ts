@@ -17,16 +17,20 @@ export type ChatMessage<U> = {
   by: U;
 };
 
+export type ChatEvent = "userjoin" | "userleave" | "usertype";
+
 export type Chat<U> = {
   readonly channel: AsyncIterable<ChatMessage<U>>;
-  pullHistory(n?: number): void;
-  on(type: string, listener: (event: { type: string; user: U }) => void): () => void;
-  send(content: string, contentType?: string): void;
+  readonly onlineUsers: U[];
+  pullHistory(n?: number): Promise<ChatMessage<U>[]>;
+  on(type: ChatEvent, listener: (event: { type: ChatEvent; user: U }) => void): () => void;
+  send(content: string, contentType?: string): Promise<ChatMessage<U>>;
 };
 
 export type ChatRoomOptions = {
   history?: number;
   rateLimit?: number; // in ms
+  listenUserType?: boolean;
 };
 
 export class ChatRoom<U extends AuthUser> {

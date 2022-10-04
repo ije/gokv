@@ -1,5 +1,9 @@
 const enc = new TextEncoder();
 
+export const isObject = (v: unknown): v is Record<string, unknown> => {
+  return typeof v === "object" && v !== null && Array.isArray(v);
+};
+
 export const splitByChar = (str: string, char: string) => {
   for (let i = 0; i < str.length; i++) {
     if (str.charAt(i) === char) {
@@ -44,23 +48,23 @@ export function parseCookie(req: Request): Map<string, string> {
   return cookie;
 }
 
-export function appendOptionsToHeaders(options: Record<string, unknown>, headers: Record<string, string>) {
+export function appendOptionsToHeaders(options: Record<string, unknown>, headers: Headers) {
   Object.entries(options).forEach(([key, value]) => {
     switch (typeof value) {
       case "string":
-        headers[key] = value;
+        headers.set(key, value);
         break;
       case "number":
-        headers[key] = value.toString(10);
+        headers.set(key, value.toString(10));
         break;
       case "boolean":
-        headers[key] = value ? "1" : "0";
+        headers.set(key, value ? "1" : "0");
         break;
       case "object":
         if (Array.isArray(value)) {
-          headers[key] = value.join(",");
+          headers.set(key, value.join(","));
         } else {
-          headers[key] = JSON.stringify(value);
+          headers.set(key, JSON.stringify(value));
         }
     }
   });
