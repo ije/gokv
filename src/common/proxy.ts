@@ -19,14 +19,18 @@ export default function proxy<T extends Record<string, unknown>>(
     },
     set: (target: T, prop: string | symbol, value: unknown, receiver: unknown): boolean => {
       const key = fixProp(prop);
+      const op = Reflect.has(target, prop) ? "replace" : "add";
       const oldValue = Reflect.get(target, prop, receiver);
-      if (typeof value === "object" && value !== null && typeof key !== "symbol") {
-        value = proxy(value as T, notify, [...path, key]);
-      }
-      const updated = Reflect.set(target, prop, value, receiver);
-      if (updated && typeof key !== "symbol") {
+      const canProxy = typeof value === "object" && value !== null && typeof key !== "symbol";
+      const updated = Reflect.set(
+        target,
+        prop,
+        canProxy ? proxy(value as T, notify, [...path, key]) : value,
+        receiver,
+      );
+      if (updated && typeof key !== "symbol" && !(isArray && key === "length")) {
         notifyFn?.({
-          op: oldValue === void 0 ? "add" : "replace",
+          op,
           path: [...path, key],
           value,
           oldValue,

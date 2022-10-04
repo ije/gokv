@@ -11,10 +11,6 @@ export interface JSONPatch {
   readonly value?: unknown;
   // this goes beyond JSON-patch, but makes sure each patch can be inverse applied
   readonly oldValue?: unknown;
-  // this goes beyond JSON-patch, for array splice(insert) op
-  readonly addedCount?: number;
-  // this goes beyond JSON-patch, for array splice(remove) op
-  readonly removedCount?: number;
 }
 
 export function invertPatch(patch: JSONPatch): JSONPatch {
@@ -24,14 +20,12 @@ export function invertPatch(patch: JSONPatch): JSONPatch {
         op: "remove",
         path: patch.path,
         oldValue: patch.value,
-        removedCount: patch.addedCount,
       };
     case "remove":
       return {
         op: "add",
         path: patch.path,
         value: patch.oldValue,
-        addedCount: patch.removedCount,
       };
     case "replace":
       return {

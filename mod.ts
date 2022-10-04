@@ -14,7 +14,7 @@ import KVImpl from "./src/KV.ts";
 import DurableKVImpl from "./src/DurableKV.ts";
 import SessionImpl from "./src/Session.ts";
 import UploaderImpl from "./src/Uploader.ts";
-import { fetchApi } from "./src/utils.ts";
+import { fetchApi } from "./src/common/utils.ts";
 
 class ModuleImpl implements Module {
   config({ token }: ModuleConfigOptions) {
