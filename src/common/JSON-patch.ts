@@ -1,5 +1,3 @@
-export type Path = (string | number)[];
-
 /**
  * JSON-patch
  * http://jsonpatch.com/
@@ -12,6 +10,9 @@ export interface JSONPatch {
   // this goes beyond JSON-patch, but makes sure each patch can be inverse applied
   readonly oldValue?: unknown;
 }
+
+/** The path (array) for JOSN-patch specifcation. */
+export type Path = (string | number)[];
 
 export function invertPatch(patch: JSONPatch): JSONPatch {
   switch (patch.op) {

@@ -3,7 +3,7 @@ import fs from "node:fs";
 import gokv from "../dist/index.mjs";
 import "../web-polyfill.mjs";
 
-// load .env
+// load `.env`
 try {
   const content = fs.readFileSync(".env", "utf-8");
   const token = content.split("=")[1].trim();
