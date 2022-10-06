@@ -145,9 +145,25 @@ export type ModuleConfigOptions = {
   token: string;
 };
 
+export interface AuthUser {
+  uid: number | string;
+  name: string;
+}
+
+export type ServiceName = "kv" | "durable-kv" | "chat-room" | "co-edit" | "upload";
+
+export type Permissions = {
+  read: boolean;
+  write: boolean;
+};
+
 export interface Module {
   config(options: ModuleConfigOptions): void;
-  signAccessToken<T extends { user: { uid: number | string } }>(payload: T): Promise<string>;
+  signAccessToken<U extends AuthUser>(
+    auth: U,
+    scope: `${ServiceName}:${string}`,
+    permissions?: Permissions,
+  ): Promise<string>;
   Session<T extends Record<string, unknown> = Record<string, unknown>>(
     request: Request | { cookies: Record<string, string> },
     options?: SessionOptions,

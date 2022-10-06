@@ -15,7 +15,7 @@ export default class UploaderImpl implements Uploader {
     const res = await fetch("https://upload.gokv.io", {
       method: "POST",
       body: body,
-      headers: await atm.headers({ namespace }, { type: "uploader", namespace }),
+      headers: await atm.headers("upload", namespace),
     });
     if (res.status >= 400) {
       throw new Error(await res.text());

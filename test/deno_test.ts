@@ -5,16 +5,14 @@ import gokv from "gokv";
 gokv.config({ token: Deno.env.get("GOKV_TOKEN")! });
 
 Deno.test("signAccessToken", async () => {
-  const token = await gokv.signAccessToken({
-    type: "chat-room",
-    namespace: "room-id",
-    user: {
+  const token = await gokv.signAccessToken(
+    {
       uid: 123,
       name: "Guest",
-      username: "guest",
-      role: "guest",
     },
-  });
+    "chat-room:room-id",
+    { read: true, write: true },
+  );
 
   let [data] = token.split(".");
   const b = data.length % 4;
@@ -28,12 +26,11 @@ Deno.test("signAccessToken", async () => {
   data = data.replace(/\-/g, "+").replace(/_/g, "/");
 
   const payload = JSON.parse(atob(data));
-  assertEquals(payload.type, "chat-room");
-  assertEquals(payload.namespace, "room-id");
-  assertEquals(payload.user.uid, 123);
-  assertEquals(payload.user.name, "Guest");
-  assertEquals(payload.user.username, "guest");
-  assertEquals(payload.user.role, "guest");
+  assertEquals(payload.scope, "chat-room:room-id");
+  assertEquals(payload.auth.uid, 123);
+  assertEquals(payload.auth.name, "Guest");
+  assertEquals(payload.permissions.read, true);
+  assertEquals(payload.permissions.write, true);
   assertEquals(typeof payload.$gokvUID, "string");
   assertEquals(typeof payload.$expires, "number");
 });

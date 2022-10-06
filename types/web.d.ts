@@ -1,11 +1,12 @@
-export type AuthUser = {
+export interface AuthUser {
   uid: number | string;
-  group?: string[];
-};
+  name: string;
+}
 
-export class CoEdit<T, U extends AuthUser> {
-  constructor(documentId: string, user: U, initData?: T);
-  connect(): Promise<T>;
+// deno-lint-ignore ban-types
+export class CoEdit<T extends object> {
+  constructor(documentId: string);
+  connect(initData?: T): Promise<T>;
 }
 
 export type ChatMessage<U> = {
@@ -34,7 +35,7 @@ export type ChatRoomOptions = {
 };
 
 export class ChatRoom<U extends AuthUser> {
-  constructor(roomId: string, user: U, options?: ChatRoomOptions);
+  constructor(roomId: string, options?: ChatRoomOptions);
   connect(): Promise<Chat<U>>;
 }
 
@@ -65,6 +66,10 @@ export type ModuleConfigOptions = {
 
 export interface Module {
   config(options: ModuleConfigOptions): void;
+  Uploader(options?: UploaderOptions): Uploader;
+  ChatRoom<U extends AuthUser>(roomId: string, options?: ChatRoomOptions): ChatRoom<U>;
+  // deno-lint-ignore ban-types
+  CoEdit<T extends object>(documentId: string, options?: ChatRoomOptions): CoEdit<T>;
 }
 
 export default Module;

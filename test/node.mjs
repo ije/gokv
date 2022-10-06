@@ -20,16 +20,14 @@ async function test(name, fn) {
 }
 
 await test("signAccessToken", async () => {
-  const token = await gokv.signAccessToken({
-    type: "chat-room",
-    namespace: "room-id",
-    user: {
+  const token = await gokv.signAccessToken(
+    {
       uid: 123,
       name: "Guest",
-      username: "guest",
-      role: "guest",
     },
-  });
+    "chat-room:room-id",
+    { read: true, write: true },
+  );
 
   let [data] = token.split(".");
   const b = data.length % 4;
@@ -43,14 +41,13 @@ await test("signAccessToken", async () => {
   data = data.replace(/\-/g, "+").replace(/_/g, "/");
 
   const payload = JSON.parse(Buffer.from(data, "base64").toString());
-  assert.deepEqual(payload.type, "chat-room");
-  assert.deepEqual(payload.namespace, "room-id");
-  assert.deepEqual(payload.user.uid, 123);
-  assert.deepEqual(payload.user.name, "Guest");
-  assert.deepEqual(payload.user.username, "guest");
-  assert.deepEqual(payload.user.role, "guest");
-  assert.deepEqual(typeof payload.$gokvUID, "string");
-  assert.deepEqual(typeof payload.$expires, "number");
+  assert.equal(payload.scope, "chat-room:room-id");
+  assert.equal(payload.auth.uid, 123);
+  assert.equal(payload.auth.name, "Guest");
+  assert.equal(payload.permissions.read, true);
+  assert.equal(payload.permissions.write, true);
+  assert.equal(typeof payload.$gokvUID, "string");
+  assert.equal(typeof payload.$expires, "number");
 });
 
 await test("KV", async () => {

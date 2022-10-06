@@ -1,7 +1,4 @@
-export type AccessTokenPayload = {
-  type: "chat-room" | "co-editing" | "uploader";
-  namespace: string;
-};
+import type { ServiceName } from "../types/core.d.ts";
 
 export class AccessTokenManager {
   #token?: string;
@@ -22,18 +19,20 @@ export class AccessTokenManager {
     this.#signUrl = url;
   }
 
-  async getAccessToken(payload?: AccessTokenPayload): Promise<Readonly<[string, string]>> {
+  async getAccessToken(scope?: `${ServiceName}:${string}`): Promise<Readonly<["Bearer" | "JWT", string]>> {
     if (this.#token) {
       return ["Bearer", this.#token];
     } else if (this.#signUrl) {
-      if (!payload) {
-        throw new Error("missing payload");
-      }
       if (this.#tokenCache && this.#tokenExpires && this.#tokenExpires > Date.now()) {
         return ["JWT", this.#tokenCache];
       }
       const now = Date.now();
-      const res = await fetch(this.#signUrl, { method: "POST", body: JSON.stringify(payload) });
+      const url = new URL(this.#signUrl, location?.href ?? "http://localhost");
+      if (!scope) {
+        throw new Error("missing scope");
+      }
+      url.searchParams.append("scope", scope);
+      const res = await fetch(url);
       if (res.status >= 400) {
         throw new Error(await res.text());
       }
@@ -42,13 +41,14 @@ export class AccessTokenManager {
       this.#tokenExpires = now + 5 * 60 * 1000;
       return ["JWT", token];
     } else {
-      throw new Error("undefined token");
+      throw new Error("token not found");
     }
   }
 
-  async headers(init?: HeadersInit, payload?: AccessTokenPayload): Promise<Headers> {
+  async headers(service: ServiceName, namespace: string, init?: HeadersInit): Promise<Headers> {
     const headers = new Headers(init);
-    headers.set("Authorization", (await this.getAccessToken(payload)).join(" "));
+    headers.append("Authorization", (await this.getAccessToken(`${service}:${namespace}`)).join(" "));
+    headers.append("Namespace", namespace);
     return headers;
   }
 }

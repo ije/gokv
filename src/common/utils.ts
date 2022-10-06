@@ -78,7 +78,7 @@ export async function fetchApi(service: string, init?: RequestInit & { resource?
   const res = await fetch(url, init);
   if (res.status >= 400) {
     if (!init?.ignore404) {
-      return Promise.reject(new Error(`<${res.status}> ${await res.text()}`));
+      return Promise.reject(new Error(`gokv.io: <${res.status}> ${await res.text()}`));
     }
   }
   return res;

@@ -15,7 +15,8 @@ function canProxy(a: unknown) {
 }
 
 /** Proxy an object to create JSON-patches when changes. */
-export default function proxy<T extends Record<string, unknown>>(
+// deno-lint-ignore ban-types
+export default function proxy<T extends object>(
   initialObject: T,
   notify: (patch: JSONPatch) => void,
   path: Path = [],
@@ -24,11 +25,11 @@ export default function proxy<T extends Record<string, unknown>>(
     throw new Error("proxy: requires plain object or array");
   }
   const isArray = Array.isArray(initialObject);
-  const target = isArray ? [] : Object.create(Object.getPrototypeOf(initialObject));
+  const target = isArray ? [] : Object.create(Object.prototype);
   const fixProp = (prop: string | symbol) =>
     isArray && typeof prop === "string" && prop.charCodeAt(0) <= 57 ? Number(prop) : prop;
   const createSnapshot = (target: T, receiver: unknown) => {
-    const snapshot = isArray ? [] : Object.create(Object.getPrototypeOf(initialObject));
+    const snapshot = isArray ? [] : Object.create(Object.prototype);
     Reflect.ownKeys(target).forEach((key) => {
       if (typeof key === "string") {
         snapshot[key] = Reflect.get(target, key, receiver);
@@ -91,6 +92,7 @@ export default function proxy<T extends Record<string, unknown>>(
   return proxyObject;
 }
 
-export function snapshot<T extends Record<string, unknown>>(obj: T): T {
+// deno-lint-ignore ban-types
+export function snapshot<T extends object>(obj: T): T {
   return (obj as Record<string | symbol, unknown>)[SNAPSHOT] as T;
 }
