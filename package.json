@@ -21,8 +21,8 @@
     "web-polyfill.mjs"
   ],
   "scripts": {
-    "build": "pnpm esbuild --bundle --minify --platform=browser --format=esm --target=es2022 --outfile=dist/index.mjs mod.ts",
-    "build:web": "pnpm esbuild --bundle --minify --platform=browser --format=esm --target=es2022 --outfile=dist/web.mjs web.ts",
+    "build": "pnpm esbuild --bundle --minify --platform=browser --format=esm --target=es2022 --sourcemap --outfile=dist/index.mjs mod.ts",
+    "build:web": "pnpm esbuild --bundle --minify --platform=browser --format=esm --target=es2022 --sourcemap --outfile=dist/web.mjs web.ts",
     "prepublishOnly": "pnpm build && pnpm build:web"
   },
   "repository": {
