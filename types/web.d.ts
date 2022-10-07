@@ -7,6 +7,7 @@ export interface AuthUser {
 export class CoEdit<T extends object> {
   constructor(documentId: string);
   connect(initData?: T): Promise<T>;
+  disconnect(): void;
 }
 
 export type ChatMessage<U> = {
@@ -37,6 +38,7 @@ export type ChatRoomOptions = {
 export class ChatRoom<U extends AuthUser> {
   constructor(roomId: string, options?: ChatRoomOptions);
   connect(): Promise<Chat<U>>;
+  disconnect(): void;
 }
 
 export type UploaderOptions = {

@@ -11,4 +11,8 @@ export default class CoEditImpl<T extends object> implements CoEdit<T> {
   async connect(initData?: T): Promise<T> {
     return initData ?? {} as T;
   }
+
+  disconnect() {
+    console.log("disconnect");
+  }
 }

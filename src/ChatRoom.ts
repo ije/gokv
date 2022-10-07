@@ -12,4 +12,8 @@ export default class ChatRoomImpl<U extends AuthUser> implements ChatRoom<U> {
   async connect(): Promise<Chat<U>> {
     return {} as Chat<U>;
   }
+
+  disconnect() {
+    console.log("disconnect");
+  }
 }
