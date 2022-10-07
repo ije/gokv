@@ -42,4 +42,4 @@ jobs:
       - name: Deno test
         env:
           GOKV_TOKEN: ${{ secrets.GOKV_TOKEN }}
-        run: deno test -A test/deno_test.ts
+        run: deno test -A src/ test/deno_test.ts
