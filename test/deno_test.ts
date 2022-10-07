@@ -2,7 +2,7 @@ import { assertEquals } from "https://deno.land/std@0.155.0/testing/asserts.ts";
 import "https://deno.land/std@0.155.0/dotenv/load.ts";
 import gokv from "gokv";
 
-gokv.config({ token: Deno.env.get("GOKV_TOKEN")! });
+await gokv.config({ token: Deno.env.get("GOKV_TOKEN")! }).connect();
 
 Deno.test("signAccessToken", async () => {
   const token = await gokv.signAccessToken(
@@ -38,22 +38,22 @@ Deno.test("signAccessToken", async () => {
 Deno.test("KV", async () => {
   const kv = gokv.KV({ namespace: "dev-test" });
 
-  await kv.put("document", `{"id": "xxx", "type": "json"}`, {
-    metadata: { author: "alice" },
+  await kv.put("document", `{"id": "xxxxxx", "type": "json"}`, {
+    metadata: { author: "sual" },
   });
   await kv.put("plain", "Hello world!", {
     metadata: { keywords: ["foo", "bar"] },
   });
-  await kv.put("void", "null");
-  await kv.delete("void");
-  assertEquals(await kv.get("document", "json"), { id: "xxx", type: "json" });
+  await kv.put("tmp", "null");
+  await kv.delete("tmp");
+  assertEquals(await kv.get("document", "json"), { id: "xxxxxx", type: "json" });
   assertEquals(await kv.getWithMetadata("document", "json"), {
-    value: { id: "xxx", type: "json" },
-    metadata: { author: "alice" },
+    value: { id: "xxxxxx", type: "json" },
+    metadata: { author: "sual" },
   });
   assertEquals(await kv.get("plain"), "Hello world!");
   assertEquals(await kv.list(), {
-    keys: [{ name: "document", metadata: { author: "alice" } }, {
+    keys: [{ name: "document", metadata: { author: "sual" } }, {
       name: "plain",
       metadata: { keywords: ["foo", "bar"] },
     }],

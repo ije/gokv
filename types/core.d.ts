@@ -27,6 +27,7 @@ export type KVListResult = {
 };
 
 export type InitKVOptions = {
+  socket?: Socket;
   namespace?: string;
 };
 
@@ -157,8 +158,15 @@ export type Permissions = {
   write: boolean;
 };
 
+export interface Socket {
+  fetch(input: string | URL, init?: RequestInit): Promise<Response>;
+  close(): void;
+}
+
 export interface Module {
-  config(options: ModuleConfigOptions): void;
+  config(options: ModuleConfigOptions): this;
+  connect(): Promise<Socket>;
+  disConnect(): void;
   signAccessToken<U extends AuthUser>(
     auth: U,
     scope: `${ServiceName}:${string}`,

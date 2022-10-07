@@ -1,4 +1,7 @@
-const enc = new TextEncoder();
+import type { Socket } from "../../types/core.d.ts";
+
+export const enc = new TextEncoder();
+export const dec = new TextDecoder();
 
 export const isObject = (v: unknown): v is Record<string, unknown> => {
   return typeof v === "object" && v !== null && Array.isArray(v);
@@ -13,7 +16,35 @@ export const splitByChar = (str: string, char: string) => {
   return [str, ""];
 };
 
-export function toHex(buf: ArrayBuffer) {
+export function checkNamespace(namespace: string) {
+  if (namespace.length > 100) {
+    throw new Error("namespace must be 100 characters or less");
+  }
+  if (!/^[@a-zA-Z0-9_\-\/\.]+$/.test(namespace)) {
+    throw new Error("namespace must only contain alphanumeric characters, underscores, and dashes");
+  }
+  return namespace.toLowerCase();
+}
+
+export function toBytesInt32(n: number) {
+  const arr = new ArrayBuffer(4);
+  const view = new DataView(arr);
+  view.setUint32(0, n);
+  return new Uint8Array(arr);
+}
+
+export function conactBytes(...bytes: Uint8Array[]) {
+  const len = bytes.reduce((acc, b) => acc + b.length, 0);
+  const ret = new Uint8Array(len);
+  let offset = 0;
+  for (const b of bytes) {
+    ret.set(b, offset);
+    offset += b.length;
+  }
+  return ret;
+}
+
+export function toHex(buf: ArrayBuffer): string {
   return Array.from(new Uint8Array(buf)).map((b) => b.toString(36).padStart(2, "0")).join("");
 }
 
@@ -70,23 +101,27 @@ export function appendOptionsToHeaders(options: Record<string, unknown>, headers
   });
 }
 
-export async function fetchApi(service: string, init?: RequestInit & { resource?: string; ignore404?: boolean }) {
+export function closeBody(res: Response): Promise<void> {
+  if (res.body?.cancel) {
+    return res.body!.cancel();
+  }
+  return Promise.resolve();
+}
+
+export async function fetchApi(
+  service: string,
+  init?: RequestInit & { socket?: Socket; resource?: string; ignore404?: boolean },
+) {
   const url = new URL(`https://${service}.gokv.io`);
   if (init?.resource) {
     url.pathname = `/${init.resource}`;
   }
-  const res = await fetch(url, init);
+  const fetcher = init?.socket?.fetch ?? fetch;
+  const res = await fetcher(url, init);
   if (res.status >= 400) {
     if (!init?.ignore404) {
       return Promise.reject(new Error(`gokv.io: <${res.status}> ${await res.text()}`));
     }
   }
   return res;
-}
-
-export function closeBody(res: Response): Promise<void> {
-  if (res.body?.cancel) {
-    return res.body!.cancel();
-  }
-  return Promise.resolve();
 }

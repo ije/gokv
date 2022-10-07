@@ -5,15 +5,27 @@ import type {
   DurableKVGetOptions,
   DurableKVListOptions,
   DurableKVPutOptions,
+  Socket,
 } from "../types/core.d.ts";
-import atm from "./AccessTokenManager.ts";
-import { appendOptionsToHeaders, closeBody, fetchApi } from "./common/utils.ts";
+import atm from "./common/AccessTokenManager.ts";
+import { appendOptionsToHeaders, checkNamespace, closeBody, fetchApi } from "./common/utils.ts";
 
 export default class DurableKVImpl implements DurableKV {
   readonly #namespace: string;
+  readonly #socket?: Socket;
 
-  constructor(options?: { namespace?: string }) {
-    this.#namespace = options?.namespace ?? "default";
+  constructor(options?: { namespace?: string; socket?: Socket }) {
+    this.#namespace = checkNamespace(options?.namespace ?? "default");
+    this.#socket = options?.socket;
+  }
+
+  async #initHeaders(init?: HeadersInit): Promise<Headers> {
+    if (this.#socket) {
+      const headers = new Headers(init);
+      headers.set("namespace", this.#namespace);
+      return headers;
+    }
+    return await atm.headers("durable-kv", this.#namespace, init);
   }
 
   async get(keyOrKeys: string | string[], options?: DurableKVGetOptions): Promise<any> {
@@ -28,7 +40,7 @@ export default class DurableKVImpl implements DurableKV {
       return undefined;
     }
 
-    const headers = await atm.headers("durable-kv", this.#namespace);
+    const headers = await this.#initHeaders();
     if (multipleKeys) {
       headers.append("multipleKeys", "1");
     }
@@ -36,7 +48,7 @@ export default class DurableKVImpl implements DurableKV {
       appendOptionsToHeaders(options, headers);
     }
 
-    const res = await fetchApi("durable-kv", { resource, headers, ignore404: true });
+    const res = await fetchApi("durable-kv", { socket: this.#socket, resource, headers, ignore404: true });
     if (res.status === 404) {
       return closeBody(res); // release body
     }
@@ -70,7 +82,7 @@ export default class DurableKVImpl implements DurableKV {
   }
 
   async put(keyOrEntries: string | Record<string, any>, value?: any, options?: DurableKVPutOptions): Promise<void> {
-    const headers = await atm.headers("durable-kv", this.#namespace);
+    const headers = await this.#initHeaders();
     let resource: string | undefined = undefined;
     let body: string | undefined = undefined;
     if (typeof keyOrEntries === "string") {
@@ -103,7 +115,7 @@ export default class DurableKVImpl implements DurableKV {
       throw new Error("Invalid value type: not a record");
     }
 
-    const res = await fetchApi("durable-kv", { resource, method: "PUT", headers, body });
+    const res = await fetchApi("durable-kv", { socket: this.#socket, resource, method: "PUT", headers, body });
     await closeBody(res); // release body
   }
 
@@ -111,7 +123,7 @@ export default class DurableKVImpl implements DurableKV {
     keyOrKeysOrOptions: string | string[] | DurableKVDeleteOptions,
     options?: DurableKVPutOptions,
   ): Promise<any> {
-    const headers = await atm.headers("durable-kv", this.#namespace);
+    const headers = await this.#initHeaders();
     let resource: string | undefined = undefined;
     const multipleKeys = Array.isArray(keyOrKeysOrOptions);
     if (multipleKeys) {
@@ -132,7 +144,7 @@ export default class DurableKVImpl implements DurableKV {
       appendOptionsToHeaders(options, headers);
     }
 
-    const res = await fetchApi("durable-kv", { resource, method: "DELETE", headers });
+    const res = await fetchApi("durable-kv", { socket: this.#socket, resource, method: "DELETE", headers });
     const ret = await res.text();
     if (typeof keyOrKeysOrOptions === "string") {
       return ret === "true";
@@ -141,20 +153,20 @@ export default class DurableKVImpl implements DurableKV {
   }
 
   async deleteAll(options?: DurableKVPutOptions): Promise<void> {
-    const headers = await atm.headers("durable-kv", this.#namespace, { deleteAll: "1" });
+    const headers = await this.#initHeaders({ deleteAll: "1" });
     if (options) {
       appendOptionsToHeaders(options, headers);
     }
-    const res = await fetchApi("durable-kv", { method: "DELETE", headers });
+    const res = await fetchApi("durable-kv", { socket: this.#socket, method: "DELETE", headers });
     await closeBody(res); // release body
   }
 
   async list<T = unknown>(options?: DurableKVListOptions): Promise<Map<string, T>> {
-    const headers = await atm.headers("durable-kv", this.#namespace);
+    const headers = await this.#initHeaders();
     if (options) {
       appendOptionsToHeaders(options, headers);
     }
-    const res = await fetchApi("durable-kv", { headers });
+    const res = await fetchApi("durable-kv", { socket: this.#socket, headers });
     const data = await res.json();
     const map = new Map<string, T>();
     if (Array.isArray(data)) {

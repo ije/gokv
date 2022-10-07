@@ -9,19 +9,39 @@ import type {
   ServiceName,
   Session,
   SessionOptions,
+  Socket,
   Uploader,
   UploaderOptions,
 } from "./types/core.d.ts";
-import atm from "./src/AccessTokenManager.ts";
+import atm from "./src/common/AccessTokenManager.ts";
+import { fetchApi } from "./src/common/utils.ts";
+import { connect } from "./src/common/socket.ts";
 import KVImpl from "./src/KV.ts";
 import DurableKVImpl from "./src/DurableKV.ts";
 import SessionImpl from "./src/Session.ts";
 import UploaderImpl from "./src/Uploader.ts";
-import { fetchApi } from "./src/common/utils.ts";
 
 class ModuleImpl implements Module {
-  config({ token }: ModuleConfigOptions) {
+  #socket: Socket | undefined;
+
+  config({ token }: ModuleConfigOptions): this {
     atm.setToken(token);
+    return this;
+  }
+
+  async connect(): Promise<Socket> {
+    if (typeof WebSocket === "undefined") {
+      throw new Error("WebSocket is not supported");
+    }
+    this.#socket = await connect();
+    return this.#socket;
+  }
+
+  disConnect(): void {
+    if (this.#socket) {
+      this.#socket.close();
+      this.#socket = undefined;
+    }
   }
 
   async signAccessToken<U extends AuthUser>(
@@ -46,11 +66,11 @@ class ModuleImpl implements Module {
   }
 
   KV(options?: InitKVOptions): KV {
-    return new KVImpl(options);
+    return new KVImpl({ ...options, socket: this.#socket });
   }
 
   DurableKV(options?: InitKVOptions): DurableKV {
-    return new DurableKVImpl(options);
+    return new DurableKVImpl({ ...options, socket: this.#socket });
   }
 
   Uploader(options?: UploaderOptions): Uploader {
