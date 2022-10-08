@@ -1,7 +1,7 @@
 import type { DurableKV, InitKVOptions, Session, SessionOptions } from "../types/core.d.ts";
 import DurableKVImpl from "./DurableKV.ts";
-import atm from "./AccessTokenManager.ts";
-import { hashText, hmacSign, parseCookie, splitByChar } from "./utils.ts";
+import atm from "./common/AccessTokenManager.ts";
+import { hashText, hmacSign, parseCookie, splitByChar } from "./common/utils.ts";
 
 const minMaxAge = 60; // one minute
 const defaultMaxAge = 30 * 60; // half an hour
@@ -17,7 +17,7 @@ export default class SessionImpl<StoreType extends Record<string, unknown>> impl
     request: Request | { cookies: Record<string, string> },
     options?: SessionOptions & InitKVOptions,
   ): Promise<Session<T>> {
-    const namespace = "session/" + (options?.namespace || "default");
+    const namespace = "session/" + (options?.namespace ?? "default");
     const cookieName = options?.cookieName || "session";
     const kv: DurableKV = new DurableKVImpl({ namespace });
     const [_, token] = await atm.getAccessToken();

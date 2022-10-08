@@ -1,23 +1,41 @@
 // deno-lint-ignore-file no-explicit-any
 
-import type { KV, KVGetWithMetadataResult, KVListOptions, KVListResult, KVPutOptions } from "../types/core.d.ts";
-import atm from "./AccessTokenManager.ts";
-import { appendOptionsToHeaders, closeBody, fetchApi } from "./utils.ts";
+import type {
+  KV,
+  KVGetWithMetadataResult,
+  KVListOptions,
+  KVListResult,
+  KVPutOptions,
+  Socket,
+} from "../types/core.d.ts";
+import atm from "./common/AccessTokenManager.ts";
+import { appendOptionsToHeaders, checkNamespace, closeBody, fetchApi } from "./common/utils.ts";
 
 export default class KVImpl implements KV {
-  readonly #options?: { namespace?: string };
+  readonly #namespace: string;
+  readonly #socket?: Socket;
 
-  constructor(options?: { namespace?: string }) {
-    this.#options = options;
+  constructor(options?: { namespace?: string; socket?: Socket }) {
+    this.#namespace = checkNamespace(options?.namespace ?? "default");
+    this.#socket = options?.socket;
+  }
+
+  async #initHeaders(init?: HeadersInit): Promise<Headers> {
+    if (this.#socket) {
+      const headers = new Headers(init);
+      headers.set("namespace", this.#namespace);
+      return headers;
+    }
+    return await atm.headers("kv", this.#namespace, init);
   }
 
   async get(key: string, options?: string | { type?: string; cacheTtl?: number }): Promise<any> {
-    const headers = await atm.headers(this.#options);
+    const headers = await this.#initHeaders();
     if (options && typeof options !== "string") {
       appendOptionsToHeaders(options, headers);
     }
 
-    const res = await fetchApi("kv", { resource: key, headers, ignore404: true });
+    const res = await fetchApi("kv", { socket: this.#socket, resource: key, headers, ignore404: true });
     if (res.status == 404) {
       await closeBody(res);
       return null;
@@ -45,12 +63,12 @@ export default class KVImpl implements KV {
     key: string,
     options?: string | { type?: string; cacheTtl?: number },
   ): Promise<KVGetWithMetadataResult<any, M>> {
-    const headers = await atm.headers({ ...this.#options, "accept-metadata": "1" });
+    const headers = await this.#initHeaders({ "accept-metadata": "1" });
     if (options && typeof options !== "string") {
       appendOptionsToHeaders(options, headers);
     }
 
-    const res = await fetchApi("kv", { resource: key, headers, ignore404: true });
+    const res = await fetchApi("kv", { socket: this.#socket, resource: key, headers, ignore404: true });
     if (res.status == 404) {
       await closeBody(res);
       return { value: null, metadata: null };
@@ -90,26 +108,26 @@ export default class KVImpl implements KV {
   }
 
   async put(key: string, value: string | ArrayBuffer | ReadableStream, options?: KVPutOptions): Promise<void> {
-    const headers = await atm.headers({ ...this.#options, "accept-metadata": "1" });
+    const headers = await this.#initHeaders({ "accept-metadata": "1" });
     if (options) {
       appendOptionsToHeaders(options, headers);
     }
-    const res = await fetchApi("kv", { method: "PUT", resource: key, headers, body: value });
+    const res = await fetchApi("kv", { socket: this.#socket, method: "PUT", resource: key, headers, body: value });
     await closeBody(res); // release body
   }
 
   async delete(key: string): Promise<void> {
-    const headers: Record<string, string> = await atm.headers(this.#options);
-    const res = await fetchApi("kv", { method: "DELETE", resource: key, headers });
+    const headers = await this.#initHeaders();
+    const res = await fetchApi("kv", { socket: this.#socket, method: "DELETE", resource: key, headers });
     await closeBody(res); // release body
   }
 
   async list(options?: KVListOptions): Promise<KVListResult> {
-    const headers: Record<string, string> = await atm.headers(this.#options);
+    const headers = await this.#initHeaders();
     if (options) {
       appendOptionsToHeaders(options, headers);
     }
-    const res = await fetchApi("kv", { headers });
+    const res = await fetchApi("kv", { socket: this.#socket, headers });
     return res.json();
   }
 }

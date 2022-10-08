@@ -1,35 +1,61 @@
 import type {
+  AuthUser,
   DurableKV,
   InitKVOptions,
   KV,
   Module,
   ModuleConfigOptions,
+  Permissions,
+  ServiceName,
   Session,
   SessionOptions,
+  Socket,
   Uploader,
   UploaderOptions,
 } from "./types/core.d.ts";
-import atm from "./src/AccessTokenManager.ts";
+import atm from "./src/common/AccessTokenManager.ts";
+import { fetchApi } from "./src/common/utils.ts";
+import { connect } from "./src/common/socket.ts";
 import KVImpl from "./src/KV.ts";
 import DurableKVImpl from "./src/DurableKV.ts";
 import SessionImpl from "./src/Session.ts";
 import UploaderImpl from "./src/Uploader.ts";
-import { fetchApi } from "./src/utils.ts";
 
 class ModuleImpl implements Module {
-  config({ token }: ModuleConfigOptions) {
+  #socket: Socket | undefined;
+
+  config({ token }: ModuleConfigOptions): this {
     atm.setToken(token);
+    return this;
   }
 
-  signAccessToken<U extends { uid: number | string }>(user: U): { fetch: (reqest: Request) => Promise<Response> } {
-    return {
-      fetch: async (req: Request) =>
-        fetchApi("sign-access-token", {
-          method: "POST",
-          body: JSON.stringify({ ...(await req.json()), user }),
-          headers: await atm.headers(),
-        }),
-    };
+  async connect(): Promise<Socket> {
+    if (typeof WebSocket === "undefined") {
+      throw new Error("WebSocket is not supported");
+    }
+    this.#socket = await connect();
+    return this.#socket;
+  }
+
+  disConnect(): void {
+    if (this.#socket) {
+      this.#socket.close();
+      this.#socket = undefined;
+    }
+  }
+
+  async signAccessToken<U extends AuthUser>(
+    auth: U,
+    scope: `${ServiceName}:${string}`,
+    permissions?: Permissions,
+  ): Promise<string> {
+    return fetchApi("sign-access-token", {
+      method: "POST",
+      body: JSON.stringify({ auth, scope, permissions }),
+      headers: {
+        "Authorization": (await atm.getAccessToken()).join(" "),
+      },
+    }).then((res) => res.text());
   }
 
   Session<T extends Record<string, unknown> = Record<string, unknown>>(
@@ -40,11 +66,11 @@ class ModuleImpl implements Module {
   }
 
   KV(options?: InitKVOptions): KV {
-    return new KVImpl(options);
+    return new KVImpl({ ...options, socket: this.#socket });
   }
 
   DurableKV(options?: InitKVOptions): DurableKV {
-    return new DurableKVImpl(options);
+    return new DurableKVImpl({ ...options, socket: this.#socket });
   }
 
   Uploader(options?: UploaderOptions): Uploader {

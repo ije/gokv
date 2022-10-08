@@ -2,23 +2,17 @@ import { assertEquals } from "https://deno.land/std@0.155.0/testing/asserts.ts";
 import "https://deno.land/std@0.155.0/dotenv/load.ts";
 import gokv from "gokv";
 
-gokv.config({ token: Deno.env.get("GOKV_TOKEN")! });
+await gokv.config({ token: Deno.env.get("GOKV_TOKEN")! }).connect();
 
 Deno.test("signAccessToken", async () => {
-  const token = await gokv.signAccessToken({
-    uid: 123,
-    name: "Guest",
-    username: "guest",
-    role: "guest",
-  }).fetch(
-    new Request("https://gokv.io", {
-      method: "POST",
-      body: JSON.stringify({
-        type: "chat-room",
-        namespace: "room-id",
-      }),
-    }),
-  ).then((res) => res.text());
+  const token = await gokv.signAccessToken(
+    {
+      uid: 123,
+      name: "Guest",
+    },
+    "chat-room:room-id",
+    { read: true, write: true },
+  );
 
   let [data] = token.split(".");
   const b = data.length % 4;
@@ -32,12 +26,11 @@ Deno.test("signAccessToken", async () => {
   data = data.replace(/\-/g, "+").replace(/_/g, "/");
 
   const payload = JSON.parse(atob(data));
-  assertEquals(payload.type, "chat-room");
-  assertEquals(payload.namespace, "room-id");
-  assertEquals(payload.user.uid, 123);
-  assertEquals(payload.user.name, "Guest");
-  assertEquals(payload.user.username, "guest");
-  assertEquals(payload.user.role, "guest");
+  assertEquals(payload.scope, "chat-room:room-id");
+  assertEquals(payload.auth.uid, 123);
+  assertEquals(payload.auth.name, "Guest");
+  assertEquals(payload.permissions.read, true);
+  assertEquals(payload.permissions.write, true);
   assertEquals(typeof payload.$gokvUID, "string");
   assertEquals(typeof payload.$expires, "number");
 });
@@ -45,22 +38,22 @@ Deno.test("signAccessToken", async () => {
 Deno.test("KV", async () => {
   const kv = gokv.KV({ namespace: "dev-test" });
 
-  await kv.put("document", `{"id": "xxx", "type": "json"}`, {
-    metadata: { author: "alice" },
+  await kv.put("document", `{"id": "xxxxxx", "type": "json"}`, {
+    metadata: { author: "sual" },
   });
   await kv.put("plain", "Hello world!", {
     metadata: { keywords: ["foo", "bar"] },
   });
-  await kv.put("void", "null");
-  await kv.delete("void");
-  assertEquals(await kv.get("document", "json"), { id: "xxx", type: "json" });
+  await kv.put("tmp", "null");
+  await kv.delete("tmp");
+  assertEquals(await kv.get("document", "json"), { id: "xxxxxx", type: "json" });
   assertEquals(await kv.getWithMetadata("document", "json"), {
-    value: { id: "xxx", type: "json" },
-    metadata: { author: "alice" },
+    value: { id: "xxxxxx", type: "json" },
+    metadata: { author: "sual" },
   });
   assertEquals(await kv.get("plain"), "Hello world!");
   assertEquals(await kv.list(), {
-    keys: [{ name: "document", metadata: { author: "alice" } }, {
+    keys: [{ name: "document", metadata: { author: "sual" } }, {
       name: "plain",
       metadata: { keywords: ["foo", "bar"] },
     }],

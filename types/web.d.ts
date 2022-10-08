@@ -1,11 +1,13 @@
-export type AuthUser = {
+export interface AuthUser {
   uid: number | string;
-  group?: string[];
-};
+  name: string;
+}
 
-export class CoEdit<T, U extends AuthUser> {
-  constructor(documentId: string, user: U, initData?: T);
-  connect(): Promise<T>;
+// deno-lint-ignore ban-types
+export class CoEdit<T extends object> {
+  constructor(documentId: string);
+  connect(initData?: T): Promise<T>;
+  disconnect(): void;
 }
 
 export type ChatMessage<U> = {
@@ -17,20 +19,26 @@ export type ChatMessage<U> = {
   by: U;
 };
 
+export type ChatEvent = "userjoin" | "userleave" | "usertype";
+
 export type Chat<U> = {
   readonly channel: AsyncIterable<ChatMessage<U>>;
-  pullHistory(n?: number): void;
-  send(content: string, contentType?: string): void;
+  readonly onlineUsers: U[];
+  pullHistory(n?: number): Promise<ChatMessage<U>[]>;
+  on(type: ChatEvent, listener: (event: { type: ChatEvent; user: U }) => void): () => void;
+  send(content: string, contentType?: string): Promise<ChatMessage<U>>;
 };
 
 export type ChatRoomOptions = {
   history?: number;
   rateLimit?: number; // in ms
+  listenUserType?: boolean;
 };
 
 export class ChatRoom<U extends AuthUser> {
-  constructor(roomId: string, user: U, options?: ChatRoomOptions);
+  constructor(roomId: string, options?: ChatRoomOptions);
   connect(): Promise<Chat<U>>;
+  disconnect(): void;
 }
 
 export type UploaderOptions = {
@@ -60,6 +68,10 @@ export type ModuleConfigOptions = {
 
 export interface Module {
   config(options: ModuleConfigOptions): void;
+  Uploader(options?: UploaderOptions): Uploader;
+  ChatRoom<U extends AuthUser>(roomId: string, options?: ChatRoomOptions): ChatRoom<U>;
+  // deno-lint-ignore ban-types
+  CoEdit<T extends object>(documentId: string, options?: ChatRoomOptions): CoEdit<T>;
 }
 
 export default Module;

@@ -27,6 +27,7 @@ export type KVListResult = {
 };
 
 export type InitKVOptions = {
+  socket?: Socket;
   namespace?: string;
 };
 
@@ -145,9 +146,32 @@ export type ModuleConfigOptions = {
   token: string;
 };
 
+export interface AuthUser {
+  uid: number | string;
+  name: string;
+}
+
+export type ServiceName = "kv" | "durable-kv" | "chat-room" | "co-edit" | "upload";
+
+export type Permissions = {
+  read: boolean;
+  write: boolean;
+};
+
+export interface Socket {
+  fetch(input: string | URL, init?: RequestInit): Promise<Response>;
+  close(): void;
+}
+
 export interface Module {
-  config(options: ModuleConfigOptions): void;
-  signAccessToken<U extends { uid: number | string }>(user: U): { fetch: (request: Request) => Promise<Response> };
+  config(options: ModuleConfigOptions): this;
+  connect(): Promise<Socket>;
+  disConnect(): void;
+  signAccessToken<U extends AuthUser>(
+    auth: U,
+    scope: `${ServiceName}:${string}`,
+    permissions?: Permissions,
+  ): Promise<string>;
   Session<T extends Record<string, unknown> = Record<string, unknown>>(
     request: Request | { cookies: Record<string, string> },
     options?: SessionOptions,
