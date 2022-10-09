@@ -1,12 +1,18 @@
 export interface AuthUser {
+  [key: string]: unknown;
   uid: number | string;
   name: string;
 }
 
+export type DocumentOptions<T> = {
+  initData?: T;
+};
+
 // deno-lint-ignore ban-types
-export class CoEdit<T extends object> {
-  constructor(documentId: string);
-  connect(initData?: T): Promise<T>;
+export class Document<T extends object> {
+  constructor(documentId: string, options?: DocumentOptions<T>);
+  getSnapshot(): Promise<T>;
+  connect(): Promise<T>;
   disconnect(): void;
 }
 
@@ -71,7 +77,7 @@ export interface Module {
   Uploader(options?: UploaderOptions): Uploader;
   ChatRoom<U extends AuthUser>(roomId: string, options?: ChatRoomOptions): ChatRoom<U>;
   // deno-lint-ignore ban-types
-  CoEdit<T extends object>(documentId: string, options?: ChatRoomOptions): CoEdit<T>;
+  Document<T extends object>(documentId: string, options?: DocumentOptions<T>): Document<T>;
 }
 
 export default Module;

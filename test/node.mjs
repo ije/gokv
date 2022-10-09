@@ -6,8 +6,12 @@ import "../web-polyfill.mjs";
 // load `.env`
 try {
   const content = fs.readFileSync(".env", "utf-8");
-  const token = content.split("=")[1].trim();
-  gokv.config({ token });
+  for (const line of content.split("\n")) {
+    const [key, value] = line.split("=");
+    if (key === "GOKV_TOKEN") {
+      gokv.config({ token: value });
+    }
+  }
 } catch (_) {
   // ingore
 }

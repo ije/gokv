@@ -2,7 +2,8 @@ import type {
   AuthUser,
   ChatRoom,
   ChatRoomOptions,
-  CoEdit,
+  Document,
+  DocumentOptions,
   Module,
   ModuleConfigOptions,
   Uploader,
@@ -11,7 +12,7 @@ import type {
 import atm from "./src/common/AccessTokenManager.ts";
 import UploaderImpl from "./src/Uploader.ts";
 import ChatRoomImpl from "./src/ChatRoom.ts";
-import CoEditImpl from "./src/CoEdit.ts";
+import DocumentImpl from "./src/Document.ts";
 
 class ModuleImpl implements Module {
   config({ signUrl }: ModuleConfigOptions) {
@@ -24,8 +25,8 @@ class ModuleImpl implements Module {
     return new ChatRoomImpl(roomId, options);
   }
   // deno-lint-ignore ban-types
-  CoEdit<T extends object>(documentId: string): CoEdit<T> {
-    return new CoEditImpl(documentId);
+  Document<T extends object>(documentId: string, options?: DocumentOptions<T>): Document<T> {
+    return new DocumentImpl(documentId, options);
   }
 }
 
