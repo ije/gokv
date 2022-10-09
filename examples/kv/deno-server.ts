@@ -1,10 +1,10 @@
 import { serve } from "https://deno.land/std@0.155.0/http/server.ts";
 import gokv from "gokv";
 
-const kv = gokv.DurableKV({ namespace: "gokv-example" });
-
 // Log in https://gokv.io/ to get token
-gokv.config({ token: Deno.env.get("GOKV_TOKEN")! });
+await gokv.config({ token: Deno.env.get("GOKV_TOKEN")! }).connect();
+
+const kv = gokv.KV({ namespace: "gokv-example" });
 
 serve(async (_req) => {
   try {

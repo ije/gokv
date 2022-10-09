@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.155.0/http/server.ts";
 import gokv from "gokv";
 
 // Log in https://gokv.io/ to get token
-gokv.config({ token: Deno.env.get("GOKV_TOKEN")! });
+await gokv.config({ token: Deno.env.get("GOKV_TOKEN")! }).connect();
 
 function auth(
   username: FormDataEntryValue | null,
