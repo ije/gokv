@@ -8,8 +8,9 @@ const kv = gokv.KV({ namespace: "gokv-example" });
 
 serve(async (_req) => {
   try {
-    await kv.put("message", "Hello world!");
-    return new Response(await kv.get("message"));
+    await kv.put("msg", "Hello world!");
+    const value = await kv.get("msg");
+    return new Response(value);
   } catch (e) {
     return new Response(e.message, { status: 500 });
   }
