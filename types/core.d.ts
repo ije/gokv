@@ -153,7 +153,7 @@ export interface AuthUser {
   name: string;
 }
 
-export type ServiceName = "kv" | "durable-kv" | "chat-room" | "co-edit" | "upload";
+export type ServiceName = "kv" | "durable-kv" | "chat-room" | "document" | "upload";
 
 export type Permissions = {
   read: boolean;
@@ -168,10 +168,10 @@ export interface Socket {
 export interface Module {
   config(options: ModuleConfigOptions): this;
   connect(): Promise<Socket>;
-  disConnect(): void;
+  disconnect(): void;
   signAccessToken<U extends AuthUser>(
-    auth: U,
     scope: `${ServiceName}:${string}`,
+    auth: U,
     permissions?: Permissions,
   ): Promise<string>;
   Session<T extends Record<string, unknown> = Record<string, unknown>>(

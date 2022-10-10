@@ -21,12 +21,12 @@ export default class KVImpl implements KV {
   }
 
   async #initHeaders(init?: HeadersInit): Promise<Headers> {
-    if (this.#socket) {
-      const headers = new Headers(init);
-      headers.set("namespace", this.#namespace);
-      return headers;
+    const headers = new Headers(init);
+    headers.set("Namespace", this.#namespace);
+    if (!this.#socket) {
+      headers.append("Authorization", (await atm.getAccessToken(`kv:${this.#namespace}`)).join(" "));
     }
-    return await atm.headers("kv", this.#namespace, init);
+    return headers;
   }
 
   async get(key: string, options?: string | { type?: string; cacheTtl?: number }): Promise<any> {

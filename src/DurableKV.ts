@@ -20,12 +20,12 @@ export default class DurableKVImpl implements DurableKV {
   }
 
   async #initHeaders(init?: HeadersInit): Promise<Headers> {
-    if (this.#socket) {
-      const headers = new Headers(init);
-      headers.set("namespace", this.#namespace);
-      return headers;
+    const headers = new Headers(init);
+    headers.set("Namespace", this.#namespace);
+    if (!this.#socket) {
+      headers.append("Authorization", (await atm.getAccessToken(`durable-kv:${this.#namespace}`)).join(" "));
     }
-    return await atm.headers("durable-kv", this.#namespace, init);
+    return headers;
   }
 
   async get(keyOrKeys: string | string[], options?: DurableKVGetOptions): Promise<any> {

@@ -37,7 +37,7 @@ class ModuleImpl implements Module {
     return this.#socket;
   }
 
-  disConnect(): void {
+  disconnect(): void {
     if (this.#socket) {
       this.#socket.close();
       this.#socket = undefined;
@@ -45,8 +45,8 @@ class ModuleImpl implements Module {
   }
 
   async signAccessToken<U extends AuthUser>(
-    auth: U,
     scope: `${ServiceName}:${string}`,
+    auth: U,
     permissions?: Permissions,
   ): Promise<string> {
     return fetchApi("sign-access-token", {

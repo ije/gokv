@@ -44,13 +44,6 @@ export class AccessTokenManager {
       throw new Error("token not found");
     }
   }
-
-  async headers(service: ServiceName, namespace: string, init?: HeadersInit): Promise<Headers> {
-    const headers = new Headers(init);
-    headers.append("Authorization", (await this.getAccessToken(`${service}:${namespace}`)).join(" "));
-    headers.append("Namespace", namespace);
-    return headers;
-  }
 }
 
 export default new AccessTokenManager();

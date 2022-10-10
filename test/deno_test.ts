@@ -6,11 +6,11 @@ await gokv.config({ token: Deno.env.get("GOKV_TOKEN")! }).connect();
 
 Deno.test("signAccessToken", async () => {
   const token = await gokv.signAccessToken(
+    "chat-room:room-id",
     {
       uid: 123,
       name: "Guest",
     },
-    "chat-room:room-id",
     { read: true, write: true },
   );
 

@@ -74,22 +74,22 @@ export function connect(): Promise<Socket> {
 }
 
 async function serializeHttpRequest(input: string | URL, init?: RequestInit): Promise<Uint8Array> {
-  const data: Uint8Array[] = [];
   const url = typeof input === "string" ? new URL(input) : input;
   const headers = new Headers(init?.headers);
-  data.push(enc.encode(`${init?.method ?? "GET"} ${url.pathname} HTTP/2\r\n`));
-  data.push(enc.encode(`host: ${url.host}\r\n`));
+  const buf: Uint8Array[] = [];
+  buf.push(enc.encode(`${init?.method ?? "GET"} ${url.pathname} HTTP/2\r\n`));
+  buf.push(enc.encode(`host: ${url.host}\r\n`));
   headers.forEach((value, key) => {
-    data.push(enc.encode(`${key}: ${value}\r\n`));
+    buf.push(enc.encode(`${key}: ${value}\r\n`));
   });
-  data.push(enc.encode("\r\n"));
+  buf.push(enc.encode("\r\n"));
   if (init?.body) {
     if (typeof init.body === "string") {
-      data.push(enc.encode(init.body));
+      buf.push(enc.encode(init.body));
     } else if (init.body instanceof Uint8Array) {
-      data.push(init.body);
+      buf.push(init.body);
     } else if (init.body instanceof ArrayBuffer) {
-      data.push(new Uint8Array(init.body));
+      buf.push(new Uint8Array(init.body));
     } else if (init.body instanceof ReadableStream) {
       const reader = init.body.getReader();
       while (true) {
@@ -97,13 +97,13 @@ async function serializeHttpRequest(input: string | URL, init?: RequestInit): Pr
         if (done) {
           break;
         }
-        data.push(value!);
+        buf.push(value!);
       }
     } else {
       throw new Error("unsupported body type");
     }
   }
-  return conactBytes(...data);
+  return conactBytes(...buf);
 }
 
 function deserializeHttpResponse(buffer: ArrayBuffer): Response {

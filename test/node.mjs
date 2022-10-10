@@ -25,11 +25,11 @@ async function test(name, fn) {
 
 await test("signAccessToken", async () => {
   const token = await gokv.signAccessToken(
+    "chat-room:room-id",
     {
       uid: 123,
       name: "Guest",
     },
-    "chat-room:room-id",
     { read: true, write: true },
   );
 
