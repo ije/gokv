@@ -1,6 +1,7 @@
-import { Uploader, UploaderOptions } from "./Uploader.d.ts";
 import { AuthUser } from "./common.d.ts";
+import { Uploader, UploaderOptions } from "./Uploader.d.ts";
 
+export * from "./common.d.ts";
 export * from "./Uploader.d.ts";
 
 export type DocumentOptions<T> = {
