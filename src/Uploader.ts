@@ -1,4 +1,4 @@
-import type { Uploader, UploaderOptions, UploadResult } from "../types/core.d.ts";
+import type { Uploader, UploaderOptions, UploadResult } from "../types/Uploader.d.ts";
 import atm from "./common/AccessTokenManager.ts";
 import { checkNamespace } from "./common/utils.ts";
 

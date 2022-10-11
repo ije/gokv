@@ -32,7 +32,7 @@ export class AccessTokenManager {
         throw new Error("missing scope");
       }
       url.searchParams.append("scope", scope);
-      const res = await fetch(url);
+      const res = await fetch(url, { headers: { scope } });
       if (res.status >= 400) {
         throw new Error(await res.text());
       }

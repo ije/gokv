@@ -30,6 +30,6 @@ class ModuleImpl implements Module {
   }
 }
 
-export { UploaderImpl as Uploader };
+export { ChatRoomImpl as ChatRoom, DocumentImpl as Document, UploaderImpl as Uploader };
 
 export default new ModuleImpl();

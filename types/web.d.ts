@@ -1,8 +1,7 @@
-export interface AuthUser {
-  [key: string]: unknown;
-  uid: number | string;
-  name: string;
-}
+import { Uploader, UploaderOptions } from "./Uploader.d.ts";
+import { AuthUser } from "./common.d.ts";
+
+export * from "./Uploader.d.ts";
 
 export type DocumentOptions<T> = {
   initData?: T;
@@ -12,8 +11,8 @@ export type DocumentOptions<T> = {
 export class Document<T extends object> {
   constructor(documentId: string, options?: DocumentOptions<T>);
   getSnapshot(): Promise<T>;
-  connect(): Promise<T>;
-  disconnect(): void;
+  sync(): Promise<T>;
+  close(): void;
 }
 
 export type ChatMessage<U> = {
@@ -45,27 +44,6 @@ export class ChatRoom<U extends AuthUser> {
   constructor(roomId: string, options?: ChatRoomOptions);
   connect(): Promise<Chat<U>>;
   disconnect(): void;
-}
-
-export type UploaderOptions = {
-  namespace?: string;
-  acceptTypes?: string[];
-  limit?: number;
-};
-
-export type UploadResult = {
-  readonly id: string;
-  readonly url: string;
-  readonly filname: string;
-  readonly filesize: number;
-  readonly filetype: string;
-  readonly uploadedAt: number;
-  readonly lastModified: number;
-};
-
-export class Uploader {
-  constructor(options: UploaderOptions);
-  upload(file: File): Promise<UploadResult>;
 }
 
 export type ModuleConfigOptions = {

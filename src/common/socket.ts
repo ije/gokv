@@ -1,28 +1,39 @@
-import type { Socket } from "../../types/core.d.ts";
+import type { Socket } from "../../types/common.d.ts";
 import atm from "./AccessTokenManager.ts";
 import { conactBytes, dec, enc, splitByChar, toBytesInt32 } from "./utils.ts";
 
 const socketUrl = "wss://socket.gokv.io";
-const callDefaultTimeout = 10 * 1000; // 10 seconds
+const fetchTimeout = 30 * 1000; // 30 seconds
 
-export function connect(): Promise<Socket> {
+type SocketOptions = {
+  onClose?: () => void;
+};
+
+enum SocketStatus {
+  PENDING = 0,
+  READY = 1,
+  CLOSE = 2,
+}
+
+export function connect(options?: SocketOptions): Promise<Socket> {
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(socketUrl);
+    const nativeFetch = globalThis.fetch;
     const awaits = new Map<number, (data: ArrayBuffer) => void>();
 
-    let ready = false;
-    let callIndex = 0;
+    let status: SocketStatus = SocketStatus.PENDING;
+    let fetchIndex = 0;
 
     const fetch = (input: string | URL, init?: RequestInit) =>
-      new Promise<Response>((resolve, reject) => {
+      status === SocketStatus.CLOSE ? nativeFetch(input, init) : new Promise<Response>((resolve, reject) => {
         serializeHttpRequest(input, init).then((bytes) => {
-          const id = ++callIndex;
+          const id = ++fetchIndex;
           ws.binaryType = "arraybuffer";
           ws.send(conactBytes(toBytesInt32(id), bytes));
           const timer = setTimeout(() => {
             awaits.delete(id);
             reject(new Error("timeout"));
-          }, callDefaultTimeout);
+          }, fetchTimeout);
           awaits.set(id, (raw) => {
             clearTimeout(timer);
             awaits.delete(id);
@@ -36,7 +47,6 @@ export function connect(): Promise<Socket> {
       ws.onopen = null;
       ws.onerror = null;
       ws.onmessage = null;
-      ws.onclose = null;
       ws.close();
     };
 
@@ -46,20 +56,20 @@ export function connect(): Promise<Socket> {
     };
 
     ws.onerror = (e) => {
-      if (!ready) {
+      if (status === SocketStatus.PENDING) {
         reject(e);
       }
     };
 
     ws.onmessage = (event) => {
-      if (ready) {
+      if (status === SocketStatus.READY) {
         if (event.data instanceof ArrayBuffer) {
           const id = new DataView(event.data).getInt32(0);
           awaits.get(id)?.(event.data.slice(4));
         }
       } else if (typeof event.data === "string") {
         if (event.data.startsWith("OK ")) {
-          ready = true;
+          status = SocketStatus.READY;
           resolve({ fetch, close });
         } else if (event.data.startsWith("ERROR ")) {
           reject(new Error("socket: " + event.data));
@@ -68,6 +78,8 @@ export function connect(): Promise<Socket> {
     };
 
     ws.onclose = () => {
+      status = SocketStatus.CLOSE;
+      options?.onClose?.();
       // todo: reconnect
     };
   });

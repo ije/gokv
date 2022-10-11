@@ -15,11 +15,11 @@ export default class DocumentImpl<T extends object> implements Document<T> {
     return (this.#options?.initData ?? {}) as T;
   }
 
-  async connect(): Promise<T> {
+  async sync(): Promise<T> {
     return (this.#options?.initData ?? {}) as T;
   }
 
-  disconnect() {
-    console.log("disconnect");
+  close() {
+    console.log("close");
   }
 }

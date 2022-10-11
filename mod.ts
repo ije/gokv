@@ -33,15 +33,12 @@ class ModuleImpl implements Module {
     if (typeof WebSocket === "undefined") {
       throw new Error("WebSocket is not supported");
     }
-    this.#socket = await connect();
+    this.#socket = await connect({
+      onClose: () => {
+        this.#socket = void 0;
+      },
+    });
     return this.#socket;
-  }
-
-  disconnect(): void {
-    if (this.#socket) {
-      this.#socket.close();
-      this.#socket = undefined;
-    }
   }
 
   async signAccessToken<U extends AuthUser>(
