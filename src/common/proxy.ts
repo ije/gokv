@@ -1,11 +1,12 @@
 // Proxy an object to create JSON-patches when changes.
-// The snapshot is inspired by https://github.com/pmndrs/valtio
+// The snapshot & subscribe is inspired by https://github.com/pmndrs/valtio
 
 import type { JSONPatch, Path } from "./JSON-patch.ts";
 
 const SNAPSHOT = Symbol();
+const LISTENERS = Symbol();
 
-// only plain object and array can be proxied
+// only plain object or array can be proxied
 function canProxy(a: unknown) {
   if (typeof a !== "object" || a === null) {
     return false;
@@ -37,9 +38,13 @@ export default function proxy<T extends object>(
     });
     return Object.freeze(snapshot);
   };
-  let notifyFn: typeof notify | null = null;
+  const listeners = new Set<() => void>();
+  let shouldNotify = false;
   const proxyObject = new Proxy(target, {
     get: (target: T, prop: string | symbol, receiver: unknown): unknown => {
+      if (prop === LISTENERS) {
+        return listeners;
+      }
       if (prop === SNAPSHOT) {
         return createSnapshot(target, receiver);
       }
@@ -57,7 +62,8 @@ export default function proxy<T extends object>(
         receiver,
       );
       if (updated && typeof key !== "symbol" && !(isArray && key === "length")) {
-        notifyFn?.({
+        listeners.forEach((cb) => cb());
+        shouldNotify && notify({
           op,
           path: [...path, key],
           value,
@@ -71,7 +77,8 @@ export default function proxy<T extends object>(
       const oldValue = Reflect.get(target, prop);
       const deleted = Reflect.deleteProperty(target, prop);
       if (deleted && typeof key !== "symbol") {
-        notifyFn?.({
+        listeners.forEach((cb) => cb());
+        shouldNotify && notify({
           op: "remove",
           path: [...path, key],
           oldValue,
@@ -88,11 +95,37 @@ export default function proxy<T extends object>(
       proxyObject[key] = initialObject[key as keyof T];
     }
   });
-  notifyFn = notify;
+  shouldNotify = true;
   return proxyObject;
 }
 
 // deno-lint-ignore ban-types
-export function snapshot<T extends object>(obj: T): T {
-  return (obj as Record<string | symbol, unknown>)[SNAPSHOT] as T;
+export function snapshot<T extends object>(proxyObject: T): T {
+  if (typeof proxyObject !== "object" || proxyObject === null) {
+    throw new Error("invalid object");
+  }
+  return (proxyObject as Record<symbol, unknown>)[SNAPSHOT] as T ?? proxyObject;
+}
+
+export function subscribe(proxyObject: unknown, callback: () => void): () => void {
+  if (typeof proxyObject !== "object" || proxyObject === null) {
+    throw new Error("invalid object");
+  }
+  const listeners = (proxyObject as Record<symbol, unknown>)[LISTENERS] as Set<() => void>;
+  if (listeners === undefined) {
+    throw new Error("can't subscribe a non-proxy object");
+  }
+  let promise: Promise<void> | undefined;
+  const listener = () => {
+    promise = promise ?? Promise.resolve().then(() => {
+      promise = undefined;
+      if (listeners.has(listener)) {
+        callback();
+      }
+    });
+  };
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
 }
