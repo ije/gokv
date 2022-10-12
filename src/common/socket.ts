@@ -4,6 +4,7 @@ import { conactBytes, dec, enc, splitByChar, toBytesInt32 } from "./utils.ts";
 
 const socketUrl = "wss://socket.gokv.io";
 const fetchTimeout = 30 * 1000; // 30 seconds
+const nativeFetch = fetch;
 
 type SocketOptions = {
   onClose?: () => void;
@@ -15,12 +16,33 @@ enum SocketStatus {
   CLOSE = 2,
 }
 
-export function connect(options?: SocketOptions): Promise<Socket> {
-  return new Promise((resolve, reject) => {
-    const ws = new WebSocket(socketUrl);
-    const nativeFetch = globalThis.fetch;
-    const awaits = new Map<number, (data: ArrayBuffer) => void>();
+async function newWebSocket(url: string, protocols?: string | string[]) {
+  // workaround for cloudflare worker: https://developers.cloudflare.com/workers/learning/using-websockets/#writing-a-websocket-client
+  if (typeof WebSocket === "undefined" && typeof fetch === "function") {
+    const headers = new Headers({ Upgrade: "websocket" });
+    if (protocols) {
+      if (Array.isArray(protocols)) {
+        headers.append("Sec-WebSocket-Key", protocols.join(","));
+      } else {
+        headers.append("Sec-WebSocket-Key", String(protocols));
+      }
+    }
+    const res = await fetch(url, { headers });
+    // deno-lint-ignore no-explicit-any
+    const ws = (res as any).webSocket;
+    if (!ws) {
+      throw new Error("Server didn't accept WebSocket");
+    }
+    ws.accept();
+    return ws as WebSocket;
+  }
+  return new WebSocket(socketUrl);
+}
 
+export async function connect(options?: SocketOptions): Promise<Socket> {
+  const ws = await newWebSocket(socketUrl);
+  const awaits = new Map<number, (data: ArrayBuffer) => void>();
+  return new Promise((resolve, reject) => {
     let status: SocketStatus = SocketStatus.PENDING;
     let fetchIndex = 0;
 
@@ -44,24 +66,24 @@ export function connect(options?: SocketOptions): Promise<Socket> {
 
     const close = () => {
       awaits.clear();
-      ws.onopen = null;
-      ws.onerror = null;
-      ws.onmessage = null;
+      ws.removeEventListener("open", onopen);
+      ws.removeEventListener("error", onerror);
+      ws.removeEventListener("message", onmessage);
       ws.close();
     };
 
-    ws.onopen = async () => {
+    const onopen = async () => {
       const token = await atm.getAccessToken();
       ws.send(token.join(" "));
     };
 
-    ws.onerror = (e) => {
+    const onerror = (e: Event | ErrorEvent) => {
       if (status === SocketStatus.PENDING) {
         reject(e);
       }
     };
 
-    ws.onmessage = (event) => {
+    const onmessage = (event: MessageEvent) => {
       if (status === SocketStatus.READY) {
         if (event.data instanceof ArrayBuffer) {
           const id = new DataView(event.data).getInt32(0);
@@ -77,11 +99,16 @@ export function connect(options?: SocketOptions): Promise<Socket> {
       }
     };
 
-    ws.onclose = () => {
+    const onclose = () => {
       status = SocketStatus.CLOSE;
       options?.onClose?.();
       // todo: reconnect
     };
+
+    ws.addEventListener("open", onopen);
+    ws.addEventListener("error", onerror);
+    ws.addEventListener("message", onmessage);
+    ws.addEventListener("close", onclose);
   });
 }
 
