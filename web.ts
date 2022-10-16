@@ -9,7 +9,7 @@ import type {
   Uploader,
   UploaderOptions,
 } from "./types/web.d.ts";
-import atm from "./src/common/AccessTokenManager.ts";
+import atm from "./src/AccessTokenManager.ts";
 import UploaderImpl from "./src/Uploader.ts";
 import ChatRoomImpl from "./src/ChatRoom.ts";
 import DocumentImpl from "./src/Document.ts";
