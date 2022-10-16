@@ -1,4 +1,4 @@
-import { serve } from "https://deno.land/std@0.155.0/http/server.ts";
+import { serve } from "std/http/server.ts";
 import gokv from "gokv";
 
 // Log in https://gokv.io/ to get token

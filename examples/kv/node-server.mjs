@@ -2,7 +2,7 @@ import http from "node:http";
 import gokv from "gokv";
 
 // Log in https://gokv.io/ to get token
-gokv.config({ token: process.env.GOKV_TOKEN });
+await gokv.config({ token: process.env.GOKV_TOKEN }).connect();
 
 const kv = gokv.KV({ namespace: "gokv-example" });
 
