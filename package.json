@@ -38,9 +38,11 @@
   "dependencies": {
     "@peculiar/webcrypto": "^1.4.0",
     "node-fetch": "^3.2.10",
-    "uuid": "^9.0.0"
+    "uuid": "^9.0.0",
+    "websocket": "^1.0.34"
   },
   "devDependencies": {
-    "esbuild": "^0.15.9"
+    "dotenv": "^16.0.3",
+    "esbuild": "^0.15.11"
   }
 }
