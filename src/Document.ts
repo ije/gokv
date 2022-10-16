@@ -1,6 +1,6 @@
 import type { Document, DocumentOptions } from "../types/web.d.ts";
 import atm from "./AccessTokenManager.ts";
-import { isSameOpAndPath, isSamePath, JSONPatch, Op } from "./common/jsonpatch.ts";
+import { isSameOpAndPath, isSamePath, JSONPatch, Op } from "./common/json-patch.ts";
 import { applyPatch, proxy } from "./common/proxy.ts";
 import { createWebSocket, SocketStatus } from "./common/socket.ts";
 import { checkNamespace, isTagedJson } from "./common/utils.ts";

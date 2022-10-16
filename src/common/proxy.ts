@@ -1,7 +1,7 @@
 // Proxy an object to create JSON-patches when changes.
 // The snapshot & subscribe feature is inspired by https://github.com/pmndrs/valtio
 
-import { JSONPatch, lookupValue, Op, Path } from "./jsonpatch.ts";
+import { JSONPatch, lookupValue, Op, Path } from "./json-patch.ts";
 
 const SNAPSHOT = Symbol();
 const LISTENERS = Symbol();

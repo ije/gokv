@@ -21,6 +21,6 @@ await Promise.all([
 ]);
 
 Deno.test("Document", () => {
-  assertEquals(obj2.foo, obj.foo);
   assertEquals(obj.baz, undefined);
+  assertEquals(obj2.foo, obj.foo);
 });

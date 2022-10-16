@@ -1,5 +1,5 @@
 import { assertEquals } from "std/testing/asserts.ts";
-import { JSONPatch, Op } from "./jsonpatch.ts";
+import { JSONPatch, Op } from "./json-patch.ts";
 import { applyPatch, proxy } from "./proxy.ts";
 
 Deno.test("proxy", () => {
