@@ -57,8 +57,11 @@ jobs:
         with:
           node-version: 16.18
 
+     - name: Installation pnpm
+        run: npm install -g pnpm
+
       - name: Build dist
-        run: npm run build
+        run: pnpm install && pnpm build:all
 
       - name: Testing
         env:
