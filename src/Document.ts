@@ -17,8 +17,8 @@ export default class DocumentImpl<T extends object> implements Document<T> {
     this.#options = options;
   }
 
-  async getSnapshot(): Promise<T> {
-    return (this.#options?.initData ?? {}) as T;
+  getSnapshot(): Promise<T> {
+    throw new Error("not implemented");
   }
 
   async sync(): Promise<T> {

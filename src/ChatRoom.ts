@@ -10,7 +10,7 @@ export default class ChatRoomImpl<U extends AuthUser> implements ChatRoom<U> {
     this.#options = options ?? {};
   }
 
-  async connect(): Promise<Chat<U>> {
+  connect(): Promise<Chat<U>> {
     throw new Error("not implemented");
   }
 }
