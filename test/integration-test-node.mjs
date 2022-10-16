@@ -1,20 +1,12 @@
 import assert from "node:assert";
-import fs from "node:fs";
+import * as dotenv from "dotenv";
 import gokv from "../dist/index.mjs";
 import "../web-polyfill.mjs";
 
 // load `.env`
-try {
-  const content = fs.readFileSync(".env", "utf-8");
-  for (const line of content.split("\n")) {
-    const [key, value] = line.split("=");
-    if (key === "GOKV_TOKEN") {
-      gokv.config({ token: value });
-    }
-  }
-} catch (_) {
-  // ingore
-}
+dotenv.config();
+
+const socket = await gokv.config({ token: process.env.GOKV_TOKEN }).connect();
 
 async function test(name, fn) {
   const t = Date.now();
@@ -161,3 +153,5 @@ await test("Session", async () => {
   session = await gokv.Session({ cookies: { sess: session.id } }, config);
   assert.deepEqual(session.store, null);
 });
+
+socket.close();
