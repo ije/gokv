@@ -4,9 +4,14 @@
   "description": "A global, low-latency, and druable key-value store.",
   "type": "module",
   "main": "./dist/index.mjs",
+  "module": "./dist/index.mjs",
   "types": "./types/core.d.ts",
   "sideEffects": false,
   "exports": {
+    ".": {
+      "module": "./dist/index.mjs",
+      "types": "./types/core.d.ts"
+    },
     "./web": {
       "module": "./dist/web.mjs",
       "types": "./types/web.d.ts"
@@ -23,7 +28,9 @@
   "scripts": {
     "build": "pnpm esbuild --bundle --minify --platform=browser --format=esm --target=es2022 --sourcemap --outfile=dist/index.mjs mod.ts",
     "build:web": "pnpm esbuild --bundle --minify --platform=browser --format=esm --target=es2022 --sourcemap --outfile=dist/web.mjs web.ts",
-    "prepublishOnly": "pnpm build && pnpm build:web"
+    "build:web-polyfill": "pnpm esbuild --bundle --minify --platform=node --format=esm --target=es2022 --sourcemap --inject:./web-polyfill-shim.mjs --outfile=dist/web-polyfill.mjs web-polyfill.mjs",
+    "build:all": "pnpm build && pnpm build:web && pnpm build:web-polyfill",
+    "prepublishOnly": "pnpm build:all"
   },
   "repository": {
     "type": "git",
@@ -35,14 +42,12 @@
   "homepage": "https://gokv.io",
   "author": "ije",
   "license": "MIT",
-  "dependencies": {
+  "devDependencies": {
     "@peculiar/webcrypto": "^1.4.0",
+    "dotenv": "^16.0.3",
+    "esbuild": "^0.15.11",
     "node-fetch": "^3.2.10",
     "uuid": "^9.0.0",
     "websocket": "^1.0.34"
-  },
-  "devDependencies": {
-    "dotenv": "^16.0.3",
-    "esbuild": "^0.15.11"
   }
 }

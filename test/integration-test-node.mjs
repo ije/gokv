@@ -1,7 +1,7 @@
 import assert from "node:assert";
 import * as dotenv from "dotenv";
 import gokv from "../dist/index.mjs";
-import "../web-polyfill.mjs";
+import "../dist/web-polyfill.mjs";
 
 // load `.env`
 dotenv.config();
