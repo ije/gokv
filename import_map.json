@@ -1,5 +1,6 @@
 {
   "imports": {
+    "std/": "https://deno.land/std@0.155.0/",
     "gokv": "./mod.ts",
     "gokv/": "./"
   }
