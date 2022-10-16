@@ -1,4 +1,4 @@
-import type { ServiceName } from "../../types/core.d.ts";
+import type { ServiceName } from "../types/core.d.ts";
 
 export class AccessTokenManager {
   #token?: string;

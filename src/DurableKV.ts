@@ -7,7 +7,7 @@ import type {
   DurableKVPutOptions,
   Socket,
 } from "../types/core.d.ts";
-import atm from "./common/AccessTokenManager.ts";
+import atm from "./AccessTokenManager.ts";
 import { appendOptionsToHeaders, checkNamespace, closeBody, fetchApi } from "./common/utils.ts";
 
 export default class DurableKVImpl implements DurableKV {
@@ -29,14 +29,14 @@ export default class DurableKVImpl implements DurableKV {
   }
 
   async get(keyOrKeys: string | string[], options?: DurableKVGetOptions): Promise<any> {
-    let resource: string;
+    let pathname: string;
     const multipleKeys = Array.isArray(keyOrKeys);
     if (multipleKeys) {
-      resource = keyOrKeys.join(",");
+      pathname = "/" + keyOrKeys.join(",");
     } else {
-      resource = keyOrKeys;
+      pathname = "/" + keyOrKeys;
     }
-    if (resource === "") {
+    if (pathname === "/") {
       return undefined;
     }
 
@@ -48,7 +48,7 @@ export default class DurableKVImpl implements DurableKV {
       appendOptionsToHeaders(options, headers);
     }
 
-    const res = await fetchApi("durable-kv", { socket: this.#socket, resource, headers, ignore404: true });
+    const res = await fetchApi("durable-kv", { socket: this.#socket, pathname, headers, ignore404: true });
     if (res.status === 404) {
       return closeBody(res); // release body
     }
@@ -82,9 +82,9 @@ export default class DurableKVImpl implements DurableKV {
   }
 
   async put(keyOrEntries: string | Record<string, any>, value?: any, options?: DurableKVPutOptions): Promise<void> {
-    const headers = await this.#headers();
-    let resource: string | undefined = undefined;
+    let pathname: string | undefined = undefined;
     let body: string | undefined = undefined;
+    const headers = await this.#headers();
     if (typeof keyOrEntries === "string") {
       if (keyOrEntries === "" || value === undefined) {
         return;
@@ -108,14 +108,14 @@ export default class DurableKVImpl implements DurableKV {
       if (options) {
         appendOptionsToHeaders(options, headers);
       }
-      resource = keyOrEntries;
+      pathname = "/" + keyOrEntries;
     } else if (typeof keyOrEntries === "object" && !Array.isArray(keyOrEntries)) {
       body = JSON.stringify(keyOrEntries);
     } else {
       throw new Error("Invalid value type: not a record");
     }
 
-    const res = await fetchApi("durable-kv", { socket: this.#socket, resource, method: "PUT", headers, body });
+    const res = await fetchApi("durable-kv", { socket: this.#socket, pathname, method: "PUT", headers, body });
     await closeBody(res); // release body
   }
 
@@ -123,20 +123,20 @@ export default class DurableKVImpl implements DurableKV {
     keyOrKeysOrOptions: string | string[] | DurableKVDeleteOptions,
     options?: DurableKVPutOptions,
   ): Promise<any> {
-    const headers = await this.#headers();
-    let resource: string | undefined = undefined;
     const multipleKeys = Array.isArray(keyOrKeysOrOptions);
+    let pathname: string | undefined = undefined;
     if (multipleKeys) {
-      resource = keyOrKeysOrOptions.join(",");
-    } else if (typeof keyOrKeysOrOptions !== "string") {
-      options = keyOrKeysOrOptions;
+      pathname = "/" + keyOrKeysOrOptions.join(",");
+    } else if (typeof keyOrKeysOrOptions === "string") {
+      pathname = "/" + keyOrKeysOrOptions;
     } else {
-      resource = keyOrKeysOrOptions;
+      options = keyOrKeysOrOptions;
     }
-    if (resource === "") {
+    if (pathname === "/") {
       return undefined;
     }
 
+    const headers = await this.#headers();
     if (multipleKeys) {
       headers.append("multipleKeys", "1");
     }
@@ -144,7 +144,7 @@ export default class DurableKVImpl implements DurableKV {
       appendOptionsToHeaders(options, headers);
     }
 
-    const res = await fetchApi("durable-kv", { socket: this.#socket, resource, method: "DELETE", headers });
+    const res = await fetchApi("durable-kv", { socket: this.#socket, pathname, method: "DELETE", headers });
     const ret = await res.text();
     if (typeof keyOrKeysOrOptions === "string") {
       return ret === "true";

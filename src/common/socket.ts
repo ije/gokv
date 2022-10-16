@@ -1,22 +1,17 @@
 import type { Socket } from "../../types/common.d.ts";
-import atm from "./AccessTokenManager.ts";
+import atm from "../AccessTokenManager.ts";
 import { conactBytes, dec, enc, splitByChar, toBytesInt32 } from "./utils.ts";
 
 const socketUrl = "wss://socket.gokv.io";
 const fetchTimeout = 30 * 1000; // 30 seconds
-const nativeFetch = fetch;
 
-type SocketOptions = {
-  onClose?: () => void;
-};
-
-enum SocketStatus {
+export enum SocketStatus {
   PENDING = 0,
   READY = 1,
   CLOSE = 2,
 }
 
-async function newWebSocket(url: string, protocols?: string | string[]) {
+export async function createWebSocket(url: string, protocols?: string | string[]) {
   // workaround for cloudflare worker: https://developers.cloudflare.com/workers/learning/using-websockets/#writing-a-websocket-client
   if (typeof WebSocket === "undefined" && typeof fetch === "function") {
     const headers = new Headers({ Upgrade: "websocket" });
@@ -36,39 +31,41 @@ async function newWebSocket(url: string, protocols?: string | string[]) {
     ws.accept();
     return ws as WebSocket;
   }
-  return new WebSocket(socketUrl);
+  return new WebSocket(url, protocols);
 }
 
-export async function connect(options?: SocketOptions): Promise<Socket> {
-  const ws = await newWebSocket(socketUrl);
+export async function connect(): Promise<Socket> {
+  const nativeFetch = globalThis.fetch;
   const awaits = new Map<number, (data: ArrayBuffer) => void>();
+  let ws = await createWebSocket(socketUrl);
   return new Promise((resolve, reject) => {
     let status: SocketStatus = SocketStatus.PENDING;
     let fetchIndex = 0;
 
     const fetch = (input: string | URL, init?: RequestInit) =>
       status === SocketStatus.CLOSE ? nativeFetch(input, init) : new Promise<Response>((resolve, reject) => {
+        const id = fetchIndex++;
         serializeHttpRequest(input, init).then((bytes) => {
-          const id = ++fetchIndex;
-          ws.binaryType = "arraybuffer";
           ws.send(conactBytes(toBytesInt32(id), bytes));
           const timer = setTimeout(() => {
             awaits.delete(id);
             reject(new Error("timeout"));
           }, fetchTimeout);
-          awaits.set(id, (raw) => {
+          awaits.set(id, (data) => {
             clearTimeout(timer);
             awaits.delete(id);
-            resolve(deserializeHttpResponse(raw));
+            resolve(deserializeHttpResponse(data));
           });
         });
       });
 
     const close = () => {
+      status = SocketStatus.CLOSE;
       awaits.clear();
       ws.removeEventListener("open", onopen);
       ws.removeEventListener("error", onerror);
       ws.removeEventListener("message", onmessage);
+      ws.removeEventListener("close", onclose);
       ws.close();
     };
 
@@ -83,32 +80,41 @@ export async function connect(options?: SocketOptions): Promise<Socket> {
       }
     };
 
-    const onmessage = (event: MessageEvent) => {
+    const onmessage = ({ data }: MessageEvent) => {
       if (status === SocketStatus.READY) {
-        if (event.data instanceof ArrayBuffer) {
-          const id = new DataView(event.data).getInt32(0);
-          awaits.get(id)?.(event.data.slice(4));
+        if (data instanceof ArrayBuffer) {
+          const id = new DataView(data).getInt32(0);
+          awaits.get(id)?.(data.slice(4));
         }
-      } else if (typeof event.data === "string") {
-        if (event.data.startsWith("OK ")) {
+      } else if (typeof data === "string") {
+        if (data.startsWith("OK ")) {
           status = SocketStatus.READY;
           resolve({ fetch, close });
-        } else if (event.data.startsWith("ERROR ")) {
-          reject(new Error("socket: " + event.data));
+        } else if (data.startsWith("ERROR ")) {
+          reject(new Error("socket: " + data));
         }
       }
     };
 
     const onclose = () => {
       status = SocketStatus.CLOSE;
-      options?.onClose?.();
-      // todo: reconnect
+      // reconnect
+      createWebSocket(socketUrl).then((newSocket) => {
+        status = SocketStatus.PENDING;
+        ws = newSocket;
+        go();
+      });
     };
 
-    ws.addEventListener("open", onopen);
-    ws.addEventListener("error", onerror);
-    ws.addEventListener("message", onmessage);
-    ws.addEventListener("close", onclose);
+    const go = () => {
+      ws.binaryType = "arraybuffer";
+      ws.addEventListener("open", onopen);
+      ws.addEventListener("error", onerror);
+      ws.addEventListener("message", onmessage);
+      ws.addEventListener("close", onclose);
+    };
+
+    go();
   });
 }
 

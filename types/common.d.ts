@@ -1,5 +1,4 @@
 export interface AuthUser {
-  [key: string]: unknown;
   uid: number | string;
   name: string;
 }

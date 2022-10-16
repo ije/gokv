@@ -3,8 +3,12 @@ import type { Socket } from "../../types/core.d.ts";
 export const enc = new TextEncoder();
 export const dec = new TextDecoder();
 
-export const isObject = (v: unknown): v is Record<string, unknown> => {
-  return typeof v === "object" && v !== null && Array.isArray(v);
+export const isPlainObject = (v: unknown): v is Record<string, unknown> => {
+  return typeof v === "object" && v !== null && Object.getPrototypeOf(v) === Object.prototype;
+};
+
+export const isTagedJson = (v: unknown, tagName: string, isArray?: boolean): v is string => {
+  return typeof v === "string" && v.startsWith(tagName + (isArray ? "[" : "{")) && v.endsWith(isArray ? "]" : "}");
 };
 
 export const splitByChar = (str: string, char: string) => {
@@ -110,18 +114,19 @@ export function closeBody(res: Response): Promise<void> {
 
 export async function fetchApi(
   service: string,
-  init?: RequestInit & { socket?: Socket; resource?: string; ignore404?: boolean },
+  init?: RequestInit & { socket?: Socket; pathname?: string; ignore404?: boolean },
 ) {
   const url = new URL(`https://${service}.gokv.io`);
-  if (init?.resource) {
-    url.pathname = `/${init.resource}`;
+  if (init?.pathname?.startsWith("/")) {
+    url.pathname = init.pathname;
   }
   const fetcher = init?.socket?.fetch ?? fetch;
   const res = await fetcher(url, init);
+  if (res.status === 404 && init?.ignore404) {
+    return res;
+  }
   if (res.status >= 400) {
-    if (!init?.ignore404) {
-      return Promise.reject(new Error(`gokv.io: <${res.status}> ${await res.text()}`));
-    }
+    return Promise.reject(new Error(`gokv.io: <${res.status}> ${await res.text()}`));
   }
   return res;
 }

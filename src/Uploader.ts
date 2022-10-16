@@ -1,5 +1,5 @@
 import type { Uploader, UploaderOptions, UploadResult } from "../types/Uploader.d.ts";
-import atm from "./common/AccessTokenManager.ts";
+import atm from "./AccessTokenManager.ts";
 import { checkNamespace } from "./common/utils.ts";
 
 export default class UploaderImpl implements Uploader {

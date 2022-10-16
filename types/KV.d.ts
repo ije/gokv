@@ -16,6 +16,11 @@ export type KVPutOptions = {
   expiration?: number;
   expirationTtl?: number;
   metadata?: Record<string, unknown>;
+  allowUnconfirmed?: boolean;
+};
+
+export type KVDeleteOptions = {
+  allowUnconfirmed?: boolean;
 };
 
 export type KVListOptions = {
@@ -68,7 +73,7 @@ export class KV {
   ): Promise<KVGetWithMetadataResult<ReadableStream, M>>;
   getWithMetadata<M = any>(key: string, options: "stream"): Promise<KVGetWithMetadataResult<ReadableStream, M>>;
   put(key: string, value: string | ArrayBuffer | ReadableStream, options?: KVPutOptions): Promise<void>;
-  delete(key: string): Promise<void>;
+  delete(key: string, options?: KVDeleteOptions): Promise<void>;
   list(options?: KVListOptions): Promise<KVListResult>;
 }
 

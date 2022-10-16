@@ -1,13 +1,13 @@
-import { assertEquals } from "https://deno.land/std@0.155.0/testing/asserts.ts";
-import "https://deno.land/std@0.155.0/dotenv/load.ts";
-import atm from "./AccessTokenManager.ts";
+import { assertEquals } from "std/testing/asserts.ts";
+import atm from "../AccessTokenManager.ts";
 import { connect } from "./socket.ts";
+import "std/dotenv/load.ts";
 
 atm.setToken(Deno.env.get("GOKV_TOKEN")!);
 
 const socket = await connect();
 
-Deno.test("socket", { sanitizeExit: false }, async () => {
+Deno.test("socket", async () => {
   const put = await socket.fetch("https://kv.gokv.io/foo", {
     method: "PUT",
     headers: { namespace: "dev-test" },

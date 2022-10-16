@@ -1,5 +1,7 @@
 import type {
   AuthUser,
+  Document,
+  DocumentOptions,
   DurableKV,
   InitKVOptions,
   KV,
@@ -13,13 +15,14 @@ import type {
   Uploader,
   UploaderOptions,
 } from "./types/core.d.ts";
-import atm from "./src/common/AccessTokenManager.ts";
-import { fetchApi } from "./src/common/utils.ts";
-import { connect } from "./src/common/socket.ts";
+import atm from "./src/AccessTokenManager.ts";
 import KVImpl from "./src/KV.ts";
 import DurableKVImpl from "./src/DurableKV.ts";
 import SessionImpl from "./src/Session.ts";
+import DocumentImpl from "./src/Document.ts";
 import UploaderImpl from "./src/Uploader.ts";
+import { fetchApi } from "./src/common/utils.ts";
+import { connect } from "./src/common/socket.ts";
 
 class ModuleImpl implements Module {
   #socket: Socket | undefined;
@@ -33,11 +36,7 @@ class ModuleImpl implements Module {
     if (typeof WebSocket === "undefined") {
       throw new Error("WebSocket is not supported");
     }
-    this.#socket = await connect({
-      onClose: () => {
-        this.#socket = void 0;
-      },
-    });
+    this.#socket = await connect();
     return this.#socket;
   }
 
@@ -46,8 +45,9 @@ class ModuleImpl implements Module {
     auth: U,
     permissions?: Permissions,
   ): Promise<string> {
-    return fetchApi("sign-access-token", {
+    return fetchApi("api", {
       method: "POST",
+      pathname: "/sign-access-token",
       body: JSON.stringify({ auth, scope, permissions }),
       headers: {
         "Authorization": (await atm.getAccessToken()).join(" "),
@@ -68,6 +68,11 @@ class ModuleImpl implements Module {
 
   DurableKV(options?: InitKVOptions): DurableKV {
     return new DurableKVImpl({ ...options, socket: this.#socket });
+  }
+
+  // deno-lint-ignore ban-types
+  Document<T extends object>(documentId: string, options?: DocumentOptions<T>): Document<T> {
+    return new DocumentImpl(documentId, options);
   }
 
   Uploader(options?: UploaderOptions): Uploader {

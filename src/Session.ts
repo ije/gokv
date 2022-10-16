@@ -1,6 +1,6 @@
 import type { DurableKV, InitKVOptions, Session, SessionOptions } from "../types/core.d.ts";
+import atm from "./AccessTokenManager.ts";
 import DurableKVImpl from "./DurableKV.ts";
-import atm from "./common/AccessTokenManager.ts";
 import { hashText, hmacSign, parseCookie, splitByChar } from "./common/utils.ts";
 
 const minMaxAge = 60; // one minute

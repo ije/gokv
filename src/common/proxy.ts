@@ -1,10 +1,11 @@
 // Proxy an object to create JSON-patches when changes.
-// The snapshot & subscribe is inspired by https://github.com/pmndrs/valtio
+// The snapshot & subscribe feature is inspired by https://github.com/pmndrs/valtio
 
-import type { JSONPatch, Path } from "./JSON-patch.ts";
+import { JSONPatch, lookupValue, Op, Path } from "./jsonpatch.ts";
 
 const SNAPSHOT = Symbol();
 const LISTENERS = Symbol();
+const NOTIFY = Symbol();
 
 // only plain object or array can be proxied
 function canProxy(a: unknown) {
@@ -17,9 +18,9 @@ function canProxy(a: unknown) {
 
 /** Proxy an object to create JSON-patches when changes. */
 // deno-lint-ignore ban-types
-export default function proxy<T extends object>(
+export function proxy<T extends object>(
   initialObject: T,
-  notify: (patch: JSONPatch) => void,
+  onChange: (patch: JSONPatch) => void,
   path: Path = [],
 ): T {
   if (!canProxy(initialObject)) {
@@ -33,42 +34,51 @@ export default function proxy<T extends object>(
     const snapshot = isArray ? [] : Object.create(Object.prototype);
     Reflect.ownKeys(target).forEach((key) => {
       if (typeof key === "string") {
-        snapshot[key] = Reflect.get(target, key, receiver);
+        const value = Reflect.get(target, key, receiver);
+        snapshot[key] = value?.[SNAPSHOT] ?? value;
       }
     });
     return Object.freeze(snapshot);
   };
   const listeners = new Set<() => void>();
   let shouldNotify = false;
+  let snapshotCache: T | null = null;
   const proxyObject = new Proxy(target, {
     get: (target: T, prop: string | symbol, receiver: unknown): unknown => {
       if (prop === LISTENERS) {
         return listeners;
       }
       if (prop === SNAPSHOT) {
-        return createSnapshot(target, receiver);
+        return snapshotCache ?? (snapshotCache = createSnapshot(target, receiver));
       }
       return Reflect.get(target, prop, receiver);
     },
     set: (target: T, prop: string | symbol, value: unknown, receiver: unknown): boolean => {
+      if (prop === NOTIFY) {
+        shouldNotify = Boolean(value);
+        return true;
+      }
       const key = fixProp(prop);
-      const op = Reflect.has(target, prop) ? "replace" : "add";
+      const op = Reflect.has(target, prop) ? Op.Replace : Op.Add;
       const oldValue = Reflect.get(target, prop, receiver);
       const updated = Reflect.set(
         target,
         prop,
         // cycle proxy if possiable
-        canProxy(value) && typeof key !== "symbol" ? proxy(value as T, notify, [...path, key]) : value,
+        canProxy(value) && typeof key !== "symbol" ? proxy(value as T, onChange, [...path, key]) : value,
         receiver,
       );
+      if (updated && snapshotCache !== null) {
+        snapshotCache = null;
+      }
       if (updated && typeof key !== "symbol" && !(isArray && key === "length")) {
         listeners.forEach((cb) => cb());
-        shouldNotify && notify({
+        shouldNotify && onChange([
           op,
-          path: [...path, key],
+          [...path, key],
           value,
           oldValue,
-        });
+        ]);
       }
       return updated;
     },
@@ -76,13 +86,17 @@ export default function proxy<T extends object>(
       const key = fixProp(prop);
       const oldValue = Reflect.get(target, prop);
       const deleted = Reflect.deleteProperty(target, prop);
+      if (deleted && snapshotCache !== null) {
+        snapshotCache = null;
+      }
       if (deleted && typeof key !== "symbol") {
         listeners.forEach((cb) => cb());
-        shouldNotify && notify({
-          op: "remove",
-          path: [...path, key],
+        shouldNotify && onChange([
+          Op.Remove,
+          [...path, key],
+          undefined,
           oldValue,
-        });
+        ]);
       }
       return deleted;
     },
@@ -104,14 +118,15 @@ export function snapshot<T extends object>(proxyObject: T): T {
   if (typeof proxyObject !== "object" || proxyObject === null) {
     throw new Error("invalid object");
   }
-  return (proxyObject as Record<symbol, unknown>)[SNAPSHOT] as T ?? proxyObject;
+  return Reflect.get(proxyObject, SNAPSHOT) as T | undefined ?? proxyObject;
 }
 
-export function subscribe(proxyObject: unknown, callback: () => void): () => void {
+// deno-lint-ignore ban-types
+export function subscribe(proxyObject: object, callback: () => void): () => void {
   if (typeof proxyObject !== "object" || proxyObject === null) {
     throw new Error("invalid object");
   }
-  const listeners = (proxyObject as Record<symbol, unknown>)[LISTENERS] as Set<() => void>;
+  const listeners = Reflect.get(proxyObject, LISTENERS) as Set<() => void> | undefined;
   if (listeners === undefined) {
     throw new Error("can't subscribe a non-proxy object");
   }
@@ -128,4 +143,23 @@ export function subscribe(proxyObject: unknown, callback: () => void): () => voi
   return () => {
     listeners.delete(listener);
   };
+}
+
+// deno-lint-ignore ban-types
+export function applyPatch(proxyObject: object, patch: JSONPatch): boolean {
+  const [op, path, value] = patch;
+  const dep = path.length;
+  const target = dep > 1 ? lookupValue(proxyObject, path.slice(0, -1)) : proxyObject;
+  if (typeof target !== "object" || target === null) {
+    return false;
+  }
+  Reflect.set(target, NOTIFY, false);
+  const key = path[dep - 1];
+  if (op === Op.Add || op === Op.Replace) {
+    Reflect.set(target, key, value);
+  } else if (op === Op.Remove) {
+    Reflect.deleteProperty(target, key);
+  }
+  Reflect.set(target, NOTIFY, true);
+  return true;
 }

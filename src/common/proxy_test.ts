@@ -1,17 +1,27 @@
-import proxy, { snapshot } from "./proxy.ts";
+import { assertEquals } from "std/testing/asserts.ts";
+import { JSONPatch, Op } from "./jsonpatch.ts";
+import { applyPatch, proxy } from "./proxy.ts";
 
 Deno.test("proxy", () => {
+  const patches: JSONPatch[] = [];
   const state = proxy({
     obj: { foo: "bar" },
     arr: ["hello"],
   }, (patch) => {
-    console.log(patch);
+    patches.push(patch);
   });
 
   state.obj.foo = "baz";
   state.arr.push("world!");
 
-  console.log(JSON.stringify(state));
-  console.log(snapshot(state.obj));
-  console.log(snapshot(state.arr));
+  applyPatch(state, [Op.Add, ["obj", "baz"], "qux"]);
+
+  assertEquals(patches, [
+    [Op.Replace, ["obj", "foo"], "baz", "bar"],
+    [Op.Add, ["arr", 1], "world!", undefined],
+  ]);
+
+  // deno-lint-ignore ban-ts-comment
+  // @ts-ignore
+  assertEquals(state.obj, { foo: "baz", baz: "qux" });
 });

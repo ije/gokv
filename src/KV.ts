@@ -2,13 +2,14 @@
 
 import type {
   KV,
+  KVDeleteOptions,
   KVGetWithMetadataResult,
   KVListOptions,
   KVListResult,
   KVPutOptions,
   Socket,
 } from "../types/core.d.ts";
-import atm from "./common/AccessTokenManager.ts";
+import atm from "./AccessTokenManager.ts";
 import { appendOptionsToHeaders, checkNamespace, closeBody, fetchApi } from "./common/utils.ts";
 
 export default class KVImpl implements KV {
@@ -30,12 +31,14 @@ export default class KVImpl implements KV {
   }
 
   async get(key: string, options?: string | { type?: string; cacheTtl?: number }): Promise<any> {
+    if (key === "") {
+      return undefined;
+    }
     const headers = await this.#headers();
     if (options && typeof options !== "string") {
       appendOptionsToHeaders(options, headers);
     }
-
-    const res = await fetchApi("kv", { socket: this.#socket, resource: key, headers, ignore404: true });
+    const res = await fetchApi("kv", { socket: this.#socket, pathname: "/" + key, headers, ignore404: true });
     if (res.status === 404) {
       await closeBody(res);
       return null;
@@ -63,12 +66,14 @@ export default class KVImpl implements KV {
     key: string,
     options?: string | { type?: string; cacheTtl?: number },
   ): Promise<KVGetWithMetadataResult<any, M>> {
+    if (key === "") {
+      return { value: null, metadata: null };
+    }
     const headers = await this.#headers({ "accept-metadata": "1" });
     if (options && typeof options !== "string") {
       appendOptionsToHeaders(options, headers);
     }
-
-    const res = await fetchApi("kv", { socket: this.#socket, resource: key, headers, ignore404: true });
+    const res = await fetchApi("kv", { socket: this.#socket, pathname: "/" + key, headers, ignore404: true });
     if (res.status == 404) {
       await closeBody(res);
       return { value: null, metadata: null };
@@ -108,17 +113,32 @@ export default class KVImpl implements KV {
   }
 
   async put(key: string, value: string | ArrayBuffer | ReadableStream, options?: KVPutOptions): Promise<void> {
+    if (key === "") {
+      return;
+    }
     const headers = await this.#headers({ "accept-metadata": "1" });
     if (options) {
       appendOptionsToHeaders(options, headers);
     }
-    const res = await fetchApi("kv", { socket: this.#socket, method: "PUT", resource: key, headers, body: value });
+    const res = await fetchApi("kv", {
+      socket: this.#socket,
+      method: "PUT",
+      pathname: "/" + key,
+      headers,
+      body: value,
+    });
     await closeBody(res); // release body
   }
 
-  async delete(key: string): Promise<void> {
+  async delete(key: string, options?: KVDeleteOptions): Promise<void> {
+    if (key === "") {
+      return;
+    }
     const headers = await this.#headers();
-    const res = await fetchApi("kv", { socket: this.#socket, method: "DELETE", resource: key, headers });
+    if (options) {
+      appendOptionsToHeaders(options, headers);
+    }
+    const res = await fetchApi("kv", { socket: this.#socket, method: "DELETE", pathname: "/" + key, headers });
     await closeBody(res); // release body
   }
 
