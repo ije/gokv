@@ -8,7 +8,7 @@ on:
 
 jobs:
   format:
-    name: Code Lint
+    name: Lint
     runs-on: ubuntu-latest
 
     steps:
@@ -26,20 +26,41 @@ jobs:
       - name: Deno lint
         run: deno lint
 
-  test:
-    name: Test API
+  test_in_deno:
+    name: Testing in Deno
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v2
 
-      - name: Setup deno
+      - name: Setup Deno
         uses: denoland/setup-deno@main
         with:
           deno-version: v1.x
 
-      - name: Deno test
+      - name: Testing
         env:
           GOKV_TOKEN: ${{ secrets.GOKV_TOKEN }}
-        run: deno test -A src/ test/deno_test.ts
+        run: deno test -A src/ test/
+
+  test_in_node:
+    name: Testing in Node.js
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: 16.18
+
+      - name: Build dist
+        run: npm run build
+
+      - name: Testing
+        env:
+          GOKV_TOKEN: ${{ secrets.GOKV_TOKEN }}
+        run: node test/integration-test-node.mjs
