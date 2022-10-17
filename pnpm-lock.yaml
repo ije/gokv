@@ -4,16 +4,18 @@ specifiers:
   '@peculiar/webcrypto': ^1.4.0
   dotenv: ^16.0.3
   esbuild: ^0.15.11
+  fractional-indexing: ^3.1.0
   node-fetch: ^3.2.10
-  uuid: ^9.0.0
   websocket: ^1.0.34
+
+dependencies:
+  fractional-indexing: 3.1.0
 
 devDependencies:
   '@peculiar/webcrypto': 1.4.0
   dotenv: 16.0.3
   esbuild: 0.15.11
   node-fetch: 3.2.10
-  uuid: 9.0.0
   websocket: 1.0.34
 
 packages:
@@ -363,6 +365,11 @@ packages:
       fetch-blob: 3.1.4
     dev: true
 
+  /fractional-indexing/3.1.0:
+    resolution: {integrity: sha512-j5mtGgQxuEH6pI8n1N9xmAamb9WRwc5JcLYXidKc6IQ6HP8WvGePHxuilhAogglGA6qeafgFiXslVn4yAtNHsQ==}
+    engines: {node: ^14.13.1 || >=16.0.0}
+    dev: false
+
   /is-typedarray/1.0.0:
     resolution: {integrity: sha512-cyA56iCMHAh5CdzjJIa4aohJyeO1YbwLi3Jc35MmRU6poroFjIGZzUzupGiRPOjgHg9TLu43xbpwXk523fMxKA==}
     dev: true
@@ -429,11 +436,6 @@ packages:
     requiresBuild: true
     dependencies:
       node-gyp-build: 4.5.0
-    dev: true
-
-  /uuid/9.0.0:
-    resolution: {integrity: sha512-MXcSTerfPa4uqyzStbRoTgt5XIe3x5+42+q1sDuy3R5MDk66URdLMOZe5aPX/SQd+kuYAh0FdP/pO28IkQyTeg==}
-    hasBin: true
     dev: true
 
   /web-streams-polyfill/3.2.0:
