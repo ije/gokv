@@ -22,6 +22,7 @@ export default class DocumentImpl<T extends object> implements Document<T> {
   }
 
   async sync(): Promise<T> {
+    const debug = Boolean(Reflect.get(globalThis, "DEBUG"));
     const token = (await atm.getAccessToken(`document:${this.#docId}`));
     const url = `${socketUrl}/${this.#docId}`;
     let ws = await createWebSocket(url, token.join("-"));
@@ -29,10 +30,7 @@ export default class DocumentImpl<T extends object> implements Document<T> {
       let doc: T | null = null;
       let status: SocketStatus = SocketStatus.PENDING;
       let uncomfirmedPatches: JSONPatch[] = [];
-      let resolved = false;
       let rejected = false;
-
-      const debug = Boolean(Reflect.get(globalThis, "DEBUG"));
 
       const send = (message: string) => {
         debug && console.debug(socketUrl, "↑", message);
@@ -45,38 +43,41 @@ export default class DocumentImpl<T extends object> implements Document<T> {
 
       const onerror = (e: Event | ErrorEvent) => {
         if (status === SocketStatus.PENDING && !rejected) {
-          reject(e);
+          reject(
+            new Error(`[gokv] Document(${this.#docId}): ${(e as ErrorEvent)?.message ?? "unknown websocket error"}`),
+          );
           rejected = true;
         }
-        console.error(`[gokv] Document(${this.#docId}):`, e);
       };
 
       const onmessage = ({ data }: MessageEvent) => {
         debug && console.debug(socketUrl, "↓", data);
         if (isTagedJson(data, "document")) {
           const rawDoc = JSON.parse(data.slice(8));
-          doc = proxy(rawDoc, (patch) => {
-            // todo: merge patches
-            send("patch" + JSON.stringify(patch.slice(0, patch[0] === Op.Remove ? 2 : 3)));
-            uncomfirmedPatches.push(patch);
-          });
-          status = SocketStatus.READY;
-          if (this.#options?.initData) {
-            for (const [key, value] of Object.entries(this.#options.initData)) {
-              if (!Reflect.has(doc!, key)) {
-                // todo: deep check
-                Reflect.set(doc!, key, value);
+          if (doc === null) {
+            doc = proxy(rawDoc, (patch) => {
+              // todo: merge patches
+              send("patch" + JSON.stringify(patch.slice(0, patch[0] === Op.Remove ? 2 : 3)));
+              uncomfirmedPatches.push(patch);
+            });
+            if (this.#options?.initData) {
+              for (const [key, value] of Object.entries(this.#options.initData)) {
+                if (!Reflect.has(doc!, key)) {
+                  // todo: deep check
+                  Reflect.set(doc!, key, value);
+                }
               }
             }
-          }
-          if (!resolved) {
             resolve(doc!);
-            resolved = true;
+          } else {
+            // todo: doc.replace(rawDoc)
           }
+          status = SocketStatus.READY;
         } else if (isTagedJson(data, "patch", true)) {
           const patch = JSON.parse(data.slice(5));
           if (status === SocketStatus.PENDING) {
-            // not ready
+            // Theoretically, the server will not send any `patch` message before
+            // the `document` message, so we can ignore this message safely.
             return;
           }
           // discard the patch that conflict with unacknowledged property changes.
@@ -93,8 +94,8 @@ export default class DocumentImpl<T extends object> implements Document<T> {
 
       const onclose = () => {
         status = SocketStatus.CLOSE;
-        // reconnect
-        if (!rejected) {
+        // reconnect if the document is synced
+        if (doc !== null) {
           createWebSocket(url, token.join("-")).then((newWs) => {
             ws = newWs;
             ws.addEventListener("open", onopen);
