@@ -4,6 +4,8 @@ export enum Op {
   Add = 1,
   Replace = 2,
   Remove = 3,
+  // this goes beyond JSON-patch, for array manipulation
+  Splice = 4,
 }
 
 /**
