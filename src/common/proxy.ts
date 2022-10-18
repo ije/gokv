@@ -127,16 +127,13 @@ export function proxyObject<T extends object>(
   return proxyObject;
 }
 
-export function proxyArray(
-  initialArray: unknown[] | { $$indexs: string[]; $$values: Record<string, unknown> },
+export function proxyArray<T>(
+  initialArray: T[] | { $$indexs: string[]; $$values: Record<string, T> },
   onChange: (patch: JSONPatch) => void,
   path: Path = [],
-): unknown[] {
+): T[] {
   let shouldNotify = true;
-  let snapshotCache: Readonly<unknown[]> | null = null;
-  const createSnapshot = () => {
-    return Object.freeze(indexs.map((index) => values[index]));
-  };
+  let snapshotCache: Readonly<T[]> | null = null;
   const listeners = new Set<() => void>();
   const emit = () => {
     listeners.forEach((cb) => cb());
@@ -152,7 +149,14 @@ export function proxyArray(
     onChange,
     [...path, "$$values"],
   );
-  const splice = (start: number, deleteCount: number, ...items: unknown[]) => {
+  const createSnapshot = () => {
+    return Object.freeze(indexs.map((index) => {
+      // deno-lint-ignore no-explicit-any
+      const value = values[index] as any;
+      return value?.[SNAPSHOT] ?? value;
+    }));
+  };
+  const splice = (start: number, deleteCount: number, ...items: T[]) => {
     if (start < 0) {
       start = indexs.length + start;
     }
@@ -180,11 +184,11 @@ export function proxyArray(
     splice,
     pop: () => splice(-1, 1)[0],
     shift: () => splice(0, 1)[0],
-    push: (...items: unknown[]) => {
+    push: (...items: T[]) => {
       splice(indexs.length, 0, ...items);
       return indexs.length;
     },
-    unshift: (...items: unknown[]) => {
+    unshift: (...items: T[]) => {
       splice(0, 0, ...items);
       return indexs.length;
     },
@@ -194,7 +198,7 @@ export function proxyArray(
         const aVal = values[a] as any, bVal = values[b] as any;
         return compareFn?.(aVal, bVal) ?? (aVal > bVal ? 1 : -1);
       });
-      const sortedValues = sortedIndexs.map<[string, unknown]>((key, i) => [key, values[indexs[i]]]);
+      const sortedValues = sortedIndexs.map<[string, T]>((key, i) => [key, values[indexs[i]]]);
       for (const [key, value] of sortedValues) {
         if (values[key] !== value) {
           values[key] = value;
@@ -210,7 +214,7 @@ export function proxyArray(
       emit();
       return proxy;
     },
-    fill: (value: unknown, start = 0, end = indexs.length) => {
+    fill: (value: T, start = 0, end = indexs.length) => {
       if (start < 0) {
         start = indexs.length + start;
       }
@@ -231,7 +235,7 @@ export function proxyArray(
     },
   };
   const proxy = new Proxy(indexs, {
-    get: (target: unknown[], prop: string | symbol, receiver: unknown): unknown => {
+    get: (target: string[], prop: string | symbol, receiver: unknown): unknown => {
       if (prop === LISTENERS) {
         return listeners;
       }
@@ -243,7 +247,7 @@ export function proxyArray(
       }
       return (hijack as Record<string | symbol, unknown>)[prop] ?? Reflect.get(target, prop, receiver);
     },
-    set: (target: unknown[], prop: string | symbol, value: unknown, receiver: unknown): boolean => {
+    set: (target: string[], prop: string | symbol, value: unknown, receiver: unknown): boolean => {
       if (prop === NOTIFY) {
         shouldNotify = Boolean(value);
         return true;
@@ -251,7 +255,26 @@ export function proxyArray(
       return Reflect.set(target, prop, value, receiver);
     },
   });
-  return proxy;
+  return proxy as T[];
+}
+
+// deno-lint-ignore ban-types
+export function applyPatch(proxyObject: object, patch: JSONPatch): boolean {
+  const [op, path, value] = patch;
+  const dep = path.length;
+  const target = dep > 1 ? lookupValue(proxyObject, path.slice(0, -1)) : proxyObject;
+  if (typeof target !== "object" || target === null) {
+    return false;
+  }
+  Reflect.set(target, NOTIFY, false);
+  const key = path[dep - 1];
+  if (op === Op.Add || op === Op.Replace) {
+    Reflect.set(target, key, value);
+  } else if (op === Op.Remove) {
+    Reflect.deleteProperty(target, key);
+  }
+  Reflect.set(target, NOTIFY, true);
+  return true;
 }
 
 // deno-lint-ignore ban-types
@@ -284,23 +307,4 @@ export function subscribe(proxyObject: object, callback: () => void): () => void
   return () => {
     listeners.delete(listener);
   };
-}
-
-// deno-lint-ignore ban-types
-export function applyPatch(proxyObject: object, patch: JSONPatch): boolean {
-  const [op, path, value] = patch;
-  const dep = path.length;
-  const target = dep > 1 ? lookupValue(proxyObject, path.slice(0, -1)) : proxyObject;
-  if (typeof target !== "object" || target === null) {
-    return false;
-  }
-  Reflect.set(target, NOTIFY, false);
-  const key = path[dep - 1];
-  if (op === Op.Add || op === Op.Replace) {
-    Reflect.set(target, key, value);
-  } else if (op === Op.Remove) {
-    Reflect.deleteProperty(target, key);
-  }
-  Reflect.set(target, NOTIFY, true);
-  return true;
 }

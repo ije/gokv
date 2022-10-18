@@ -21,8 +21,9 @@ import DurableKVImpl from "./src/DurableKV.ts";
 import SessionImpl from "./src/Session.ts";
 import DocumentImpl from "./src/Document.ts";
 import UploaderImpl from "./src/Uploader.ts";
-import { fetchApi } from "./src/common/utils.ts";
+import { snapshot, subscribe } from "./src/common/proxy.ts";
 import { connect } from "./src/common/socket.ts";
+import { fetchApi } from "./src/common/utils.ts";
 
 class ModuleImpl implements Module {
   #socket: Socket | undefined;
@@ -80,6 +81,14 @@ class ModuleImpl implements Module {
   }
 }
 
-export { DurableKVImpl as DurableKV, KVImpl as KV, SessionImpl as Session, UploaderImpl as Uploader };
+export {
+  DocumentImpl as Document,
+  DurableKVImpl as DurableKV,
+  KVImpl as KV,
+  SessionImpl as Session,
+  snapshot,
+  subscribe,
+  UploaderImpl as Uploader,
+};
 
 export default new ModuleImpl();

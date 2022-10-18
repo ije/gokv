@@ -35,7 +35,7 @@ Deno.test("proxy", () => {
 Deno.test("proxy array", () => {
   const arr = [1, 2, 3];
   const proxy = proxyArray([1, 2, 3], (_patch) => {
-    console.log(JSON.stringify(_patch));
+    // console.log(JSON.stringify(_patch));
   });
 
   assertEquals(arr.push(4), proxy.push(4));

@@ -1,3 +1,5 @@
+// deno-lint-ignore-file ban-types
+
 import { AuthUser } from "./common.d.ts";
 import { ChatRoom, ChatRoomOptions } from "./ChatRoom.d.ts";
 import { Document, DocumentOptions } from "./Document.d.ts";
@@ -16,7 +18,6 @@ export interface Module {
   config(options: ModuleConfigOptions): void;
   Uploader(options?: UploaderOptions): Uploader;
   ChatRoom<U extends AuthUser>(roomId: string, options?: ChatRoomOptions): ChatRoom<U>;
-  // deno-lint-ignore ban-types
   Document<T extends object>(documentId: string, options?: DocumentOptions<T>): Document<T>;
 }
 

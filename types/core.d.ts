@@ -1,3 +1,5 @@
+// deno-lint-ignore-file ban-types
+
 import { AuthUser, Socket } from "./common.d.ts";
 import { DurableKV, InitKVOptions, KV, Session, SessionOptions } from "./KV.d.ts";
 import { Document, DocumentOptions } from "./Document.d.ts";
@@ -33,7 +35,6 @@ export interface Module {
     request: Request | { cookies: Record<string, string> },
     options?: SessionOptions,
   ): Promise<Session<T>>;
-  // deno-lint-ignore ban-types
   Document<T extends object>(documentId: string, options?: DocumentOptions<T>): Document<T>;
   Uploader(options?: UploaderOptions): Uploader;
 }
