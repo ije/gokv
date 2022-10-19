@@ -18,6 +18,7 @@ Deno.test("proxy", () => {
   applyPatch(state, [Op.Add, ["obj", "baz"], "qux"]);
 
   assertEquals(patches, [
+    [Op.Add, ["arr"], { $$indexs: ["a0"], $$values: { a0: "hello" } }],
     [Op.Replace, ["obj", "foo"], "baz", "bar"],
     [Op.Add, ["arr", "$$values", "Zz"], "Hello", undefined],
     [Op.Remove, ["arr", "$$values", "a0"], undefined, "hello"],

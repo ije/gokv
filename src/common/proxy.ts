@@ -18,10 +18,9 @@ function canProxy(a: unknown) {
 }
 
 /** Proxy an object to create JSON-patches when changes. */
-// deno-lint-ignore ban-types
-export function proxy<T extends object>(
+export function proxy<T extends Record<string, unknown> | Array<unknown>>(
   initialObject: T,
-  onChange: (patch: JSONPatch) => void,
+  notify: (patch: JSONPatch) => void,
   path: Path = [],
 ): T {
   if (!canProxy(initialObject)) {
@@ -30,21 +29,24 @@ export function proxy<T extends object>(
   const isArray = Array.isArray(initialObject) ||
     (Array.isArray(Reflect.get(initialObject, "$$indexs")) && canProxy(Reflect.get(initialObject, "$$values")));
   if (isArray) {
-    return proxyArray(initialObject as unknown[], onChange, path) as T;
+    return proxyArray(initialObject as unknown[], notify, path) as T;
   }
-  return proxyObject(initialObject, onChange, path);
+  return proxyObject(initialObject, notify, path);
 }
 
 /** Proxy an object to create JSON-patches when changes. */
-// deno-lint-ignore ban-types
-export function proxyObject<T extends object>(
+export function proxyObject<T extends Record<string, unknown> | Array<unknown>>(
   initialObject: T,
-  onChange: (patch: JSONPatch) => void,
+  notify: (patch: JSONPatch) => void,
   path: Path = [],
 ): T {
   let shouldNotify = false;
   let snapshotCache: T | null = null;
-  const target = Object.create(Object.prototype);
+  const listeners = new Set<() => void>();
+  const sideEffect = () => {
+    snapshotCache = null;
+    listeners.forEach((cb) => cb());
+  };
   const createSnapshot = (target: T, receiver: unknown) => {
     const snapshot = Object.create(Object.prototype);
     Reflect.ownKeys(target).forEach((key) => {
@@ -55,7 +57,7 @@ export function proxyObject<T extends object>(
     });
     return Object.freeze(snapshot);
   };
-  const listeners = new Set<() => void>();
+  const target = Object.create(Object.prototype);
   const proxyObject = new Proxy(target, {
     get: (target: T, prop: string | symbol, receiver: unknown): unknown => {
       if (prop === LISTENERS) {
@@ -67,8 +69,10 @@ export function proxyObject<T extends object>(
       return Reflect.get(target, prop, receiver);
     },
     set: (target: T, prop: string | symbol, value: unknown, receiver: unknown): boolean => {
-      if (prop === NOTIFY) {
-        shouldNotify = Boolean(value);
+      if (typeof prop === "symbol") {
+        if (prop === NOTIFY) {
+          shouldNotify = Boolean(value);
+        }
         return true;
       }
       const op = Reflect.has(target, prop) ? Op.Replace : Op.Add;
@@ -79,20 +83,17 @@ export function proxyObject<T extends object>(
       const updated = Reflect.set(
         target,
         prop,
-        // cycle proxy if possiable
-        canProxy(value) && typeof prop !== "symbol" ? proxy(value as T, onChange, [...path, prop]) : value,
+        // cycle proxy if possible
+        canProxy(value) ? proxy(value as T, notify, [...path, prop]) : value,
         receiver,
       );
-      if (updated && snapshotCache !== null) {
-        snapshotCache = null;
-      }
-      if (updated && typeof prop !== "symbol") {
-        listeners.forEach((cb) => cb());
-        shouldNotify && onChange([
+      if (updated) {
+        sideEffect();
+        shouldNotify && notify([
           op,
           [...path, prop],
           value,
-          oldValue,
+          oldValue?.[SNAPSHOT] ?? oldValue,
         ]);
       }
       return updated;
@@ -100,16 +101,13 @@ export function proxyObject<T extends object>(
     deleteProperty: (target: T, prop: string | symbol): boolean => {
       const oldValue = Reflect.get(target, prop);
       const deleted = Reflect.deleteProperty(target, prop);
-      if (deleted && snapshotCache !== null) {
-        snapshotCache = null;
-      }
       if (deleted && typeof prop !== "symbol") {
-        listeners.forEach((cb) => cb());
-        shouldNotify && onChange([
+        sideEffect();
+        shouldNotify && notify([
           Op.Remove,
           [...path, prop],
           undefined,
-          oldValue,
+          oldValue?.[SNAPSHOT] ?? oldValue,
         ]);
       }
       return deleted;
@@ -129,15 +127,15 @@ export function proxyObject<T extends object>(
 
 export function proxyArray<T>(
   initialArray: T[] | { $$indexs: string[]; $$values: Record<string, T> },
-  onChange: (patch: JSONPatch) => void,
+  notify: (patch: JSONPatch) => void,
   path: Path = [],
 ): T[] {
   let shouldNotify = true;
   let snapshotCache: Readonly<T[]> | null = null;
   const listeners = new Set<() => void>();
-  const emit = () => {
-    listeners.forEach((cb) => cb());
+  const sideEffect = () => {
     snapshotCache = null;
+    listeners.forEach((cb) => cb());
   };
   const indexs = Array.isArray(initialArray)
     ? generateNKeysBetween(null, null, initialArray.length)
@@ -146,7 +144,7 @@ export function proxyArray<T>(
     Array.isArray(initialArray)
       ? Object.fromEntries(indexs.map((key, i) => [key, initialArray[i]]))
       : initialArray.$$values,
-    onChange,
+    notify,
     [...path, "$$values"],
   );
   const createSnapshot = () => {
@@ -157,26 +155,25 @@ export function proxyArray<T>(
     }));
   };
   const splice = (start: number, deleteCount: number, ...items: T[]) => {
-    if (start < 0) {
-      start = indexs.length + start;
-    }
+    const len = indexs.length;
+    start = start < 0 ? len + start : (start > len ? len : start);
     const added = generateNKeysBetween(indexs[start - 1], indexs[start], items.length);
+    added.forEach((key, i) => {
+      values[key] = items[i];
+    });
     const deleted = indexs.splice(
       start,
       deleteCount,
       ...added,
     );
-    added.forEach((key, i) => {
-      values[key] = items[i];
-    });
     const ret = deleted.map((key) => {
-      const value = values[key];
+      const value = values[key] as Record<symbol, unknown>;
       delete values[key];
-      return value;
+      return value?.[SNAPSHOT] ?? value;
     });
     if (added.length > 0 || deleted.length > 0) {
-      shouldNotify && onChange([Op.Splice, [...path, "$$indexs"], added, deleted]);
-      emit();
+      sideEffect();
+      shouldNotify && notify([Op.Splice, [...path, "$$indexs"], added, deleted]);
     }
     return ret;
   };
@@ -193,10 +190,9 @@ export function proxyArray<T>(
       return indexs.length;
     },
     sort: (compareFn?: (a: unknown, b: unknown) => number) => {
-      const sortedIndexs = [...indexs].sort((a, b) => {
-        // deno-lint-ignore no-explicit-any
-        const aVal = values[a] as any, bVal = values[b] as any;
-        return compareFn?.(aVal, bVal) ?? (aVal > bVal ? 1 : -1);
+      const sortedIndexs = [...indexs].sort((aIdx, bIdx) => {
+        const a = values[aIdx], b = values[bIdx];
+        return compareFn?.(a, b) ?? a == b ? 0 : (a > b ? 1 : -1);
       });
       const sortedValues = sortedIndexs.map<[string, T]>((key, i) => [key, values[indexs[i]]]);
       for (const [key, value] of sortedValues) {
@@ -204,36 +200,41 @@ export function proxyArray<T>(
           values[key] = value;
         }
       }
-      emit();
+      sideEffect();
       return proxy;
     },
     reverse: () => {
       for (let i = 0, j = indexs.length - 1; i < j; i++, j--) {
         [values[indexs[i]], values[indexs[j]]] = [values[indexs[j]], values[indexs[i]]];
       }
-      emit();
+      sideEffect();
       return proxy;
     },
     fill: (value: T, start = 0, end = indexs.length) => {
-      if (start < 0) {
-        start = indexs.length + start;
-      }
+      const len = indexs.length;
+      start = start < 0 ? len + start : start;
+      end = end < 0 ? len + end : (end > len ? len : end);
       for (let i = start; i < end; i++) {
         values[indexs[i]] = value;
       }
-      emit();
+      sideEffect();
       return proxy;
     },
     copyWithin: (target: number, start: number, end?: number) => {
-      if (target < 0) {
-        target = indexs.length + target;
-      }
+      const len = indexs.length;
       const copy = indexs.slice(start, end).map((key) => values[key]);
-      const n = Math.min(copy.length, indexs.length - target);
-      splice(target, n, ...copy.slice(0, n));
+      target = target < 0 ? len + target : target;
+      for (let i = target, j = 0; i < len && j < copy.length; i++, j++) {
+        values[indexs[i]] = copy[j];
+      }
+      sideEffect();
       return proxy;
     },
   };
+  // notify the watcher when the array is first proxied
+  if (Array.isArray(initialArray) && path.length > 0 && shouldNotify) {
+    notify([Op.Add, path, { $$indexs: [...indexs], $$values: { ...values } }]);
+  }
   const proxy = new Proxy(indexs, {
     get: (target: string[], prop: string | symbol, receiver: unknown): unknown => {
       if (prop === LISTENERS) {
@@ -258,14 +259,14 @@ export function proxyArray<T>(
   return proxy as T[];
 }
 
-// deno-lint-ignore ban-types
-export function applyPatch(proxyObject: object, patch: JSONPatch): boolean {
+export function applyPatch(proxyObject: Record<string, unknown> | Array<unknown>, patch: JSONPatch): boolean {
   const [op, path, value] = patch;
   const dep = path.length;
   const target = dep > 1 ? lookupValue(proxyObject, path.slice(0, -1)) : proxyObject;
   if (typeof target !== "object" || target === null) {
     return false;
   }
+  // To avoid boardcast dead-loop, we need to disable the `NOTIFY` before we apply the patch
   Reflect.set(target, NOTIFY, false);
   const key = path[dep - 1];
   if (op === Op.Add || op === Op.Replace) {
@@ -277,16 +278,14 @@ export function applyPatch(proxyObject: object, patch: JSONPatch): boolean {
   return true;
 }
 
-// deno-lint-ignore ban-types
-export function snapshot<T extends object>(proxyObject: T): T {
+export function snapshot<T extends Record<string, unknown> | Array<unknown>>(proxyObject: T): T {
   if (typeof proxyObject !== "object" || proxyObject === null) {
     throw new Error("invalid object");
   }
   return Reflect.get(proxyObject, SNAPSHOT) as T | undefined ?? proxyObject;
 }
 
-// deno-lint-ignore ban-types
-export function subscribe(proxyObject: object, callback: () => void): () => void {
+export function subscribe(proxyObject: Record<string, unknown> | Array<unknown>, callback: () => void): () => void {
   if (typeof proxyObject !== "object" || proxyObject === null) {
     throw new Error("invalid object");
   }
