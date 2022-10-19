@@ -3,7 +3,8 @@ import atm from "../AccessTokenManager.ts";
 import { conactBytes, CRLF, dec, enc, splitByChar, splitBytesByCRLF, toBytesInt32 } from "./utils.ts";
 
 const socketUrl = "wss://socket.gokv.io";
-const fetchTimeout = 30 * 1000; // 30 seconds
+const defaultTimeout = 30 * 1000; // 30 seconds
+const frameStart = 0x04;
 
 export enum SocketStatus {
   PENDING = 0,
@@ -35,26 +36,27 @@ export async function createWebSocket(url: string, protocols?: string | string[]
   return new WebSocket(url, protocols);
 }
 
+/** Creating a web socket to send/receive HTTP requests/responses. */
 export async function connect(): Promise<Socket> {
   const nativeFetch = globalThis.fetch;
   const awaits = new Map<number, (data: ArrayBuffer) => void>();
   let ws = await createWebSocket(socketUrl);
   return new Promise((resolve, reject) => {
     let status: SocketStatus = SocketStatus.PENDING;
-    let fetchIndex = 0;
+    let frameIndex = 0;
 
     const fetch = (input: string | URL, init?: RequestInit) =>
       status === SocketStatus.CLOSE ? nativeFetch(input, init) : new Promise<Response>((resolve, reject) => {
-        const id = fetchIndex++;
+        const frameId = frameIndex++;
         serializeHttpRequest(input, init).then((bytes) => {
-          ws.send(conactBytes(toBytesInt32(id), bytes));
+          ws.send(conactBytes(new Uint8Array([frameStart]), toBytesInt32(frameId), bytes));
           const timer = setTimeout(() => {
-            awaits.delete(id);
+            awaits.delete(frameId);
             reject(new Error("timeout"));
-          }, fetchTimeout);
-          awaits.set(id, (data) => {
+          }, defaultTimeout);
+          awaits.set(frameId, (data) => {
             clearTimeout(timer);
-            awaits.delete(id);
+            awaits.delete(frameId);
             resolve(deserializeHttpResponse(data));
           });
         });
@@ -78,8 +80,11 @@ export async function connect(): Promise<Socket> {
     const onmessage = ({ data }: MessageEvent) => {
       if (status === SocketStatus.READY) {
         if (data instanceof ArrayBuffer) {
-          const id = new DataView(data).getInt32(0);
-          awaits.get(id)?.(data.slice(4));
+          const view = new DataView(data);
+          if (view.getInt8(0) === frameStart) {
+            const id = view.getInt32(1);
+            awaits.get(id)?.(data.slice(5));
+          }
         }
       } else if (typeof data === "string") {
         if (data.startsWith("OK ")) {
