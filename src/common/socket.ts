@@ -1,6 +1,6 @@
 import type { Socket } from "../../types/common.d.ts";
 import atm from "../AccessTokenManager.ts";
-import { conactBytes, dec, enc, splitByChar, toBytesInt32 } from "./utils.ts";
+import { conactBytes, CRLF, dec, enc, splitByChar, splitBytesByCRLF, toBytesInt32 } from "./utils.ts";
 
 const socketUrl = "wss://socket.gokv.io";
 const fetchTimeout = 30 * 1000; // 30 seconds
@@ -12,7 +12,8 @@ export enum SocketStatus {
 }
 
 export async function createWebSocket(url: string, protocols?: string | string[]) {
-  // workaround for cloudflare worker: https://developers.cloudflare.com/workers/learning/using-websockets/#writing-a-websocket-client
+  // workaround for cloudflare worker
+  // ref https://developers.cloudflare.com/workers/learning/using-websockets/#writing-a-websocket-client
   if (typeof WebSocket === "undefined" && typeof fetch === "function") {
     const headers = new Headers({ Upgrade: "websocket" });
     if (protocols) {
@@ -74,12 +75,6 @@ export async function connect(): Promise<Socket> {
       ws.send(token.join(" "));
     };
 
-    const onerror = (e: Event | ErrorEvent) => {
-      if (status === SocketStatus.PENDING) {
-        reject(e);
-      }
-    };
-
     const onmessage = ({ data }: MessageEvent) => {
       if (status === SocketStatus.READY) {
         if (data instanceof ArrayBuffer) {
@@ -96,6 +91,12 @@ export async function connect(): Promise<Socket> {
       }
     };
 
+    const onerror = (e: Event | ErrorEvent) => {
+      if (status === SocketStatus.PENDING) {
+        reject(e);
+      }
+    };
+
     const onclose = () => {
       status = SocketStatus.CLOSE;
       // reconnect
@@ -109,8 +110,8 @@ export async function connect(): Promise<Socket> {
     const go = () => {
       ws.binaryType = "arraybuffer";
       ws.addEventListener("open", onopen);
-      ws.addEventListener("error", onerror);
       ws.addEventListener("message", onmessage);
+      ws.addEventListener("error", onerror);
       ws.addEventListener("close", onclose);
     };
 
@@ -122,12 +123,15 @@ async function serializeHttpRequest(input: string | URL, init?: RequestInit): Pr
   const url = typeof input === "string" ? new URL(input) : input;
   const headers = new Headers(init?.headers);
   const buf: Uint8Array[] = [];
-  buf.push(enc.encode(`${init?.method ?? "GET"} ${url.pathname} HTTP/2\r\n`));
-  buf.push(enc.encode(`host: ${url.host}\r\n`));
+  buf.push(enc.encode(`${init?.method ?? "GET"} ${url.pathname} HTTP/2`));
+  buf.push(CRLF);
+  buf.push(enc.encode(`host: ${url.host}`));
+  buf.push(CRLF);
   headers.forEach((value, key) => {
-    buf.push(enc.encode(`${key}: ${value}\r\n`));
+    buf.push(enc.encode(`${key}: ${value}`));
+    buf.push(CRLF);
   });
-  buf.push(enc.encode("\r\n"));
+  buf.push(CRLF);
   if (init?.body) {
     if (typeof init.body === "string") {
       buf.push(enc.encode(init.body));
@@ -152,26 +156,26 @@ async function serializeHttpRequest(input: string | URL, init?: RequestInit): Pr
 }
 
 function deserializeHttpResponse(buffer: ArrayBuffer): Response {
-  const lines = dec.decode(buffer).split("\r\n");
+  const lines = splitBytesByCRLF(new Uint8Array(buffer));
   const headers = new Headers();
   let status = 200;
-  let index = 0;
+  let statusText = "OK";
   let line = lines.shift();
   if (line) {
-    const match = line.match(/^HTTP\/2 (\d+) (.*)$/);
-    if (match) {
-      status = parseInt(match[1]);
+    const match = dec.decode(line).match(/^HTTP\/[\d\.]+ (\d+) (.*)$/);
+    if (!match) {
+      throw new Error("invalid http response");
     }
-    index += enc.encode(line + "\r\n").length;
+    status = parseInt(match[1]);
+    statusText = match[2];
   }
   // deno-lint-ignore no-cond-assign
   while (line = lines.shift()) {
-    index += enc.encode(line + "\r\n").length;
-    if (line === "") {
+    if (line.length == 0) {
       break;
     }
-    const [k, v] = splitByChar(line, ":");
+    const [k, v] = splitByChar(dec.decode(line), ":");
     headers.set(k, v.trimStart());
   }
-  return new Response(lines.length ? buffer.slice(index + 2) : undefined, { status, headers });
+  return new Response(lines[0], { status, statusText, headers });
 }

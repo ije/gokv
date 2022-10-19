@@ -1,5 +1,8 @@
 import type { Socket } from "../../types/core.d.ts";
 
+/** CR and LF are control characters or bytecode that can be used to mark a line break in a text file. */
+export const CRLF = new Uint8Array([13, 10]);
+
 export const enc = new TextEncoder();
 export const dec = new TextDecoder();
 
@@ -46,6 +49,22 @@ export function conactBytes(...bytes: Uint8Array[]) {
     offset += b.length;
   }
   return ret;
+}
+
+export function splitBytesByCRLF(bytes: Uint8Array) {
+  const lines: Uint8Array[] = [];
+  let start = 0;
+  for (let i = 0; i < bytes.length; i++) {
+    if (bytes[i] === 13 && bytes[i + 1] === 10) {
+      lines.push(bytes.slice(start, i));
+      start = i + 2;
+      i++;
+    }
+  }
+  if (start < bytes.length) {
+    lines.push(bytes.slice(start));
+  }
+  return lines;
 }
 
 export function toHex(buf: ArrayBuffer): string {
