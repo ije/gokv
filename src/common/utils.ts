@@ -56,8 +56,13 @@ export function splitBytesByCRLF(bytes: Uint8Array) {
   let start = 0;
   for (let i = 0; i < bytes.length; i++) {
     if (bytes[i] === 13 && bytes[i + 1] === 10) {
-      lines.push(bytes.slice(start, i));
+      const line = bytes.slice(start, i);
+      lines.push(line);
       start = i + 2;
+      // ingore rest bytes when double CRLF found
+      if (line.length === 0) {
+        break;
+      }
       i++;
     }
   }
