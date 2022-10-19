@@ -1,5 +1,3 @@
-// deno-lint-ignore-file no-explicit-any
-
 import { Socket } from "./common.d.ts";
 
 export type KVGetOptions<T> = {
@@ -45,33 +43,33 @@ export class KV {
   get(key: string, options?: { cacheTtl?: number }): Promise<string | null>;
   get(key: string, options: "text"): Promise<string | null>;
   get(key: string, options: KVGetOptions<"text">): Promise<string | null>;
-  get<T = any>(key: string, options: "json"): Promise<T | null>;
-  get<T = any>(key: string, options: KVGetOptions<"json">): Promise<T | null>;
+  get<T = unknown>(key: string, options: "json"): Promise<T | null>;
+  get<T = unknown>(key: string, options: KVGetOptions<"json">): Promise<T | null>;
   get(key: string, options: "arrayBuffer"): Promise<ArrayBuffer | null>;
   get(key: string, options: KVGetOptions<"arrayBuffer">): Promise<ArrayBuffer | null>;
   get(key: string, options: "stream"): Promise<ReadableStream | null>;
   get(key: string, options: KVGetOptions<"stream">): Promise<ReadableStream | null>;
-  getWithMetadata<M = any>(
+  getWithMetadata<M = unknown>(
     key: string,
     options?: { cacheTtl?: number },
   ): Promise<KVGetWithMetadataResult<string, M>>;
-  getWithMetadata<M = any>(key: string, options: KVGetOptions<"text">): Promise<KVGetWithMetadataResult<string, M>>;
-  getWithMetadata<M = any>(key: string, options: "text"): Promise<KVGetWithMetadataResult<string, M>>;
-  getWithMetadata<T = any, M = any>(
+  getWithMetadata<M = unknown>(key: string, options: KVGetOptions<"text">): Promise<KVGetWithMetadataResult<string, M>>;
+  getWithMetadata<M = unknown>(key: string, options: "text"): Promise<KVGetWithMetadataResult<string, M>>;
+  getWithMetadata<T = unknown, M = unknown>(
     key: string,
     options: KVGetOptions<"json">,
   ): Promise<KVGetWithMetadataResult<T, M>>;
-  getWithMetadata<T = any, M = any>(key: string, options: "json"): Promise<KVGetWithMetadataResult<T, M>>;
-  getWithMetadata<M = any>(
+  getWithMetadata<T = unknown, M = unknown>(key: string, options: "json"): Promise<KVGetWithMetadataResult<T, M>>;
+  getWithMetadata<M = unknown>(
     key: string,
     options: KVGetOptions<"arrayBuffer">,
   ): Promise<KVGetWithMetadataResult<ArrayBuffer, M>>;
-  getWithMetadata<M = any>(key: string, options: "arrayBuffer"): Promise<KVGetWithMetadataResult<ArrayBuffer, M>>;
-  getWithMetadata<M = any>(
+  getWithMetadata<M = unknown>(key: string, options: "arrayBuffer"): Promise<KVGetWithMetadataResult<ArrayBuffer, M>>;
+  getWithMetadata<M = unknown>(
     key: string,
     options: KVGetOptions<"stream">,
   ): Promise<KVGetWithMetadataResult<ReadableStream, M>>;
-  getWithMetadata<M = any>(key: string, options: "stream"): Promise<KVGetWithMetadataResult<ReadableStream, M>>;
+  getWithMetadata<M = unknown>(key: string, options: "stream"): Promise<KVGetWithMetadataResult<ReadableStream, M>>;
   put(key: string, value: string | ArrayBuffer | ReadableStream, options?: KVPutOptions): Promise<void>;
   delete(key: string, options?: KVDeleteOptions): Promise<void>;
   list(options?: KVListOptions): Promise<KVListResult>;
@@ -103,15 +101,15 @@ export type DurableKVListOptions = {
 
 export class DurableKV {
   constructor(options: InitKVOptions);
-  get<T = any>(key: string, options?: DurableKVGetOptions): Promise<T | undefined>;
-  get<T = any>(keys: string[], options?: DurableKVGetOptions): Promise<Map<string, T>>;
+  get<T = unknown>(key: string, options?: DurableKVGetOptions): Promise<T | undefined>;
+  get<T = unknown>(keys: string[], options?: DurableKVGetOptions): Promise<Map<string, T>>;
   put(key: string, value: unknown, options?: DurableKVPutOptions): Promise<void>;
   put(entries: Record<string, unknown>): Promise<void>;
   delete(key: string, options?: DurableKVPutOptions): Promise<boolean>;
   delete(keys: string[], options?: DurableKVPutOptions): Promise<number>;
   delete(options: DurableKVDeleteOptions): Promise<number>;
   deleteAll(options?: DurableKVPutOptions): Promise<void>;
-  list<T = any>(options?: DurableKVListOptions): Promise<Map<string, T>>;
+  list<T = unknown>(options?: DurableKVListOptions): Promise<Map<string, T>>;
 }
 
 export type SessionOptions = {

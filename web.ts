@@ -25,8 +25,10 @@ class ModuleImpl implements Module {
   ChatRoom<U extends AuthUser>(roomId: string, options?: ChatRoomOptions): ChatRoom<U> {
     return new ChatRoomImpl(roomId, options);
   }
-  // deno-lint-ignore ban-types
-  Document<T extends object>(documentId: string, options?: DocumentOptions<T>): Document<T> {
+  Document<T extends Record<string, unknown> | Array<unknown>>(
+    documentId: string,
+    options?: DocumentOptions<T>,
+  ): Document<T> {
     return new DocumentImpl(documentId, options);
   }
 }

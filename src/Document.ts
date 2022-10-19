@@ -7,8 +7,7 @@ import { checkNamespace, isTagedJson } from "./common/utils.ts";
 
 const socketUrl = "wss://document.gokv.io";
 
-// deno-lint-ignore ban-types
-export default class DocumentImpl<T extends object> implements Document<T> {
+export default class DocumentImpl<T extends Record<string, unknown> | Array<unknown>> implements Document<T> {
   #docId: string;
   #options?: DocumentOptions<T>;
 
