@@ -31,11 +31,11 @@ export function proxy<T extends Record<string, unknown> | Array<unknown>>(
   if (isArray) {
     return proxyArray(initialObject as unknown[], notify, path) as T;
   }
-  return proxyObject(initialObject, notify, path);
+  return proxyObject(initialObject, notify, path) as T;
 }
 
 /** Proxy an object to create JSON-patches when changes. */
-export function proxyObject<T extends Record<string, unknown> | Array<unknown>>(
+export function proxyObject<T extends Record<string, unknown>>(
   initialObject: T,
   notify: (patch: JSONPatch) => void,
   path: Path = [],
@@ -103,6 +103,10 @@ export function proxyObject<T extends Record<string, unknown> | Array<unknown>>(
       const deleted = Reflect.deleteProperty(target, prop);
       if (deleted && typeof prop !== "symbol") {
         sideEffect();
+        // disable the `NOTIFY` of the old value since it's lifetime is over
+        if (oldValue?.[NOTIFY]) {
+          oldValue[NOTIFY] = false;
+        }
         shouldNotify && notify([
           Op.Remove,
           [...path, prop],
@@ -149,33 +153,36 @@ export function proxyArray<T>(
   );
   const createSnapshot = () => {
     return Object.freeze(indexs.map((index) => {
-      // deno-lint-ignore no-explicit-any
-      const value = values[index] as any;
+      const value = values[index] as Record<symbol, unknown>;
       return value?.[SNAPSHOT] ?? value;
-    }));
+    })) as T[];
   };
   const splice = (start: number, deleteCount: number, ...items: T[]) => {
     const len = indexs.length;
     start = start < 0 ? len + start : (start > len ? len : start);
-    const added = generateNKeysBetween(indexs[start - 1], indexs[start], items.length);
-    added.forEach((key, i) => {
-      values[key] = items[i];
+    const newIndexs = generateNKeysBetween(indexs[start - 1], indexs[start], items.length);
+    Reflect.set(values, NOTIFY, false);
+    const added = newIndexs.map((key, i) => {
+      const value = items[i];
+      values[key] = value;
+      return [key, value];
     });
-    const deleted = indexs.splice(
+    const rmIndexs = indexs.splice(
       start,
       deleteCount,
-      ...added,
+      ...newIndexs,
     );
-    const ret = deleted.map((key) => {
-      const value = values[key] as Record<symbol, unknown>;
+    const deleted = rmIndexs.map((key) => {
+      const value = values[key];
       delete values[key];
-      return value?.[SNAPSHOT] ?? value;
+      return [key, (value as Record<symbol, unknown>)?.[SNAPSHOT] ?? value];
     });
+    Reflect.set(values, NOTIFY, true);
     if (added.length > 0 || deleted.length > 0) {
       sideEffect();
-      shouldNotify && notify([Op.Splice, [...path, "$$indexs"], added, deleted]);
+      shouldNotify && notify([Op.Splice, [...path], added, deleted]);
     }
-    return ret;
+    return deleted.map(([, value]) => value);
   };
   const hijack = {
     splice,

@@ -20,11 +20,8 @@ Deno.test("proxy", () => {
   assertEquals(patches, [
     [Op.Add, ["arr"], { $$indexs: ["a0"], $$values: { a0: "hello" } }],
     [Op.Replace, ["obj", "foo"], "baz", "bar"],
-    [Op.Add, ["arr", "$$values", "Zz"], "Hello", undefined],
-    [Op.Remove, ["arr", "$$values", "a0"], undefined, "hello"],
-    [Op.Splice, ["arr", "$$indexs"], ["Zz"], ["a0"]],
-    [Op.Add, ["arr", "$$values", "a0"], "world!", undefined],
-    [Op.Splice, ["arr", "$$indexs"], ["a0"], []],
+    [Op.Splice, ["arr"], [["Zz", "Hello"]], [["a0", "hello"]]],
+    [Op.Splice, ["arr"], [["a0", "world!"]], []],
   ]);
 
   // deno-lint-ignore ban-ts-comment
