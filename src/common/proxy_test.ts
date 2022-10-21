@@ -13,7 +13,8 @@ Deno.test("proxy", () => {
 
   state.obj.foo = "baz";
   state.arr.splice(0, 1, "Hello");
-  state.arr.push("world!");
+  state.arr.push("world");
+  state.arr[1] = "world!";
 
   applyPatch(state, [Op.Add, ["obj", "baz"], "qux"]);
 
@@ -21,7 +22,8 @@ Deno.test("proxy", () => {
     [Op.Add, ["arr"], { $$indexs: ["a0"], $$values: { a0: "hello" } }],
     [Op.Replace, ["obj", "foo"], "baz", "bar"],
     [Op.Splice, ["arr"], [["Zz", "Hello"]], [["a0", "hello"]]],
-    [Op.Splice, ["arr"], [["a0", "world!"]], []],
+    [Op.Splice, ["arr"], [["a0", "world"]], []],
+    [Op.Replace, ["arr", "$$values", "a0"], "world!", "world"],
   ]);
 
   // deno-lint-ignore ban-ts-comment
@@ -69,4 +71,8 @@ Deno.test("proxy array", () => {
   arr.fill(0, 2);
   assertEquals(proxy.fill(0, 2), proxy);
   assertEquals(snapshot(proxy), arr);
+
+  arr[10] = 10;
+  proxy[10] = 10;
+  assertEquals(JSON.stringify(proxy), JSON.stringify(arr));
 });

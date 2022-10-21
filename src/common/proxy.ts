@@ -103,7 +103,7 @@ export function proxyObject<T extends Record<string, unknown>>(
       const deleted = Reflect.deleteProperty(target, prop);
       if (deleted && typeof prop !== "symbol") {
         sideEffect();
-        // disable the `NOTIFY` of the old value since it's lifetime is over
+        // disable the `NOTIFY` of the old value if it's a proxy object
         if (oldValue?.[NOTIFY]) {
           oldValue[NOTIFY] = false;
         }
@@ -151,12 +151,11 @@ export function proxyArray<T>(
     notify,
     [...path, "$$values"],
   );
-  const createSnapshot = () => {
-    return Object.freeze(indexs.map((index) => {
-      const value = values[index] as Record<symbol, unknown>;
+  const createSnapshot = () =>
+    Object.freeze(indexs.map((key) => {
+      const value = Reflect.get(values, key);
       return value?.[SNAPSHOT] ?? value;
-    })) as T[];
-  };
+    }));
   const splice = (start: number, deleteCount: number, ...items: T[]) => {
     const len = indexs.length;
     start = start < 0 ? len + start : (start > len ? len : start);
@@ -174,7 +173,7 @@ export function proxyArray<T>(
     );
     const deleted = rmIndexs.map((key) => {
       const value = values[key];
-      delete values[key];
+      Reflect.deleteProperty(values, key);
       return [key, (value as Record<symbol, unknown>)?.[SNAPSHOT] ?? value];
     });
     Reflect.set(values, NOTIFY, true);
@@ -250,7 +249,7 @@ export function proxyArray<T>(
       if (prop === SNAPSHOT) {
         return snapshotCache ?? (snapshotCache = createSnapshot());
       }
-      if (typeof prop === "string" && prop.charCodeAt(0) <= 57) {
+      if (typeof prop === "string" && prop.charCodeAt(0) >= 48 && prop.charCodeAt(0) <= 57) {
         return values[indexs[Number(prop)]];
       }
       return (hijack as Record<string | symbol, unknown>)[prop] ?? Reflect.get(target, prop, receiver);
@@ -258,6 +257,26 @@ export function proxyArray<T>(
     set: (target: string[], prop: string | symbol, value: unknown, receiver: unknown): boolean => {
       if (prop === NOTIFY) {
         shouldNotify = Boolean(value);
+        return true;
+      }
+      if (typeof prop === "string" && prop.charCodeAt(0) >= 48 && prop.charCodeAt(0) <= 57) {
+        const i = Number(prop);
+        const d = i - indexs.length;
+        if (d >= 0) {
+          splice(indexs.length, 0, ...[...(new Array(d)).fill(undefined), value] as T[]);
+        } else {
+          values[indexs[i]] = value as T;
+          sideEffect();
+        }
+        return true;
+      }
+      if (prop === "length" && typeof value === "number") {
+        const d = value - indexs.length;
+        if (d < 0) {
+          splice(value as number, -d);
+        } else if (d > 0) {
+          splice(indexs.length, 0, ...(new Array(d)).fill(undefined));
+        }
         return true;
       }
       return Reflect.set(target, prop, value, receiver);
