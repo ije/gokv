@@ -71,8 +71,10 @@ class ModuleImpl implements Module {
     return new DurableKVImpl({ ...options, socket: this.#socket });
   }
 
-  // deno-lint-ignore ban-types
-  Document<T extends object>(documentId: string, options?: DocumentOptions<T>): Document<T> {
+  Document<T extends Record<string, unknown> | Array<unknown>>(
+    documentId: string,
+    options?: DocumentOptions<T>,
+  ): Document<T> {
     return new DocumentImpl(documentId, options);
   }
 

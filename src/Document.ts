@@ -40,15 +40,6 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
         send("HELLO");
       };
 
-      const onerror = (e: Event | ErrorEvent) => {
-        if (status === SocketStatus.PENDING && !rejected) {
-          reject(
-            new Error(`[gokv] Document(${this.#docId}): ${(e as ErrorEvent)?.message ?? "unknown websocket error"}`),
-          );
-          rejected = true;
-        }
-      };
-
       const onmessage = ({ data }: MessageEvent) => {
         debug && console.debug(socketUrl, "↓", data);
         if (isTagedJson(data, "document")) {
@@ -91,25 +82,35 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
         }
       };
 
+      const onerror = (e: Event | ErrorEvent) => {
+        if (status === SocketStatus.PENDING && !rejected) {
+          reject(
+            new Error(`[gokv] Document(${this.#docId}): ${(e as ErrorEvent)?.message ?? "unknown websocket error"}`),
+          );
+          rejected = true;
+        }
+      };
+
       const onclose = () => {
         status = SocketStatus.CLOSE;
         // reconnect if the document is synced
         if (doc !== null) {
           createWebSocket(url, token.join("-")).then((newWs) => {
-            ws = newWs;
-            ws.addEventListener("open", onopen);
-            ws.addEventListener("error", onerror);
-            ws.addEventListener("message", onmessage);
-            ws.addEventListener("close", onclose);
             status = SocketStatus.PENDING;
+            ws = newWs;
+            go();
           });
         }
       };
 
-      ws.addEventListener("open", onopen);
-      ws.addEventListener("error", onerror);
-      ws.addEventListener("message", onmessage);
-      ws.addEventListener("close", onclose);
+      const go = () => {
+        ws.addEventListener("open", onopen);
+        ws.addEventListener("message", onmessage);
+        ws.addEventListener("error", onerror);
+        ws.addEventListener("close", onclose);
+      };
+
+      go();
     });
   }
 }
