@@ -16,14 +16,14 @@ Deno.test("proxy", () => {
   state.arr.push("world");
   state.arr[1] = "world!";
 
-  applyPatch(state, [Op.Add, ["obj", "baz"], "qux"]);
+  applyPatch(state, [Op.SET, ["obj", "baz"], "qux"]);
 
   assertEquals(patches, [
-    [Op.Add, ["arr"], { $$indexs: ["a0"], $$values: { a0: "hello" } }],
-    [Op.Replace, ["obj", "foo"], "baz", "bar"],
-    [Op.Splice, ["arr"], [["Zz", "Hello"]], [["a0", "hello"]]],
-    [Op.Splice, ["arr"], [["a0", "world"]], []],
-    [Op.Replace, ["arr", "$$values", "a0"], "world!", "world"],
+    [Op.SET, ["arr"], { $$indexs: ["a0"], $$values: { a0: "hello" } }],
+    [Op.SET, ["obj", "foo"], "baz", "bar"],
+    [Op.SPLICE, ["arr"], [["Zz", "Hello"]], [["a0", "hello"]]],
+    [Op.SPLICE, ["arr"], [["a0", "world"]], []],
+    [Op.SET, ["arr", "$$values", "a0"], "world!", "world"],
   ]);
 
   // deno-lint-ignore ban-ts-comment

@@ -47,7 +47,7 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
           if (doc === null) {
             doc = proxy(rawDoc, (patch) => {
               // todo: merge patches
-              send("patch" + JSON.stringify(patch.slice(0, patch[0] === Op.Remove ? 2 : 3)));
+              send("patch" + JSON.stringify(patch.slice(0, patch[0] === Op.DELETE ? 2 : 3)));
               uncomfirmedPatches.push(patch);
             });
             if (this.#options?.initData) {

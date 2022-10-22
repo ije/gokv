@@ -75,7 +75,6 @@ export function proxyObject<T extends Record<string, unknown>>(
         }
         return true;
       }
-      const op = Reflect.has(target, prop) ? Op.Replace : Op.Add;
       const oldValue = Reflect.get(target, prop, receiver);
       if (oldValue === value) {
         return true;
@@ -90,7 +89,7 @@ export function proxyObject<T extends Record<string, unknown>>(
       if (updated) {
         sideEffect();
         shouldNotify && notify([
-          op,
+          Op.SET,
           [...path, prop],
           value,
           oldValue?.[SNAPSHOT] ?? oldValue,
@@ -108,7 +107,7 @@ export function proxyObject<T extends Record<string, unknown>>(
           oldValue[NOTIFY] = false;
         }
         shouldNotify && notify([
-          Op.Remove,
+          Op.DELETE,
           [...path, prop],
           undefined,
           oldValue?.[SNAPSHOT] ?? oldValue,
@@ -179,7 +178,7 @@ export function proxyArray<T>(
     Reflect.set(values, NOTIFY, true);
     if (added.length > 0 || deleted.length > 0) {
       sideEffect();
-      shouldNotify && notify([Op.Splice, [...path], added, deleted]);
+      shouldNotify && notify([Op.SPLICE, [...path], added, deleted]);
     }
     return deleted.map(([, value]) => value);
   };
@@ -239,7 +238,7 @@ export function proxyArray<T>(
   };
   // notify the watcher when the array is first proxied
   if (Array.isArray(initialArray) && path.length > 0 && shouldNotify) {
-    notify([Op.Add, path, { $$indexs: [...indexs], $$values: { ...values } }]);
+    notify([Op.SET, path, { $$indexs: [...indexs], $$values: { ...values } }]);
   }
   const proxy = new Proxy(indexs, {
     get: (target: string[], prop: string | symbol, receiver: unknown): unknown => {
@@ -295,10 +294,16 @@ export function applyPatch(proxyObject: Record<string, unknown> | Array<unknown>
   // To avoid boardcast dead-loop, we need to disable the `NOTIFY` before we apply the patch
   Reflect.set(target, NOTIFY, false);
   const key = path[dep - 1];
-  if (op === Op.Add || op === Op.Replace) {
-    Reflect.set(target, key, value);
-  } else if (op === Op.Remove) {
-    Reflect.deleteProperty(target, key);
+  switch (op) {
+    case Op.SET:
+      Reflect.set(target, key, value);
+      break;
+    case Op.DELETE:
+      Reflect.deleteProperty(target, key);
+      break;
+    case Op.SPLICE:
+      // todo: handle splice op
+      break;
   }
   Reflect.set(target, NOTIFY, true);
   return true;

@@ -2,29 +2,23 @@ import { isPlainObject } from "./utils.ts";
 
 /** The operation (enum) for the JOSN-patch specifcation. */
 export enum Op {
-  Add = 1,
-  Replace = 2,
-  Remove = 3,
-  /** this goes beyond JSON-patch, for array manipulation. */
-  Splice = 4,
+  SET = 1,
+  DELETE = 2,
+  /** for array manipulation. */
+  SPLICE = 3,
 }
 
 /** The path (array) for the JOSN-patch specifcation. */
 export type Path = Readonly<(string | number)[]>;
 
-/**
- * JSON-patch
- * http://jsonpatch.com/
- *
- * Different with the rfc6902, we use array as the patch object.
- */
+/** JSON patch for the co-document changes. */
 export type JSONPatch = Readonly<[
   op: Op,
   path: Path,
   value?: unknown,
-  // this goes beyond JSON-patch, but makes sure each patch can be inverse applied.
+  // makes sure each patch can be inverse applied.
   oldValue?: unknown,
-  // this goes beyond JSON-patch, normally it's added by the server side.
+  // normally this was added by the server side.
   extra?: unknown,
 ]>;
 
