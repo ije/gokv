@@ -1,6 +1,6 @@
 import type { Document, DocumentOptions } from "../types/web.d.ts";
 import atm from "./AccessTokenManager.ts";
-import { isSameOpAndPath, isSamePath, JSONPatch, Op } from "./common/json-patch.ts";
+import { isSamePatch, isSamePath, JSONPatch, Op } from "./common/json-patch.ts";
 import { applyPatch, proxy } from "./common/proxy.ts";
 import { createWebSocket, SocketStatus } from "./common/socket.ts";
 import { checkNamespace, isTagedJson } from "./common/utils.ts";
@@ -47,7 +47,11 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
           if (doc === null) {
             doc = proxy(rawDoc, (patch) => {
               // todo: merge patches
-              send("patch" + JSON.stringify(patch.slice(0, patch[0] === Op.DELETE ? 2 : 3)));
+              const striped = patch.slice(0, patch[0] === Op.DELETE ? 2 : 3);
+              if (patch[0] === Op.SPLICE) {
+                striped.push((patch[3] as [string, unknown][]).map(([k]) => [k]));
+              }
+              send("patch" + JSON.stringify(striped));
               uncomfirmedPatches.push(patch);
             });
             if (this.#options?.initData) {
@@ -71,13 +75,13 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
             return;
           }
           // discard the patch that conflict with unacknowledged property changes.
-          if (uncomfirmedPatches.some((p) => isSamePath(p, patch))) {
+          if (uncomfirmedPatches.some((p) => isSamePath(p[1], patch[1]))) {
             return;
           }
           applyPatch(doc!, patch);
         } else if (isTagedJson(data, "*patch", true)) {
           const patch = JSON.parse(data.slice(6));
-          uncomfirmedPatches = uncomfirmedPatches.filter((p) => !isSameOpAndPath(p, patch));
+          uncomfirmedPatches = uncomfirmedPatches.filter((p) => !isSamePatch(p, patch));
           // todo: check
         }
       };

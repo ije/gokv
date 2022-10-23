@@ -4,7 +4,7 @@ import { isPlainObject } from "./utils.ts";
 export enum Op {
   SET = 1,
   DELETE = 2,
-  /** for array manipulation. */
+  /** for array mutations. */
   SPLICE = 3,
 }
 
@@ -22,12 +22,21 @@ export type JSONPatch = Readonly<[
   extra?: unknown,
 ]>;
 
-export function isSamePath(a: JSONPatch, b: JSONPatch): boolean {
-  return a[1].every((v, i) => v === b[1][i]);
+export function isSamePath(a: Path, b: Path): boolean {
+  return a.length === b.length && a.every((v, i) => v === b[i]);
 }
 
-export function isSameOpAndPath(a: JSONPatch, b: JSONPatch): boolean {
-  return a[0] === b[0] && a[1].every((v, i) => v === b[1][i]);
+export function isSamePatch(a: JSONPatch, b: JSONPatch): boolean {
+  if (a[0] !== b[0] || !isSamePath(a[1], b[1])) {
+    return false;
+  }
+  if (a[0] === Op.SPLICE) {
+    const [aAdded, aDeleted] = a.slice(2) as [string, unknown][][];
+    const [bAdded, bDeleted] = b.slice(2) as [string, unknown][][];
+    return isSamePath(aAdded.map(([k]) => k), bAdded.map(([k]) => k)) &&
+      isSamePath(aDeleted.map(([k]) => k), bDeleted.map(([k]) => k));
+  }
+  return true;
 }
 
 /** Lookup the value by given path. */
