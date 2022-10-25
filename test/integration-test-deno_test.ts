@@ -96,6 +96,10 @@ Deno.test("DurationKV", async () => {
   );
   assertEquals(await kv.list(), new Map(Object.entries(records)));
 
+  // update number
+  assertEquals(await kv.updateNumber("num", 5), 128);
+  assertEquals(await kv.updateNumber("num", -1), 127);
+
   // flush
   await kv.deleteAll();
   assertEquals(await kv.list(), new Map());

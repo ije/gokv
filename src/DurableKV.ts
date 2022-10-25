@@ -42,7 +42,7 @@ export default class DurableKVImpl implements DurableKV {
 
     const headers = await this.#headers();
     if (multipleKeys) {
-      headers.append("multipleKeys", "1");
+      headers.append("multiple-keys", "1");
     }
     if (options) {
       appendOptionsToHeaders(options, headers);
@@ -63,14 +63,14 @@ export default class DurableKVImpl implements DurableKV {
       }
       return map;
     } else {
-      const vtype = res.headers.get("vType");
+      const vtype = res.headers.get("value-type");
       switch (vtype) {
-        case "boolean":
+        case "boolean": {
+          const val = await res.text();
+          return (val === "1" || val === "true");
+        }
         case "number": {
           const val = await res.text();
-          if (vtype === "boolean") {
-            return (val === "true");
-          }
           return parseFloat(val);
         }
         case "object":
@@ -104,7 +104,7 @@ export default class DurableKVImpl implements DurableKV {
         default:
           throw new Error("Invalid value type: " + vType);
       }
-      headers.append("vType", vType);
+      headers.append("value-type", vType);
       if (options) {
         appendOptionsToHeaders(options, headers);
       }
@@ -117,6 +117,28 @@ export default class DurableKVImpl implements DurableKV {
 
     const res = await fetchApi("durable-kv", { socket: this.#socket, pathname, method: "PUT", headers, body });
     await closeBody(res); // release body
+  }
+
+  async updateNumber(key: string, delta: number, options?: DurableKVPutOptions): Promise<number> {
+    if (key === "" || delta === 0) {
+      return 0;
+    }
+
+    const headers = await this.#headers();
+    headers.append("update-number", "1");
+    if (options) {
+      appendOptionsToHeaders(options, headers);
+    }
+
+    const res = await fetchApi("durable-kv", {
+      socket: this.#socket,
+      pathname: "/" + key,
+      method: "PATCH",
+      body: delta.toString(),
+      headers,
+    });
+    const ret = await res.text();
+    return parseFloat(ret);
   }
 
   async delete(
@@ -138,7 +160,7 @@ export default class DurableKVImpl implements DurableKV {
 
     const headers = await this.#headers();
     if (multipleKeys) {
-      headers.append("multipleKeys", "1");
+      headers.append("multiple-keys", "1");
     }
     if (options) {
       appendOptionsToHeaders(options, headers);
@@ -153,7 +175,7 @@ export default class DurableKVImpl implements DurableKV {
   }
 
   async deleteAll(options?: DurableKVPutOptions): Promise<void> {
-    const headers = await this.#headers({ deleteAll: "1" });
+    const headers = await this.#headers({ "delete-all": "1" });
     if (options) {
       appendOptionsToHeaders(options, headers);
     }

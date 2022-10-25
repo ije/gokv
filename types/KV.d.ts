@@ -110,6 +110,9 @@ export class DurableKV {
   delete(options: DurableKVDeleteOptions): Promise<number>;
   deleteAll(options?: DurableKVPutOptions): Promise<void>;
   list<T = unknown>(options?: DurableKVListOptions): Promise<Map<string, T>>;
+  updateNumber: (key: string, delta: number, options?: DurableKVPutOptions) => Promise<number>;
+  // todo: pushElement: (key: string, value: unknown, options?: DurableKVPutOptions) => Promise<number>;
+  // todo: unshiftElement: (key: string, value: unknown, options?: DurableKVPutOptions) => Promise<number>;
 }
 
 export type SessionOptions = {
