@@ -6,7 +6,7 @@ import "../dist/web-polyfill.mjs";
 // load `.env`
 dotenv.config();
 
-const socket = await gokv.config({ token: process.env.GOKV_TOKEN }).connect();
+const socket = await gokv.connect();
 
 async function test(name, fn) {
   const t = Date.now();

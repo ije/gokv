@@ -2,9 +2,9 @@ import { assertEquals } from "std/testing/asserts.ts";
 import "std/dotenv/load.ts";
 import gokv from "gokv";
 
-await gokv.config({ token: Deno.env.get("GOKV_TOKEN")! }).connect();
+await gokv.connect();
 
-Deno.test("signAccessToken", async () => {
+Deno.test("Sign Access Token", async () => {
   const token = await gokv.signAccessToken(
     "chat-room:room-id",
     {
@@ -61,7 +61,7 @@ Deno.test("KV", async () => {
   });
 });
 
-Deno.test("DurationKV", async () => {
+Deno.test("Duration KV", async () => {
   const kv = gokv.DurableKV({ namespace: "dev-test" });
 
   // delete all records firstly
@@ -98,7 +98,7 @@ Deno.test("DurationKV", async () => {
 
   // update number
   assertEquals(await kv.updateNumber("num", 5), 128);
-  assertEquals(await kv.updateNumber("num", -1), 127);
+  assertEquals(await kv.updateNumber("num", -0.5), 127.5);
 
   // flush
   await kv.deleteAll();
@@ -146,16 +146,16 @@ Deno.test("DurationKV", async () => {
   );
 });
 
-Deno.test("Session", async () => {
+Deno.test("Session Storage", async () => {
   const config = { namespace: "dev-test", cookieName: "sess" };
 
   let session = await gokv.Session(new Request("https://gokv.io/"), config);
   assertEquals(session.store, null);
 
   // login as "alice"
-  const res = await session.update({ username: "alice" }, "/");
+  const res = await session.update({ username: "alice" }, "/dashboard");
   assertEquals(res.headers.get("Set-Cookie"), `sess=${session.id}; HttpOnly`);
-  assertEquals(res.headers.get("Location"), "/");
+  assertEquals(res.headers.get("Location"), "/dashboard");
   assertEquals(res.status, 302);
 
   session = await gokv.Session(
@@ -170,12 +170,12 @@ Deno.test("Session", async () => {
   assertEquals(session.store, { username: "alice" });
 
   // end session
-  const res2 = await session.end("/");
+  const res2 = await session.end("/home");
   assertEquals(
     res2.headers.get("Set-Cookie"),
     `sess=; Expires=Thu, 01 Jan 1970 00:00:01 GMT; HttpOnly`,
   );
-  assertEquals(res2.headers.get("Location"), "/");
+  assertEquals(res2.headers.get("Location"), "/home");
   assertEquals(res2.status, 302);
 
   session = await gokv.Session({ cookies: { sess: session.id } }, config);

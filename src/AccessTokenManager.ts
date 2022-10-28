@@ -1,4 +1,5 @@
 import type { ServiceName } from "../types/core.d.ts";
+import { getEnv } from "./common/utils.ts";
 
 export class AccessTokenManager {
   #token?: string;
@@ -20,9 +21,7 @@ export class AccessTokenManager {
   }
 
   async getAccessToken(scope?: `${ServiceName}:${string}`): Promise<Readonly<["Bearer" | "JWT", string]>> {
-    if (this.#token) {
-      return ["Bearer", this.#token];
-    } else if (this.#signUrl) {
+    if (this.#signUrl) {
       if (this.#tokenCache && this.#tokenExpires && this.#tokenExpires > Date.now()) {
         return ["JWT", this.#tokenCache];
       }
@@ -40,9 +39,14 @@ export class AccessTokenManager {
       this.#tokenCache = token;
       this.#tokenExpires = now + 5 * 60 * 1000;
       return ["JWT", token];
-    } else {
-      throw new Error("token not found");
     }
+
+    const token = this.#token ?? (this.#token = getEnv("GOKV_TOKEN"));
+    if (token) {
+      return ["Bearer", token];
+    }
+
+    throw new Error("token not found");
   }
 }
 

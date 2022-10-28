@@ -1,9 +1,6 @@
 import { assertEquals } from "std/testing/asserts.ts";
-import atm from "../AccessTokenManager.ts";
 import { connect } from "./socket.ts";
 import "std/dotenv/load.ts";
-
-atm.setToken(Deno.env.get("GOKV_TOKEN")!);
 
 const socket = await connect();
 

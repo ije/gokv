@@ -33,22 +33,38 @@ export function checkNamespace(namespace: string) {
   return namespace.toLowerCase();
 }
 
+export function getEnv(key: string): string | undefined {
+  const denoNs = Reflect.get(globalThis, "Deno");
+  if (denoNs) {
+    return denoNs.env.get(key);
+  }
+  const np = Reflect.get(globalThis, "process");
+  if (np) {
+    return np.env[key];
+  }
+  const storage = Reflect.get(globalThis, "localStorage");
+  if (storage) {
+    return storage.getItem(key) ?? undefined;
+  }
+  return void 0;
+}
+
 export function toBytesInt32(n: number) {
-  const arr = new ArrayBuffer(4);
-  const view = new DataView(arr);
+  const buf = new ArrayBuffer(4);
+  const view = new DataView(buf);
   view.setUint32(0, n);
-  return new Uint8Array(arr);
+  return new Uint8Array(buf);
 }
 
 export function conactBytes(...bytes: Uint8Array[]) {
   const len = bytes.reduce((acc, b) => acc + b.length, 0);
-  const ret = new Uint8Array(len);
+  const u8a = new Uint8Array(len);
   let offset = 0;
   for (const b of bytes) {
-    ret.set(b, offset);
+    u8a.set(b, offset);
     offset += b.length;
   }
-  return ret;
+  return u8a;
 }
 
 export function splitBytesByCRLF(bytes: Uint8Array) {
@@ -109,6 +125,7 @@ export function parseCookie(req: Request): Map<string, string> {
 
 export function appendOptionsToHeaders(options: Record<string, unknown>, headers: Headers) {
   Object.entries(options).forEach(([key, value]) => {
+    key = key.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase();
     switch (typeof value) {
       case "string":
         headers.set(key, value);
