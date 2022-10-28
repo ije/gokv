@@ -39,31 +39,23 @@ jobs:
         with:
           deno-version: v1.x
 
-      - name: Testing
-        env:
-          GOKV_TOKEN: ${{ secrets.GOKV_TOKEN }}
-        run: deno test -A src/ test/
-
-  test2:
-    name: Testing in Node.js
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-
       - name: Setup Node.js
         uses: actions/setup-node@v2
         with:
           node-version: 16.18
 
-     - name: Installation pnpm
+      - name: Installation pnpm
         run: npm install -g pnpm
+
+      - name: Testing in Deno
+        env:
+          GOKV_TOKEN: ${{ secrets.GOKV_TOKEN }}
+        run: deno test -A src/ test/
 
       - name: Build dist
         run: pnpm install && pnpm build:all
 
-      - name: Testing
+      - name: Testing in Node.js
         env:
           GOKV_TOKEN: ${{ secrets.GOKV_TOKEN }}
         run: node test/integration-test-node.mjs
