@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 jobs:
-  format:
+  check:
     name: Lint
     runs-on: ubuntu-latest
 
@@ -26,7 +26,7 @@ jobs:
       - name: Deno lint
         run: deno lint
 
-  test-in-deno:
+  test:
     name: Testing in Deno
     runs-on: ubuntu-latest
 
@@ -44,7 +44,7 @@ jobs:
           GOKV_TOKEN: ${{ secrets.GOKV_TOKEN }}
         run: deno test -A src/ test/
 
-  test-in-node:
+  test2:
     name: Testing in Node.js
     runs-on: ubuntu-latest
 
