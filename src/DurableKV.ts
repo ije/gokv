@@ -120,16 +120,13 @@ export default class DurableKVImpl implements DurableKV {
   }
 
   async updateNumber(key: string, delta: number, options?: DurableKVPutOptions): Promise<number> {
-    if (key === "" || delta === 0) {
-      return 0;
+    if (key === "" || Number.isNaN(delta)) {
+      throw new Error("Invalid key or delta");
     }
-
-    const headers = await this.#headers();
-    headers.append("update-number", "1");
+    const headers = await this.#headers([["update-number", "1"]]);
     if (options) {
       appendOptionsToHeaders(options, headers);
     }
-
     const res = await fetchApi("durable-kv", {
       socket: this.#socket,
       pathname: "/" + key,

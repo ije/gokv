@@ -6,10 +6,11 @@ import { JSONPatch, lookupValue, Op, Path } from "./json-patch.ts";
 
 const SNAPSHOT = Symbol();
 const LISTENERS = Symbol();
+const INTERNAL = Symbol();
 const NOTIFY = Symbol();
 
 // only plain object or array can be proxied
-function canProxy(a: unknown) {
+function canProxy(a: unknown): a is Record<string, unknown> | unknown[] {
   if (typeof a !== "object" || a === null) {
     return false;
   }
@@ -88,7 +89,7 @@ export function proxyObject<T extends Record<string, unknown>>(
       );
       if (updated) {
         sideEffect();
-        shouldNotify && notify([
+        shouldNotify && !Array.isArray(value) && notify([
           Op.SET,
           [...path, prop],
           value,
@@ -133,20 +134,16 @@ export function proxyArray<T>(
   notify: (patch: JSONPatch) => void,
   path: Path = [],
 ): T[] {
-  let shouldNotify = true;
   let snapshotCache: Readonly<T[]> | null = null;
   const listeners = new Set<() => void>();
   const sideEffect = () => {
     snapshotCache = null;
     listeners.forEach((cb) => cb());
   };
-  const indexs = Array.isArray(initialArray)
-    ? generateNKeysBetween(null, null, initialArray.length)
-    : initialArray.$$indexs;
+  const isFresh = Array.isArray(initialArray);
+  const indexs = isFresh ? generateNKeysBetween(null, null, initialArray.length) : initialArray.$$indexs;
   const values = proxyObject(
-    Array.isArray(initialArray)
-      ? Object.fromEntries(indexs.map((key, i) => [key, initialArray[i]]))
-      : initialArray.$$values,
+    isFresh ? Object.fromEntries(indexs.map((key, i) => [key, initialArray[i]])) : initialArray.$$values,
     notify,
     [...path, "$$values"],
   );
@@ -178,7 +175,7 @@ export function proxyArray<T>(
     Reflect.set(values, NOTIFY, true);
     if (added.length > 0 || deleted.length > 0) {
       sideEffect();
-      shouldNotify && notify([Op.SPLICE, [...path], added, deleted]);
+      notify([Op.SPLICE, [...path], added, deleted]);
     }
     return deleted.map(([, value]) => value);
   };
@@ -236,12 +233,14 @@ export function proxyArray<T>(
       return proxy;
     },
   };
-  // notify the watcher when the array is first proxied
-  if (Array.isArray(initialArray) && path.length > 0 && shouldNotify) {
+  if (isFresh) {
     notify([Op.SET, path, { $$indexs: [...indexs], $$values: { ...values } }]);
   }
   const proxy = new Proxy(indexs, {
     get: (target: string[], prop: string | symbol, receiver: unknown): unknown => {
+      if (prop === INTERNAL) {
+        return { indexs, values, sideEffect };
+      }
       if (prop === LISTENERS) {
         return listeners;
       }
@@ -254,10 +253,6 @@ export function proxyArray<T>(
       return (hijack as Record<string | symbol, unknown>)[prop] ?? Reflect.get(target, prop, receiver);
     },
     set: (target: string[], prop: string | symbol, value: unknown, receiver: unknown): boolean => {
-      if (prop === NOTIFY) {
-        shouldNotify = Boolean(value);
-        return true;
-      }
       if (typeof prop === "string" && prop.charCodeAt(0) >= 48 && prop.charCodeAt(0) <= 57) {
         const i = Number(prop);
         const d = i - indexs.length;
@@ -285,40 +280,75 @@ export function proxyArray<T>(
 }
 
 export function applyPatch(proxyObject: Record<string, unknown> | Array<unknown>, patch: JSONPatch): boolean {
-  const [op, path, value] = patch;
+  const [op, path] = patch;
   const dep = path.length;
   const target = dep > 1 ? lookupValue(proxyObject, path.slice(0, -1)) : proxyObject;
-  if (typeof target !== "object" || target === null) {
+  if (!canProxy(target)) {
     return false;
   }
-  // To avoid boardcast dead-loop, we need to disable the `NOTIFY` before we apply the patch
+
+  // To avoid boardcast dead-loop, disables the `NOTIFY` before applying the patch
   Reflect.set(target, NOTIFY, false);
+
   const key = path[dep - 1];
+  let applied = false;
+
   switch (op) {
     case Op.SET:
-      Reflect.set(target, key, value);
+      applied = Reflect.set(target, key, patch[2]);
       break;
     case Op.DELETE:
-      Reflect.deleteProperty(target, key);
+      applied = Reflect.deleteProperty(target, key);
       break;
-    case Op.SPLICE:
-      // todo: handle splice op
+    case Op.SPLICE: {
+      const maybeArray = Reflect.get(target, key);
+      if (!Array.isArray(maybeArray)) {
+        return false;
+      }
+      let array: { indexs: string[]; values: Record<string, unknown>; sideEffect: () => void } | undefined;
+      if (!(array = Reflect.get(maybeArray, INTERNAL))) {
+        applied = false;
+        break;
+      }
+      const { indexs, values, sideEffect } = array;
+      const [added, deleted] = patch.slice(2) as [[string, unknown][], [string][]];
+      if (!Array.isArray(added) || !Array.isArray(deleted) || added.length + deleted.length === 0) {
+        return false;
+      }
+      const newIndexs = new Set(indexs);
+      Reflect.set(values, NOTIFY, false);
+      for (const [key] of deleted) {
+        Reflect.deleteProperty(values, key);
+        newIndexs.delete(key);
+      }
+      for (const [key, value] of added) {
+        values[key] = value;
+        newIndexs.add(key);
+      }
+      Reflect.set(values, NOTIFY, true);
+      indexs.splice(0, indexs.length, ...Array.from(newIndexs.values()).sort());
+      sideEffect();
+      applied = true;
       break;
+    }
   }
+
+  // re-enables the `NOTIFY`
   Reflect.set(target, NOTIFY, true);
-  return true;
+
+  return applied;
 }
 
 export function snapshot<T extends Record<string, unknown> | Array<unknown>>(proxyObject: T): T {
-  if (typeof proxyObject !== "object" || proxyObject === null) {
-    throw new Error("invalid object");
+  if (!canProxy(proxyObject)) {
+    throw new Error("requires object");
   }
   return Reflect.get(proxyObject, SNAPSHOT) as T | undefined ?? proxyObject;
 }
 
 export function subscribe(proxyObject: Record<string, unknown> | Array<unknown>, callback: () => void): () => void {
-  if (typeof proxyObject !== "object" || proxyObject === null) {
-    throw new Error("invalid object");
+  if (!canProxy(proxyObject)) {
+    throw new Error("requires object");
   }
   const listeners = Reflect.get(proxyObject, LISTENERS) as Set<() => void> | undefined;
   if (listeners === undefined) {

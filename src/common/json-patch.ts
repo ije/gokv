@@ -18,25 +18,10 @@ export type JSONPatch = Readonly<[
   value?: unknown,
   // makes sure each patch can be inverse applied.
   oldValue?: unknown,
-  // normally this was added by the server side.
-  extra?: unknown,
 ]>;
 
 export function isSamePath(a: Path, b: Path): boolean {
   return a.length === b.length && a.every((v, i) => v === b[i]);
-}
-
-export function isSamePatch(a: JSONPatch, b: JSONPatch): boolean {
-  if (a[0] !== b[0] || !isSamePath(a[1], b[1])) {
-    return false;
-  }
-  if (a[0] === Op.SPLICE) {
-    const [aAdded, aDeleted] = a.slice(2) as [string, unknown][][];
-    const [bAdded, bDeleted] = b.slice(2) as [string, unknown][][];
-    return isSamePath(aAdded.map(([k]) => k), bAdded.map(([k]) => k)) &&
-      isSamePath(aDeleted.map(([k]) => k), bDeleted.map(([k]) => k));
-  }
-  return true;
 }
 
 /** Lookup the value by given path. */
