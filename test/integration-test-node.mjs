@@ -10,12 +10,17 @@ const socket = await gokv.connect();
 
 async function test(name, fn) {
   const t = Date.now();
-  process.stdout.write(`test ${name} ... `);
+  process.stdout.write(`${name} ... `);
   await fn();
-  process.stdout.write(`\x1b[32mok\x1b[0m \x1b[2m(${Math.round((Date.now() - t) / 1000)}s)\x1b[0m\n`);
+  const d = Date.now() - t;
+  process.stdout.write(
+    `\x1b[32mok\x1b[0m \x1b[2m(${Math.round(d < 1000 ? d : d / 1000)}${d < 1000 ? "ms" : "s"})\x1b[0m\n`,
+  );
 }
 
-await test("signAccessToken", async () => {
+console.log("\x1b[2mRunning integration tests...\x1b[0m");
+
+await test("Sign Access Token", async () => {
   const token = await gokv.signAccessToken(
     "chat-room:room-id",
     {
@@ -68,7 +73,7 @@ await test("KV", async () => {
   });
 });
 
-await test("DurationKV", async () => {
+await test("Duration KV", async () => {
   const kv = gokv.DurableKV({ namespace: "dev-test" });
 
   // delete all records firstly
@@ -123,7 +128,7 @@ await test("DurationKV", async () => {
   assert.deepEqual(await kv.list(), new Map(new Array(3).fill(0).map((_, index) => [`k-${index}`, null])));
 });
 
-await test("Session", async () => {
+await test("Session Manager", async () => {
   const config = { namespace: "dev-test", cookieName: "sess" };
 
   let session = await gokv.Session(new Request("https://gokv.io/"), config);
