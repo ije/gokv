@@ -8,7 +8,7 @@ on:
 
 jobs:
   check:
-    name: Lint
+    name: Check
     runs-on: ubuntu-latest
 
     steps:
@@ -27,7 +27,7 @@ jobs:
         run: deno lint
 
   test:
-    name: Testing in Deno
+    name: Testing
     runs-on: ubuntu-latest
 
     steps:
@@ -44,7 +44,7 @@ jobs:
         with:
           node-version: 16.18
 
-      - name: Installation pnpm
+      - name: Install pnpm
         run: npm install -g pnpm
 
       - name: Testing in Deno
