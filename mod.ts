@@ -46,9 +46,8 @@ class ModuleImpl implements Module {
     auth: U,
     permissions?: Permissions,
   ): Promise<string> {
-    return fetchApi("api", {
+    return fetchApi("api", "/sign-access-token", {
       method: "POST",
-      pathname: "/sign-access-token",
       body: JSON.stringify({ auth, scope, permissions }),
       headers: {
         "Authorization": (await atm.getAccessToken()).join(" "),
@@ -60,7 +59,7 @@ class ModuleImpl implements Module {
     request: Request | { cookies: Record<string, string> },
     options?: SessionOptions & InitKVOptions,
   ): Promise<Session<T>> {
-    return SessionImpl.create<T>(request, options);
+    return SessionImpl.create<T>(request, { ...options, socket: this.#socket });
   }
 
   KV(options?: InitKVOptions): KV {

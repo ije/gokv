@@ -38,7 +38,7 @@ export default class KVImpl implements KV {
     if (options && typeof options !== "string") {
       appendOptionsToHeaders(options, headers);
     }
-    const res = await fetchApi("kv", { socket: this.#socket, pathname: "/" + key, headers, ignore404: true });
+    const res = await fetchApi("kv", "/" + key, { socket: this.#socket, headers, ignore404: true });
     if (res.status === 404) {
       await closeBody(res);
       return null;
@@ -73,7 +73,7 @@ export default class KVImpl implements KV {
     if (options && typeof options !== "string") {
       appendOptionsToHeaders(options, headers);
     }
-    const res = await fetchApi("kv", { socket: this.#socket, pathname: "/" + key, headers, ignore404: true });
+    const res = await fetchApi("kv", "/" + key, { socket: this.#socket, headers, ignore404: true });
     if (res.status == 404) {
       await closeBody(res);
       return { value: null, metadata: null };
@@ -120,10 +120,9 @@ export default class KVImpl implements KV {
     if (options) {
       appendOptionsToHeaders(options, headers);
     }
-    const res = await fetchApi("kv", {
+    const res = await fetchApi("kv", "/" + key, {
       socket: this.#socket,
       method: "PUT",
-      pathname: "/" + key,
       headers,
       body: value,
     });
@@ -138,7 +137,7 @@ export default class KVImpl implements KV {
     if (options) {
       appendOptionsToHeaders(options, headers);
     }
-    const res = await fetchApi("kv", { socket: this.#socket, method: "DELETE", pathname: "/" + key, headers });
+    const res = await fetchApi("kv", "/" + key, { socket: this.#socket, method: "DELETE", headers });
     await closeBody(res); // release body
   }
 

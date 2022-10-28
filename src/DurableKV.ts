@@ -48,7 +48,7 @@ export default class DurableKVImpl implements DurableKV {
       appendOptionsToHeaders(options, headers);
     }
 
-    const res = await fetchApi("durable-kv", { socket: this.#socket, pathname, headers, ignore404: true });
+    const res = await fetchApi("durable-kv", pathname, { socket: this.#socket, headers, ignore404: true });
     if (res.status === 404) {
       return closeBody(res); // release body
     }
@@ -115,7 +115,7 @@ export default class DurableKVImpl implements DurableKV {
       throw new Error("Invalid value type: not a record");
     }
 
-    const res = await fetchApi("durable-kv", { socket: this.#socket, pathname, method: "PUT", headers, body });
+    const res = await fetchApi("durable-kv", pathname, { socket: this.#socket, method: "PUT", headers, body });
     await closeBody(res); // release body
   }
 
@@ -127,9 +127,8 @@ export default class DurableKVImpl implements DurableKV {
     if (options) {
       appendOptionsToHeaders(options, headers);
     }
-    const res = await fetchApi("durable-kv", {
+    const res = await fetchApi("durable-kv", "/" + key, {
       socket: this.#socket,
-      pathname: "/" + key,
       method: "PATCH",
       body: delta.toString(),
       headers,
@@ -163,7 +162,7 @@ export default class DurableKVImpl implements DurableKV {
       appendOptionsToHeaders(options, headers);
     }
 
-    const res = await fetchApi("durable-kv", { socket: this.#socket, pathname, method: "DELETE", headers });
+    const res = await fetchApi("durable-kv", pathname, { socket: this.#socket, method: "DELETE", headers });
     const ret = await res.text();
     if (typeof keyOrKeysOrOptions === "string") {
       return ret === "true";

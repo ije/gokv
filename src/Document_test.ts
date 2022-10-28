@@ -1,23 +1,39 @@
+import "std/dotenv/load.ts";
 import { assertEquals } from "std/testing/asserts.ts";
 import Document from "./Document.ts";
 import { snapshot, subscribe } from "./common/proxy.ts";
-import "std/dotenv/load.ts";
 
 Deno.env.set("DEBUG", "true");
 
-const doc = new Document("dev-test-doc", { initData: { foo: "bar", baz: "qux", arr: ["Hello", "world!"] } });
+const doc = new Document("doc-dev-test", { initData: { foo: "bar", baz: "qux", arr: ["Hello", "world!"] } });
 await doc.reset();
 
 const obj = await doc.sync();
 const jbo = await doc.sync();
 
 const onChange = <T extends Record<string, unknown> | Array<unknown>>(obj: T, predicate: (obj: T) => boolean) => {
-  return new Promise<void>((resolve) =>
-    subscribe(obj, () => {
-      if (predicate(obj)) resolve();
-    })
-  );
+  return new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      dispose();
+      reject(new Error("timeout"));
+    }, 10 * 1000);
+    const dispose = subscribe(obj, () => {
+      if (predicate(obj)) {
+        clearTimeout(timer);
+        resolve();
+      }
+    });
+  });
 };
+
+Deno.test("Document snapshot", async () => {
+  const snapshot = await doc.getSnapshot();
+  assertEquals(snapshot.foo, "bar");
+  assertEquals(snapshot.baz, "qux");
+  // deno-lint-ignore ban-ts-comment
+  // @ts-ignore
+  assertEquals(snapshot.arr, { "$$indexs": ["a0", "a1"], "$$values": { a0: "Hello", a1: "world!" } });
+});
 
 Deno.test("Update document object", async () => {
   assertEquals(obj.baz, "qux");

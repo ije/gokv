@@ -128,7 +128,7 @@ async function serializeHttpRequest(input: string | URL, init?: RequestInit): Pr
   const url = typeof input === "string" ? new URL(input) : input;
   const headers = new Headers(init?.headers);
   const buf: Uint8Array[] = [];
-  buf.push(enc.encode(`${init?.method ?? "GET"} ${url.pathname} HTTP/2`));
+  buf.push(enc.encode(`${init?.method?.toUpperCase() ?? "GET"} ${url.pathname + url.search}`));
   buf.push(CRLF);
   buf.push(enc.encode(`host: ${url.host}`));
   buf.push(CRLF);

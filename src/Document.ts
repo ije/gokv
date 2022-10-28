@@ -15,14 +15,19 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
     this.#options = options;
   }
 
-  getSnapshot(): Promise<T> {
-    throw new Error("not implemented");
+  async getSnapshot(): Promise<T> {
+    const res = await fetchApi("document", `/${this.#docId}?snapshot`, {
+      headers: {
+        "Authorization": (await atm.getAccessToken()).join(" "),
+      },
+    });
+    // todo: fix array
+    return await res.json();
   }
 
   async reset(data?: T): Promise<void> {
-    await fetchApi("document", {
+    await fetchApi("document", `/${this.#docId}`, {
       headers: {
-        "Namespace": this.#docId,
         "Authorization": (await atm.getAccessToken()).join(" "),
         "Content-Type": "application/json",
         "X-Reset-Document": "true",

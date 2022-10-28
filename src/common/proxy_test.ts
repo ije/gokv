@@ -1,7 +1,7 @@
 import { assertEquals } from "std/testing/asserts.ts";
 import { applyPatch, Op, Patch, proxy, proxyArray, snapshot } from "./proxy.ts";
 
-Deno.test("proxy object", () => {
+Deno.test("Proxy object", () => {
   const patches: Patch[] = [];
   const state = proxy({
     obj: { foo: "bar" },
@@ -31,7 +31,7 @@ Deno.test("proxy object", () => {
   assertEquals(snapshot(state.arr), ["Hello", "world!"]);
 });
 
-Deno.test("proxy array", () => {
+Deno.test("Proxy array", () => {
   const arr = [1, 2, 3];
   const proxy = proxyArray([1, 2, 3], (_patch) => {
     // console.log(JSON.stringify(_patch));

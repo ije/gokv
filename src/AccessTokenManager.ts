@@ -1,5 +1,5 @@
-import type { ServiceName } from "../types/core.d.ts";
-import { getEnv } from "./common/utils.ts";
+import type { AuthUser, Permissions, ServiceName } from "../types/core.d.ts";
+import { fetchApi, getEnv } from "./common/utils.ts";
 
 export class AccessTokenManager {
   #token?: string;
@@ -18,6 +18,20 @@ export class AccessTokenManager {
 
   setSignUrl(url: string): void {
     this.#signUrl = url;
+  }
+
+  async signAccessToken<U extends AuthUser>(
+    scope: `${ServiceName}:${string}`,
+    auth: U,
+    permissions?: Permissions,
+  ): Promise<string> {
+    return fetchApi("api", "/sign-access-token", {
+      method: "POST",
+      body: JSON.stringify({ auth, scope, permissions }),
+      headers: {
+        "Authorization": (await this.getAccessToken()).join(" "),
+      },
+    }).then((res) => res.text());
   }
 
   async getAccessToken(scope?: `${ServiceName}:${string}`): Promise<Readonly<["Bearer" | "JWT", string]>> {

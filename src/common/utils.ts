@@ -153,21 +153,23 @@ export function closeBody(res: Response): Promise<void> {
   return Promise.resolve();
 }
 
-export async function fetchApi(
-  service: string,
-  init?: RequestInit & { socket?: Socket; pathname?: string; ignore404?: boolean },
-) {
-  const url = new URL(`https://${service}.gokv.io`);
-  if (init?.pathname?.startsWith("/")) {
-    url.pathname = init.pathname;
-  }
+type FetchOptions = RequestInit & {
+  socket?: Socket;
+  ignore404?: boolean;
+};
+
+export async function fetchApi(service: string, path?: string, options?: FetchOptions): Promise<Response>;
+export async function fetchApi(service: string, options?: FetchOptions): Promise<Response>;
+export async function fetchApi(service: string, pathOrOptions?: string | FetchOptions, options?: FetchOptions) {
+  const url = new URL(typeof pathOrOptions === "string" ? pathOrOptions : "/", `https://${service}.gokv.io`);
+  const init = typeof pathOrOptions === "string" || pathOrOptions === undefined ? options : pathOrOptions;
   const fetcher = init?.socket?.fetch ?? fetch;
   const res = await fetcher(url, init);
   if (res.status === 404 && init?.ignore404) {
     return res;
   }
   if (res.status >= 400) {
-    return Promise.reject(new Error(`gokv.io: <${res.status}> ${await res.text()}`));
+    throw new Error(`gokv.io: <${res.status}> ${await res.text()}`);
   }
   return res;
 }

@@ -19,7 +19,7 @@ export default class SessionImpl<StoreType extends Record<string, unknown>> impl
   ): Promise<Session<T>> {
     const namespace = "session/" + (options?.namespace ?? "default");
     const cookieName = options?.cookieName || "session";
-    const kv: DurableKV = new DurableKVImpl({ namespace });
+    const kv: DurableKV = new DurableKVImpl({ namespace, socket: options?.socket });
     const [_, token] = await atm.getAccessToken();
     let sid = request instanceof Request ? parseCookie(request).get(cookieName) : request.cookies[cookieName];
     let store: T | null = null;
