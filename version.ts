@@ -8,6 +8,12 @@ export async function prepublish(version: string) {
   json.version = version;
   await Deno.writeTextFile("package.json", JSON.stringify(json, null, 2));
   await Deno.run({
+    cmd: [Deno.execPath(), "fmt"],
+    stdin: "inherit",
+    stdout: "inherit",
+    stderr: "inherit",
+  }).status();
+  await Deno.run({
     cmd: ["npm", "publish"],
     stdin: "inherit",
     stdout: "inherit",
