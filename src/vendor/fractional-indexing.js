@@ -2,7 +2,7 @@
 
 // This is based on https://observablehq.com/@dgreensp/implementing-fractional-indexing
 
-// Source code: https://github.com/rocicorp/fractional-indexing
+// Copied from: https://github.com/rocicorp/fractional-indexing
 // @v3.1.0
 
 export const BASE_62_DIGITS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";

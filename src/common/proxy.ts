@@ -1,8 +1,27 @@
-// Proxy an object to create JSON-patches when changes.
+// Proxy an object or array to create small patches when changes.
+// Use **Fractional Indexing** to ensure the order of array objects.
 // The snapshot & subscribe feature is inspired by https://github.com/pmndrs/valtio
 
 import { generateNKeysBetween } from "../vendor/fractional-indexing.js";
-import { JSONPatch, lookupValue, Op, Path } from "./json-patch.ts";
+
+export enum Op {
+  SET = 1,
+  DELETE = 2,
+  /** for array mutations. */
+  SPLICE = 3,
+}
+
+/** The path (array) for the patch. */
+export type Path = Readonly<string[]>;
+
+/** The patch for the co-document changes. */
+export type Patch = Readonly<[
+  op: Op,
+  path: Path,
+  value?: unknown,
+  // makes sure each patch can be inverse applied.
+  oldValue?: unknown,
+]>;
 
 const SNAPSHOT = Symbol();
 const LISTENERS = Symbol();
@@ -21,7 +40,7 @@ function canProxy(a: unknown): a is Record<string, unknown> | unknown[] {
 /** Proxy an object to create JSON-patches when changes. */
 export function proxy<T extends Record<string, unknown> | Array<unknown>>(
   initialObject: T,
-  notify: (patch: JSONPatch) => void,
+  notify: (patch: Patch) => void,
   path: Path = [],
 ): T {
   if (!canProxy(initialObject)) {
@@ -38,7 +57,7 @@ export function proxy<T extends Record<string, unknown> | Array<unknown>>(
 /** Proxy an object to create JSON-patches when changes. */
 export function proxyObject<T extends Record<string, unknown>>(
   initialObject: T,
-  notify: (patch: JSONPatch) => void,
+  notify: (patch: Patch) => void,
   path: Path = [],
 ): T {
   let shouldNotify = false;
@@ -131,7 +150,7 @@ export function proxyObject<T extends Record<string, unknown>>(
 
 export function proxyArray<T>(
   initialArray: T[] | { $$indexs: string[]; $$values: Record<string, T> },
-  notify: (patch: JSONPatch) => void,
+  notify: (patch: Patch) => void,
   path: Path = [],
 ): T[] {
   let snapshotCache: Readonly<T[]> | null = null;
@@ -279,7 +298,26 @@ export function proxyArray<T>(
   return proxy as T[];
 }
 
-export function applyPatch(proxyObject: Record<string, unknown> | Array<unknown>, patch: JSONPatch): boolean {
+/** Lookup the value by given path. */
+function lookupValue(obj: Record<string, unknown> | Array<unknown>, path: Path): unknown {
+  const dep = path.length;
+  if (typeof obj !== "object" || obj === null || dep === 0) {
+    return undefined;
+  }
+
+  let value = obj;
+  for (let i = 0; i < dep; i++) {
+    const key = path[i];
+    if (canProxy(value) && Object.hasOwn(value, key)) {
+      value = Reflect.get(value, key);
+    } else {
+      return undefined;
+    }
+  }
+  return value;
+}
+
+export function applyPatch(proxyObject: Record<string, unknown> | Array<unknown>, patch: Patch): boolean {
   const [op, path] = patch;
   const dep = path.length;
   const target = dep > 1 ? lookupValue(proxyObject, path.slice(0, -1)) : proxyObject;

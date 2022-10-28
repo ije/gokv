@@ -1,9 +1,8 @@
 import { assertEquals } from "std/testing/asserts.ts";
-import { JSONPatch, Op } from "./json-patch.ts";
-import { applyPatch, proxy, proxyArray, snapshot } from "./proxy.ts";
+import { applyPatch, Op, Patch, proxy, proxyArray, snapshot } from "./proxy.ts";
 
-Deno.test("proxy", () => {
-  const patches: JSONPatch[] = [];
+Deno.test("proxy object", () => {
+  const patches: Patch[] = [];
   const state = proxy({
     obj: { foo: "bar" },
     arr: ["hello"],

@@ -19,7 +19,7 @@ const onChange = <T extends Record<string, unknown> | Array<unknown>>(obj: T, pr
   );
 };
 
-Deno.test("Update document objects", async () => {
+Deno.test("Update document object", async () => {
   assertEquals(obj.baz, "qux");
   assertEquals(jbo.baz, obj.baz);
   assertEquals(jbo.foo, obj.foo);

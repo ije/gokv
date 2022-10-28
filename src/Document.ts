@@ -1,7 +1,6 @@
 import type { Document, DocumentOptions } from "../types/web.d.ts";
 import atm from "./AccessTokenManager.ts";
-import { isSamePath, JSONPatch, Op } from "./common/json-patch.ts";
-import { applyPatch, proxy } from "./common/proxy.ts";
+import { applyPatch, Op, Patch, proxy } from "./common/proxy.ts";
 import { createWebSocket, SocketStatus } from "./common/socket.ts";
 import { checkNamespace, fetchApi, getEnv, isTagedJson } from "./common/utils.ts";
 
@@ -42,7 +41,7 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
       let status: SocketStatus = SocketStatus.PENDING;
       let rejected = false;
 
-      const uncomfirmedPatches = new Map<string, JSONPatch>();
+      const uncomfirmedPatches = new Map<string, Patch>();
 
       const send = (message: string) => {
         debug && console.debug(host, "↑", message);
@@ -92,12 +91,15 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
             // the `document` message, just ignore this message.
             return;
           }
-          const patch = JSON.parse(data.slice(5)) as JSONPatch;
+          const patch = JSON.parse(data.slice(5)) as Patch;
           const [$op, $path, $values] = patch;
           let shouldApply = true;
           for (const [id, patch] of uncomfirmedPatches) {
             const [op, path] = patch;
-            if ($op <= Op.DELETE && op <= Op.DELETE && isSamePath(path, $path)) {
+            if (
+              $op <= Op.DELETE && op <= Op.DELETE &&
+              $path.length === path.length && $path.every((v, i) => v === path[i])
+            ) {
               // mark to discard the patch to avoid "flickering" of conflicts
               shouldApply = false;
             } else if (
@@ -105,7 +107,7 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
               ($path.length < path.length && $path.every((v, i) => v === path[i]))
             ) {
               // mark to re-apply the changes for new parent
-              uncomfirmedPatches.set(`${id}-recycle`, true as unknown as JSONPatch);
+              uncomfirmedPatches.set(`${id}-recycle`, true as unknown as Patch);
             }
           }
           shouldApply && applyPatch(doc!, patch);
