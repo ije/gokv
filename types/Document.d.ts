@@ -11,16 +11,13 @@ export class Document<T extends Record<string, unknown> | Array<unknown>> {
   getSnapshot(): Promise<T>;
   /** Sync the document, changes will be broadcasted to other sessions and saved automatically.
    *
-   * ```js
-   * const doc = gokv.Document("doc-id", { initData: { foo: "bar" } });
+   * @example
+   * const doc = gokv.Document("DOC_ID", { initData: { foo: "bar" } });
    * const obj = await doc.sync();
-   *
    * subscribe(obj, () => {
-   *   console.log(obj.foo);
+   *   console.log(obj.foo); // "baz"
    * })
-   *
    * obj.foo = "baz";
-   * ```
    */
   sync(): Promise<T>;
 }

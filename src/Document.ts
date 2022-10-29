@@ -1,6 +1,6 @@
 import type { Document, DocumentOptions } from "../types/web.d.ts";
 import atm from "./AccessTokenManager.ts";
-import { applyPatch, Op, Patch, proxy } from "./common/proxy.ts";
+import { applyPatch, Op, Patch, proxy, remix } from "./common/proxy.ts";
 import { createWebSocket, SocketStatus } from "./common/socket.ts";
 import { checkNamespace, fetchApi, getEnv, isTagedJson } from "./common/utils.ts";
 
@@ -87,7 +87,7 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
             }
             resolve(doc!);
           } else {
-            // todo: update doc
+            remix(doc, rawDoc);
           }
           status = SocketStatus.READY;
         } else if (isTagedJson(data, "patch", true)) {

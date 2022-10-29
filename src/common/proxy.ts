@@ -1,9 +1,10 @@
-// Proxy an object or array to create small patches when changes.
+// Proxy an object or array to create patches when changes occur.
 // Use **Fractional Indexing** to ensure the order of array objects.
 // The snapshot & subscribe feature is inspired by https://github.com/pmndrs/valtio
 
 import { generateNKeysBetween } from "../vendor/fractional-indexing.js";
 
+/** The operation (enum) for the `Patch`. */
 export enum Op {
   SET = 1,
   DELETE = 2,
@@ -11,7 +12,7 @@ export enum Op {
   SPLICE = 3,
 }
 
-/** The path (array) for the patch. */
+/** The path (array) for the `Patch`. */
 export type Path = Readonly<string[]>;
 
 /** The patch for the co-document changes. */
@@ -25,10 +26,10 @@ export type Patch = Readonly<[
 
 const SNAPSHOT = Symbol();
 const LISTENERS = Symbol();
-const INTERNAL = Symbol();
 const NOTIFY = Symbol();
+const INTERNAL = Symbol();
 
-// only plain object or array can be proxied
+// only plain object and array object can be proxied for now
 function canProxy(a: unknown): a is Record<string, unknown> | unknown[] {
   if (typeof a !== "object" || a === null) {
     return false;
@@ -37,7 +38,7 @@ function canProxy(a: unknown): a is Record<string, unknown> | unknown[] {
   return proto === Object.prototype || proto === Array.prototype;
 }
 
-/** Proxy an object to create JSON-patches when changes. */
+/** Proxy an object to create patches when changes occur. */
 export function proxy<T extends Record<string, unknown> | Array<unknown>>(
   initialObject: T,
   notify: (patch: Patch) => void,
@@ -54,7 +55,7 @@ export function proxy<T extends Record<string, unknown> | Array<unknown>>(
   return proxyObject(initialObject, notify, path) as T;
 }
 
-/** Proxy an object to create JSON-patches when changes. */
+/** Proxy an object to create patches when changes occur. */
 export function proxyObject<T extends Record<string, unknown>>(
   initialObject: T,
   notify: (patch: Patch) => void,
@@ -148,6 +149,7 @@ export function proxyObject<T extends Record<string, unknown>>(
   return proxyObject;
 }
 
+/** Proxy an array to create patches when changes occur. */
 export function proxyArray<T>(
   initialArray: T[] | { $$indexs: string[]; $$values: Record<string, T> },
   notify: (patch: Patch) => void,
@@ -317,6 +319,10 @@ function lookupValue(obj: Record<string, unknown> | Array<unknown>, path: Path):
   return value;
 }
 
+export function remix(proxyObject: Record<string, unknown> | Array<unknown>, updateObject: unknown) {
+  // todo: remix
+}
+
 export function applyPatch(proxyObject: Record<string, unknown> | Array<unknown>, patch: Patch): boolean {
   const [op, path] = patch;
   const dep = path.length;
@@ -341,17 +347,16 @@ export function applyPatch(proxyObject: Record<string, unknown> | Array<unknown>
     case Op.SPLICE: {
       const maybeArray = Reflect.get(target, key);
       if (!Array.isArray(maybeArray)) {
-        return false;
+        break;
       }
       let array: { indexs: string[]; values: Record<string, unknown>; sideEffect: () => void } | undefined;
       if (!(array = Reflect.get(maybeArray, INTERNAL))) {
-        applied = false;
         break;
       }
       const { indexs, values, sideEffect } = array;
       const [added, deleted] = patch.slice(2) as [[string, unknown][], [string][]];
       if (!Array.isArray(added) || !Array.isArray(deleted) || added.length + deleted.length === 0) {
-        return false;
+        break;
       }
       const newIndexs = new Set(indexs);
       Reflect.set(values, NOTIFY, false);
