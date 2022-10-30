@@ -1,6 +1,7 @@
 // deno-lint-ignore-file no-explicit-any
 
 import type {
+  InitKVOptions,
   KV,
   KVDeleteOptions,
   KVGetWithMetadataResult,
@@ -13,12 +14,21 @@ import atm from "./AccessTokenManager.ts";
 import { appendOptionsToHeaders, checkNamespace, closeBody, fetchApi } from "./common/utils.ts";
 
 export default class KVImpl implements KV {
-  readonly #namespace: string;
-  readonly #socket?: Socket;
+  readonly #options: InitKVOptions;
 
-  constructor(options?: { namespace?: string; socket?: Socket }) {
-    this.#namespace = checkNamespace(options?.namespace ?? "default");
-    this.#socket = options?.socket;
+  constructor(options?: InitKVOptions) {
+    this.#options = {
+      ...options,
+      namespace: checkNamespace(options?.namespace ?? "default"),
+    };
+  }
+
+  get #namespace(): string {
+    return this.#options.namespace!;
+  }
+
+  get #socket(): Socket | undefined {
+    return this.#options.getSocket?.();
   }
 
   async #headers(init?: HeadersInit): Promise<Headers> {

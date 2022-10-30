@@ -34,7 +34,7 @@ export type KVListResult = {
 };
 
 export type InitKVOptions = {
-  socket?: Socket;
+  getSocket?: () => Socket | undefined;
   namespace?: string;
 };
 

@@ -6,7 +6,7 @@ import { connect } from "./common/socket.ts";
 const socket = await connect();
 
 Deno.test("Duration KV", async () => {
-  const kv = new DurableKV({ namespace: "dev", socket });
+  const kv = new DurableKV({ namespace: "dev", getSocket: () => socket });
 
   // delete all records firstly
   await kv.deleteAll();

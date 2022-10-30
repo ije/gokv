@@ -59,15 +59,15 @@ class ModuleImpl implements Module {
     request: Request | { cookies: Record<string, string> },
     options?: SessionOptions & InitKVOptions,
   ): Promise<Session<T>> {
-    return SessionImpl.create<T>(request, { ...options, socket: this.#socket });
+    return SessionImpl.create<T>(request, { getSocket: () => this.#socket, ...options });
   }
 
   KV(options?: InitKVOptions): KV {
-    return new KVImpl({ ...options, socket: this.#socket });
+    return new KVImpl({ getSocket: () => this.#socket, ...options });
   }
 
   DurableKV(options?: InitKVOptions): DurableKV {
-    return new DurableKVImpl({ ...options, socket: this.#socket });
+    return new DurableKVImpl({ getSocket: () => this.#socket, ...options });
   }
 
   Document<T extends Record<string, unknown> | Array<unknown>>(
