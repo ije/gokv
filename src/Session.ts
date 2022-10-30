@@ -33,7 +33,7 @@ export default class SessionImpl<StoreType extends Record<string, unknown>> impl
             store = data;
           } else {
             // delete expired session
-            kv.delete(sid, { allowUnconfirmed: true });
+            await kv.delete(sid, { allowUnconfirmed: true });
           }
         }
       }

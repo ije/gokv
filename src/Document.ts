@@ -21,7 +21,9 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
         "Authorization": (await atm.getAccessToken()).join(" "),
       },
     });
-    return restoreArray(await res.json()) as T;
+    const snapshot = restoreArray(await res.json()) as T;
+    Reflect.deleteProperty(snapshot, "__VERSION__");
+    return snapshot;
   }
 
   async reset(data?: T): Promise<void> {

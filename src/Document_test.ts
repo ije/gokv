@@ -28,9 +28,7 @@ const onChange = <T extends Record<string, unknown> | Array<unknown>>(obj: T, pr
 
 Deno.test("Document snapshot", async () => {
   const snapshot = await doc.getSnapshot();
-  assertEquals(snapshot.foo, "bar");
-  assertEquals(snapshot.baz, "qux");
-  assertEquals(snapshot.arr, ["Hello", "world!"]);
+  assertEquals(snapshot, { foo: "bar", baz: "qux", arr: ["Hello", "world!"] });
 });
 
 Deno.test("Update document object", async () => {

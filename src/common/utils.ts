@@ -168,8 +168,9 @@ export async function fetchApi(service: string, pathOrOptions?: string | FetchOp
   if (res.status === 404 && init?.ignore404) {
     return res;
   }
-  if (res.status >= 400) {
-    throw new Error(`gokv.io: <${res.status}> ${await res.text()}`);
+  if (!res.ok) {
+    await closeBody(res);
+    throw new Error(`fetch ${url.href}: <${res.status}> ${res.statusText}`);
   }
   return res;
 }
