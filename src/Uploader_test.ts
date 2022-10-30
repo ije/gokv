@@ -34,8 +34,6 @@ Deno.test("Upload image file", async () => {
   assertEquals(ret.type, "image/png");
   assertEquals(ret.size, png.length);
 
-  console.log(ret);
-
   const res = await fetch(ret.url);
   await res.body?.cancel();
   assertEquals(res.status, 200);
