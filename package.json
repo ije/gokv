@@ -30,6 +30,7 @@
     "build:web": "pnpm esbuild --bundle --minify --platform=browser --format=esm --target=es2022 --sourcemap --outfile=dist/web.mjs web.ts",
     "build:web-polyfill": "pnpm esbuild --bundle --minify --platform=node --format=esm --target=node14 --sourcemap --inject:./web-polyfill-shim.mjs --outfile=dist/web-polyfill.mjs web-polyfill.mjs",
     "build:all": "pnpm build && pnpm build:web && pnpm build:web-polyfill",
+    "test": "pnpm build:all && node test/integration-test-node.mjs",
     "prepublishOnly": "pnpm build:all"
   },
   "repository": {
