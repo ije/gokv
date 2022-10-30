@@ -3,6 +3,7 @@ export type UploaderOptions = {
 };
 
 export type UploadResult = {
+  readonly exists?: boolean;
   readonly id: string;
   readonly url: string;
   readonly name: string;

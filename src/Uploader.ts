@@ -2,6 +2,8 @@ import type { Uploader, UploaderOptions, UploadResult } from "../types/Uploader.
 import atm from "./AccessTokenManager.ts";
 import { checkNamespace, fetchApi, toHex } from "./common/utils.ts";
 
+const MB = 1 << 20;
+
 export default class UploaderImpl implements Uploader {
   #namespace: string;
 
@@ -10,12 +12,14 @@ export default class UploaderImpl implements Uploader {
   }
 
   async upload(file: File): Promise<UploadResult> {
-    const fileBody = await file.arrayBuffer();
-    const sum = await crypto.subtle.digest({ name: "SHA-1" }, fileBody);
+    if (file.size > 100 * MB) throw new Error("File size is too large");
+
+    // todo: compute file hash use streaming
+    const sum = await crypto.subtle.digest({ name: "SHA-1" }, await file.slice().arrayBuffer());
     const hash = toHex(sum);
 
     // Check if the file already exists
-    const _res = await fetchApi("upload", {
+    const { ok, headers } = await fetchApi("upload", {
       ignore404: true,
       method: "HEAD",
       headers: {
@@ -24,12 +28,14 @@ export default class UploaderImpl implements Uploader {
         "X-File-Sha1": hash,
       },
     });
-    if (_res.ok && _res.headers.has("X-Upload-Id")) {
-      const id = _res.headers.get("X-Upload-Id")!;
-      const [type, uploadedAt, $hash] = id.split("-");
-      if ($hash === hash) {
+    if (ok && headers.has("X-Upload-Id")) {
+      const id = headers.get("X-Upload-Id")!;
+      const [type, uploadedAt, ...rest] = id.split("-");
+      const $hash = rest.join("-");
+      if ($hash) {
         return {
-          url: `https://${type}.gokv.io/${hash}`,
+          exists: true,
+          url: `https://${type}.gokv.io/${$hash}`,
           id,
           name: file.name,
           type: file.type,
@@ -41,9 +47,10 @@ export default class UploaderImpl implements Uploader {
     }
 
     // Upload the file
+    // todo: support progress
     const res = await fetchApi("upload", {
       method: "POST",
-      body: fileBody,
+      body: file.stream(),
       headers: {
         Authorization: (await atm.getAccessToken(`upload:${this.#namespace}`)).join(" "),
         Namespace: this.#namespace,
