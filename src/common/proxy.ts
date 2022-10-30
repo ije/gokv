@@ -25,6 +25,7 @@ export type Patch = Readonly<[
   oldValue?: unknown,
 ]>;
 
+// symbols
 const SNAPSHOT = Symbol();
 const LISTENERS = Symbol();
 const NOTIFY = Symbol();
