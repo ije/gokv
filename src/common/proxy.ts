@@ -3,6 +3,7 @@
 // The snapshot & subscribe feature is inspired by https://github.com/pmndrs/valtio
 
 import { generateNKeysBetween } from "../vendor/fractional-indexing.js";
+import { isPlainObject } from "./utils.ts";
 
 /** The operation (enum) for the `Patch`. */
 export enum Op {
@@ -48,7 +49,7 @@ export function proxy<T extends Record<string, unknown> | Array<unknown>>(
     throw new Error("proxy: requires plain object or array");
   }
   const isArray = Array.isArray(initialObject) ||
-    (Array.isArray(Reflect.get(initialObject, "$$indexs")) && canProxy(Reflect.get(initialObject, "$$values")));
+    (Array.isArray(initialObject.$$indexs) && isPlainObject(initialObject.$$values));
   if (isArray) {
     return proxyArray(initialObject as unknown[], notify, path) as T;
   }
@@ -303,14 +304,14 @@ export function proxyArray<T>(
 /** Lookup the value by given path. */
 function lookupValue(obj: Record<string, unknown> | Array<unknown>, path: Path): unknown {
   const dep = path.length;
-  if (typeof obj !== "object" || obj === null || dep === 0) {
+  if (typeof obj !== "object" || obj === null) {
     return undefined;
   }
 
   let value = obj;
   for (let i = 0; i < dep; i++) {
     const key = path[i];
-    if (canProxy(value) && Object.hasOwn(value, key)) {
+    if (isPlainObject(value) && Object.hasOwn(value, key)) {
       value = Reflect.get(value, key);
     } else {
       return undefined;
@@ -321,6 +322,22 @@ function lookupValue(obj: Record<string, unknown> | Array<unknown>, path: Path):
 
 export function remix(proxyObject: Record<string, unknown> | Array<unknown>, updateObject: unknown) {
   // todo: remix
+}
+
+export function restoreArray(obj: Record<string, unknown>) {
+  const { $$indexs, $$values } = obj;
+  if (Array.isArray($$indexs) && isPlainObject($$values)) {
+    return $$indexs.map((index) => $$values[index]);
+  }
+  for (const key in obj) {
+    if (Object.hasOwn(obj, key)) {
+      const value = obj[key];
+      if (isPlainObject(value)) {
+        obj[key] = restoreArray(value);
+      }
+    }
+  }
+  return obj;
 }
 
 export function applyPatch(proxyObject: Record<string, unknown> | Array<unknown>, patch: Patch): boolean {

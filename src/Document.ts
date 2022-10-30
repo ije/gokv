@@ -1,6 +1,6 @@
 import type { Document, DocumentOptions } from "../types/web.d.ts";
 import atm from "./AccessTokenManager.ts";
-import { applyPatch, Op, Patch, proxy, remix } from "./common/proxy.ts";
+import { applyPatch, Op, Patch, proxy, remix, restoreArray } from "./common/proxy.ts";
 import { createWebSocket, SocketStatus } from "./common/socket.ts";
 import { checkNamespace, fetchApi, getEnv, isTagedJson } from "./common/utils.ts";
 
@@ -21,8 +21,7 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
         "Authorization": (await atm.getAccessToken()).join(" "),
       },
     });
-    // todo: fix array
-    return await res.json();
+    return restoreArray(await res.json()) as T;
   }
 
   async reset(data?: T): Promise<void> {

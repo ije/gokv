@@ -30,9 +30,7 @@ Deno.test("Document snapshot", async () => {
   const snapshot = await doc.getSnapshot();
   assertEquals(snapshot.foo, "bar");
   assertEquals(snapshot.baz, "qux");
-  // deno-lint-ignore ban-ts-comment
-  // @ts-ignore
-  assertEquals(snapshot.arr, { "$$indexs": ["a0", "a1"], "$$values": { a0: "Hello", a1: "world!" } });
+  assertEquals(snapshot.arr, ["Hello", "world!"]);
 });
 
 Deno.test("Update document object", async () => {
