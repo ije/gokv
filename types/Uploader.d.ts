@@ -1,17 +1,15 @@
 export type UploaderOptions = {
   namespace?: string;
-  acceptTypes?: string[];
-  limit?: number;
 };
 
 export type UploadResult = {
   readonly id: string;
   readonly url: string;
-  readonly filname: string;
-  readonly filesize: number;
-  readonly filetype: string;
-  readonly uploadedAt: number;
+  readonly name: string;
+  readonly type: string;
+  readonly size: number;
   readonly lastModified: number;
+  readonly uploadedAt: number;
 };
 
 export class Uploader {
