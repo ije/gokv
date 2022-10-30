@@ -1,4 +1,4 @@
-import { assertEquals } from "std/testing/asserts.ts";
+import { assertEquals } from "https://deno.land/std@0.160.0/testing/asserts.ts";
 import { applyPatch, Op, Patch, proxy, proxyArray, snapshot } from "./proxy.ts";
 
 Deno.test("Proxy object", () => {

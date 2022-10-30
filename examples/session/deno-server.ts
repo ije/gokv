@@ -1,8 +1,7 @@
-import { serve } from "std/http/server.ts";
-import gokv from "gokv";
+import { serve } from "https://deno.land/std@0.160.0/http/server.ts";
+import gokv from "https://deno.land/x/gokv@0.0.16/mod.ts";
 
-// Log in https://gokv.io/ to get token
-await gokv.config({ token: Deno.env.get("GOKV_TOKEN")! }).connect();
+await gokv.connect();
 
 function auth(
   username: FormDataEntryValue | null,
@@ -16,7 +15,7 @@ serve(async (req: Request) => {
 
   try {
     const session = await gokv.Session<{ username: string }>(req, {
-      namespace: "gokv-session-example",
+      namespace: "gokv-example",
       cookieSameSite: "None", // allow cookie in iframe
     });
     switch (url.pathname) {
@@ -26,13 +25,13 @@ serve(async (req: Request) => {
         const password = form.get("password");
         if (auth(username, password)) {
           // update store
-          return session.update({ username }, "/");
+          return session.update({ username }, "/dash");
         }
         return new Response("Invalid username or password", { status: 400 });
       }
       case "/logout":
         // end session
-        return session.end("/");
+        return session.end("/home");
       default:
         if (session.store) {
           return new Response(

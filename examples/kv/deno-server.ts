@@ -1,8 +1,7 @@
-import { serve } from "std/http/server.ts";
-import gokv from "gokv";
+import { serve } from "https://deno.land/std@0.160.0/http/server.ts";
+import gokv from "https://deno.land/x/gokv@0.0.16/mod.ts";
 
-// Log in https://gokv.io/ to get token
-await gokv.config({ token: Deno.env.get("GOKV_TOKEN")! }).connect();
+await gokv.connect();
 
 const kv = gokv.KV({ namespace: "gokv-example" });
 

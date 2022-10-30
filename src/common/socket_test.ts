@@ -1,5 +1,5 @@
-import "std/dotenv/load.ts";
-import { assertEquals } from "std/testing/asserts.ts";
+import "https://deno.land/std@0.160.0/dotenv/load.ts";
+import { assertEquals } from "https://deno.land/std@0.160.0/testing/asserts.ts";
 import { connect } from "./socket.ts";
 
 const socket = await connect();

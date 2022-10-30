@@ -1,5 +1,5 @@
-import "std/dotenv/load.ts";
-import { assert, assertEquals } from "std/testing/asserts.ts";
+import "https://deno.land/std@0.160.0/dotenv/load.ts";
+import { assert, assertEquals } from "https://deno.land/std@0.160.0/testing/asserts.ts";
 import Uploader from "./Uploader.ts";
 
 const up = new Uploader({ namespace: "dev" });
