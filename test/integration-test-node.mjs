@@ -52,29 +52,35 @@ await test("Sign Access Token", async () => {
 });
 
 await test("KV", async () => {
-  const kv = gokv.KV({ namespace: "dev-test" });
+  const kv = gokv.KV({ namespace: "dev" });
 
-  await kv.put("document", `{"id": "xxx", "type": "json"}`, { metadata: { author: "alice" } });
-  await kv.put("plain", "Hello world!", { metadata: { keywords: ["foo", "bar"] } });
-  await kv.put("void", "null");
-  await kv.delete("void");
-  assert.deepEqual(await kv.get("document", "json"), { id: "xxx", type: "json" });
+  await kv.put("document", `{"id": "xxxxxx", "type": "json"}`, {
+    metadata: { author: "sual" },
+  });
+  await kv.put("text", "Hello world!", {
+    metadata: { keywords: ["foo", "bar"] },
+  });
+  await kv.put("tmp", "null");
+  await kv.delete("tmp");
+
+  assert.deepEqual(await kv.get("document", "json"), { id: "xxxxxx", type: "json" });
   assert.deepEqual(await kv.getWithMetadata("document", "json"), {
-    value: { id: "xxx", type: "json" },
-    metadata: { author: "alice" },
+    value: { id: "xxxxxx", type: "json" },
+    metadata: { author: "sual" },
   });
-  assert.deepEqual(await kv.get("plain"), "Hello world!");
-  assert.deepEqual(await kv.list(), {
-    keys: [{ name: "document", metadata: { author: "alice" } }, {
-      name: "plain",
-      metadata: { keywords: ["foo", "bar"] },
-    }],
-    list_complete: true,
-  });
+  assert.equal(await kv.get("text"), "Hello world!");
+  assert.equal(await kv.get("tmp"), null);
+
+  const list = await kv.list();
+  assert.equal(Array.isArray(list.keys), true);
+  if (list.keys.length > 0) {
+    const key = list.keys[0];
+    assert.equal("name" in key, true);
+  }
 });
 
 await test("Duration KV", async () => {
-  const kv = gokv.DurableKV({ namespace: "dev-test" });
+  const kv = gokv.DurableKV({ namespace: "dev" });
 
   // delete all records firstly
   await kv.deleteAll();
@@ -129,15 +135,15 @@ await test("Duration KV", async () => {
 });
 
 await test("Session Manager", async () => {
-  const config = { namespace: "dev-test", cookieName: "sess" };
+  const config = { namespace: "dev", cookieName: "sess" };
 
   let session = await gokv.Session(new Request("https://gokv.io/"), config);
   assert.deepEqual(session.store, null);
 
   // login as "alice"
-  const res = await session.update({ username: "alice" }, "/");
+  const res = await session.update({ username: "alice" }, "/dashboard");
   assert.equal(res.headers.get("Set-Cookie"), `sess=${session.id}; HttpOnly`);
-  assert.equal(res.headers.get("Location"), "/");
+  assert.equal(res.headers.get("Location"), "/dashboard");
   assert.equal(res.status, 302);
 
   session = await gokv.Session(
@@ -150,9 +156,9 @@ await test("Session Manager", async () => {
   assert.deepEqual(session.store, { username: "alice" });
 
   // end session
-  const res2 = await session.end("/");
+  const res2 = await session.end("/home");
   assert.equal(res2.headers.get("Set-Cookie"), `sess=; Expires=Thu, 01 Jan 1970 00:00:01 GMT; HttpOnly`);
-  assert.equal(res2.headers.get("Location"), "/");
+  assert.equal(res2.headers.get("Location"), "/home");
   assert.equal(res2.status, 302);
 
   session = await gokv.Session({ cookies: { sess: session.id } }, config);
