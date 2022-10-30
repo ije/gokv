@@ -88,8 +88,8 @@ export function splitBytesByCRLF(bytes: Uint8Array) {
   return lines;
 }
 
-export function toHex(buf: ArrayBuffer): string {
-  return Array.from(new Uint8Array(buf)).map((b) => b.toString(36).padStart(2, "0")).join("");
+export function toHex(buf: ArrayBuffer, radix = 36): string {
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(radix).padStart(2, "0")).join("");
 }
 
 export async function hashText(text: string, hash = "SHA-1") {

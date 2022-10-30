@@ -16,7 +16,7 @@ export default class UploaderImpl implements Uploader {
 
     // todo: compute file hash use streaming
     const sum = await crypto.subtle.digest({ name: "SHA-1" }, await file.slice().arrayBuffer());
-    const hash = toHex(sum);
+    const sha1 = toHex(sum, 16);
 
     // Check if the file already exists
     const { ok, headers } = await fetchApi("upload", {
@@ -25,7 +25,7 @@ export default class UploaderImpl implements Uploader {
       headers: {
         Authorization: (await atm.getAccessToken(`upload:${this.#namespace}`)).join(" "),
         Namespace: this.#namespace,
-        "X-File-Sha1": hash,
+        "X-File-Sha1": sha1,
       },
     });
     if (ok && headers.has("X-Upload-Id")) {
@@ -36,7 +36,8 @@ export default class UploaderImpl implements Uploader {
         return {
           exists: true,
           url: `https://${type}.gokv.io/${$hash}`,
-          id,
+          sha1,
+          cfImageID: type === "img" ? $hash : undefined,
           name: file.name,
           type: file.type,
           size: file.size,
@@ -54,7 +55,7 @@ export default class UploaderImpl implements Uploader {
       headers: {
         Authorization: (await atm.getAccessToken(`upload:${this.#namespace}`)).join(" "),
         Namespace: this.#namespace,
-        "X-File-Sha1": hash,
+        "X-File-Sha1": sha1,
         "X-File-Meta": JSON.stringify({
           name: file.name,
           type: file.type,

@@ -4,7 +4,8 @@ export type UploaderOptions = {
 
 export type UploadResult = {
   readonly exists?: boolean;
-  readonly id: string;
+  readonly sha1: string;
+  readonly cfImageID?: string;
   readonly url: string;
   readonly name: string;
   readonly type: string;
