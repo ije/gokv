@@ -1,6 +1,7 @@
 import http from "node:http";
 import gokv from "gokv";
 
+// Ensure `GOKV_TOKEN` environment variable is set, check https://gokv.io/docs/access-token
 await gokv.connect();
 
 const kv = gokv.KV({ namespace: "gokv-example" });

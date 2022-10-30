@@ -1,14 +1,8 @@
 import { serve } from "https://deno.land/std@0.160.0/http/server.ts";
 import gokv from "https://deno.land/x/gokv@0.0.16/mod.ts";
 
+// Ensure `GOKV_TOKEN` environment variable is set, check https://gokv.io/docs/access-token
 await gokv.connect();
-
-function auth(
-  username: FormDataEntryValue | null,
-  password: FormDataEntryValue | null,
-): username is string {
-  return username === "admin" && password === "admin";
-}
 
 serve(async (req: Request) => {
   const url = new URL(req.url);
@@ -23,7 +17,7 @@ serve(async (req: Request) => {
         const form = await req.formData();
         const username = form.get("username");
         const password = form.get("password");
-        if (auth(username, password)) {
+        if (username === "admin" && password === "admin") {
           // update store
           return session.update({ username }, "/dash");
         }

@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.160.0/http/server.ts";
 import gokv from "https://deno.land/x/gokv@0.0.16/mod.ts";
 
+// Ensure `GOKV_TOKEN` environment variable is set, check https://gokv.io/docs/access-token
 await gokv.connect();
 
 const kv = gokv.DurableKV({ namespace: "gokv-example" });
