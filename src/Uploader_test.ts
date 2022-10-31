@@ -18,6 +18,24 @@ Deno.test("Upload text file", async () => {
   const res = await fetch(ret.url);
   assertEquals(res.status, 200);
   assertEquals(await res.text(), "Hello world!");
+  assert(res.headers.has("Etag"));
+
+  const etag = res.headers.get("Etag")!;
+  const res2 = await fetch(ret.url, {
+    headers: {
+      "If-None-Match": `"${etag}"`,
+    },
+  });
+  assertEquals(res2.status, 304);
+
+  const res3 = await fetch(ret.url, {
+    headers: {
+      range: "bytes=6-11",
+    },
+  });
+  assertEquals(res3.status, 206);
+  assertEquals(res3.headers.get("content-range"), "bytes 6-11/12");
+  assertEquals(await res3.text(), "world!");
 });
 
 Deno.test("Upload image file", async () => {
@@ -39,4 +57,13 @@ Deno.test("Upload image file", async () => {
   await res.body?.cancel();
   assertEquals(res.status, 200);
   assertEquals(res.headers.get("content-type"), "image/png");
+
+  const res2 = await fetch(ret.url + "/width=2,height=2,fit=contain,format=webp", {
+    headers: {
+      "accept": "image/webp",
+    },
+  });
+  await res2.body?.cancel();
+  assertEquals(res2.status, 200);
+  assertEquals(res2.headers.get("content-type"), "image/webp");
 });
