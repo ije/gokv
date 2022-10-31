@@ -21,16 +21,13 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
         "Authorization": (await atm.getAccessToken()).join(" "),
       },
     });
-    const snapshot = restoreArray(await res.json()) as T;
-    Reflect.deleteProperty(snapshot, "__VERSION__");
-    return snapshot;
+    return restoreArray(await res.json()) as T;
   }
 
   async reset(data?: T): Promise<void> {
     await fetchApi("document", `/${this.#docId}`, {
       headers: {
         "Authorization": (await atm.getAccessToken()).join(" "),
-        "Content-Type": "application/json",
         "X-Reset-Document": "true",
         "X-Reset-Document-Data": JSON.stringify(data ?? this.#options?.initData ?? {}),
       },
@@ -44,6 +41,7 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
     let ws = await createWebSocket(url, token.join("-"));
     return new Promise((resolve, reject) => {
       let doc: T | null = null;
+      let docVersion = -1;
       let status: SocketStatus = SocketStatus.PENDING;
       let rejected = false;
 
@@ -60,15 +58,15 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
       };
 
       const onopen = () => {
-        send("HELLO");
+        send(doc === null ? "HELLO" : "RESYNC" + JSON.stringify({ version: docVersion }));
       };
 
       const onmessage = ({ data }: MessageEvent) => {
         debug && console.debug(host, "↓", data);
-        if (isTagedJson(data, "document")) {
-          const rawDoc = JSON.parse(data.slice(8));
+        if (isTagedJson(data, "document", true)) {
+          const [version, snapshot] = JSON.parse(data.slice(8));
           if (doc === null) {
-            doc = proxy(rawDoc, (patch) => {
+            doc = proxy(snapshot, (patch) => {
               // todo: merge patches
               const id = Date.now().toString(36).slice(4) + Math.random().toString(36).slice(2, 4);
               const striped = patch.slice(0, patch[0] === Op.DELETE ? 2 : 3);
@@ -88,8 +86,9 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
             }
             resolve(doc!);
           } else {
-            remix(doc, rawDoc);
+            remix(doc, snapshot);
           }
+          docVersion = version;
           status = SocketStatus.READY;
         } else if (isTagedJson(data, "patch", true)) {
           if (status === SocketStatus.PENDING) {
@@ -97,7 +96,7 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
             // the `document` message, just ignore this message.
             return;
           }
-          const patch = JSON.parse(data.slice(5)) as Patch;
+          const [version, ...patch] = JSON.parse(data.slice(5)) as [number, ...Patch];
           const [$op, $path, $values] = patch;
           let shouldApply = true;
           for (const [id, patch] of uncomfirmedPatches) {
@@ -117,8 +116,14 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
             }
           }
           shouldApply && applyPatch(doc!, patch);
-        } else if (isTagedJson(data, "*patch")) {
-          const { id } = JSON.parse(data.slice(6));
+          if (typeof version === "number") {
+            docVersion = version;
+          }
+        } else if (isTagedJson(data, "*patch", true)) {
+          const [version, id] = JSON.parse(data.slice(6));
+          if (typeof version === "number") {
+            docVersion = version;
+          }
           if (!uncomfirmedPatches.has(id)) {
             return;
           }
@@ -143,6 +148,7 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
       };
 
       const onclose = () => {
+        uncomfirmedPatches.clear();
         status = SocketStatus.CLOSE;
         // reconnect if the document is synced
         if (doc !== null) {
