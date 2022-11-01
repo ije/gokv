@@ -5,7 +5,7 @@ import { snapshot, subscribe } from "./common/proxy.ts";
 
 Deno.env.set("DEBUG", "true");
 
-const doc = new Document("doc-dev-test", { initData: { foo: "bar", baz: "qux", arr: ["Hello", "world!"] } });
+const doc = new Document("doc-dev", { initData: { foo: "bar", baz: "qux", arr: ["Hello", "world!"] } });
 await doc.reset();
 
 const obj = await doc.sync();
