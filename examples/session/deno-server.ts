@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.160.0/http/server.ts";
-import gokv from "https://deno.land/x/gokv@0.0.17/mod.ts";
+import gokv from "https://deno.land/x/gokv@0.0.19/mod.ts";
 
 // Ensure `GOKV_TOKEN` environment variable is set, check https://gokv.io/docs/access-token
 await gokv.connect();
@@ -18,13 +18,13 @@ serve(async (req: Request) => {
         const username = form.get("username");
         const password = form.get("password");
         if (username === "admin" && password === "admin") {
-          // update store
+          // update store and redirect to "/dash"
           return session.update({ username }, "/dash");
         }
         return new Response("Invalid username or password", { status: 400 });
       }
       case "/logout":
-        // end session
+        // end session and redirect to "/home"
         return session.end("/home");
       default:
         if (session.store) {
