@@ -116,14 +116,11 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
             }
           }
           shouldApply && applyPatch(doc!, patch);
-          if (typeof version === "number") {
+          if (typeof version === "number" && version > docVersion) {
             docVersion = version;
           }
-        } else if (isTagedJson(data, "*patch", true)) {
-          const [version, id] = JSON.parse(data.slice(6));
-          if (typeof version === "number") {
-            docVersion = version;
-          }
+        } else if (isTagedJson(data, "*patch")) {
+          const { id } = JSON.parse(data.slice(6));
           if (!uncomfirmedPatches.has(id)) {
             return;
           }

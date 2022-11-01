@@ -99,7 +99,7 @@ export function proxyObject<T extends Record<string, unknown>>(
         return true;
       }
       const oldValue = Reflect.get(target, prop, receiver);
-      if (oldValue === value) {
+      if (Object.is(value, oldValue)) {
         return true;
       }
       const updated = Reflect.set(
@@ -111,8 +111,12 @@ export function proxyObject<T extends Record<string, unknown>>(
       );
       if (updated) {
         sideEffect();
+        // disable the `NOTIFY` of the old value if it's a proxy object
+        if (oldValue?.[NOTIFY]) {
+          oldValue[NOTIFY] = false;
+        }
         shouldNotify && !Array.isArray(value) && notify([
-          Op.SET,
+          value === undefined ? Op.DELETE : Op.SET,
           [...path, prop],
           value,
           oldValue?.[SNAPSHOT] ?? oldValue,
@@ -191,9 +195,9 @@ export function proxyArray<T>(
       ...newIndexs,
     );
     const deleted = rmIndexs.map((key) => {
-      const value = values[key];
+      const value = Reflect.get(values, key);
       Reflect.deleteProperty(values, key);
-      return [key, (value as Record<symbol, unknown>)?.[SNAPSHOT] ?? value];
+      return [key, value?.[SNAPSHOT] ?? value];
     });
     Reflect.set(values, NOTIFY, true);
     if (added.length > 0 || deleted.length > 0) {
@@ -314,6 +318,12 @@ function lookupValue(obj: Record<string, unknown> | Array<unknown>, path: Path):
     const key = path[i];
     if (isPlainObject(value) && Object.hasOwn(value, key)) {
       value = Reflect.get(value, key);
+    } else if (Array.isArray(value) && key === "$$values") {
+      let array: { values: Record<string, unknown> } | undefined;
+      if (!(array = Reflect.get(value, INTERNAL))) {
+        return undefined;
+      }
+      value = array.values;
     } else {
       return undefined;
     }
@@ -321,8 +331,30 @@ function lookupValue(obj: Record<string, unknown> | Array<unknown>, path: Path):
   return value;
 }
 
-export function remix(proxyObject: Record<string, unknown> | Array<unknown>, updateObject: unknown) {
-  // todo: remix
+export function remix(proxyObject: Record<string, unknown> | Array<unknown>, updateObject: Record<string, unknown>) {
+  const traverseCleanup = (value: unknown, path: Path = []) => {
+    if (isPlainObject(value)) {
+      for (const key in value) {
+        traverseCleanup(value[key], [...path, key]);
+      }
+    } else if (path.length > 0) {
+      const v = lookupValue(updateObject, path);
+      if (v === undefined) {
+        applyPatch(proxyObject, [Op.DELETE, path]);
+      }
+    }
+  };
+  const traverseSet = (value: unknown, path: Path = []) => {
+    if (isPlainObject(value)) {
+      for (const key in value) {
+        traverseSet(value[key], [...path, key]);
+      }
+    } else if (path.length > 0) {
+      applyPatch(proxyObject, [Op.SET, path, value]);
+    }
+  };
+  traverseCleanup(proxyObject);
+  traverseSet(updateObject);
 }
 
 export function restoreArray(obj: Record<string, unknown>) {
@@ -349,16 +381,29 @@ export function applyPatch(proxyObject: Record<string, unknown> | Array<unknown>
     return false;
   }
 
-  // To avoid boardcast dead-loop, disables the `NOTIFY` before applying the patch
+  // To avoid patch boardcast loops, disable the `NOTIFY` before applying the patch
   Reflect.set(target, NOTIFY, false);
 
   const key = path[dep - 1];
   let applied = false;
 
   switch (op) {
-    case Op.SET:
-      applied = Reflect.set(target, key, patch[2]);
+    case Op.SET: {
+      const value = patch[2];
+      // allow to update the internal `indexs` of proxy array, added for the `remix` function
+      if (Array.isArray(target) && key === "$$indexs" && Array.isArray(value)) {
+        const proxyArray: { indexs: string[]; sideEffect: () => void } | undefined = Reflect.get(target, INTERNAL);
+        if (proxyArray) {
+          const { indexs, sideEffect } = proxyArray;
+          indexs.splice(0, indexs.length, ...value);
+          sideEffect();
+          applied = true;
+          break;
+        }
+      }
+      applied = Reflect.set(target, key, value);
       break;
+    }
     case Op.DELETE:
       applied = Reflect.deleteProperty(target, key);
       break;
