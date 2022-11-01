@@ -41,18 +41,12 @@ class ModuleImpl implements Module {
     return this.#socket;
   }
 
-  async signAccessToken<U extends AuthUser>(
+  signAccessToken<U extends AuthUser>(
     scope: `${ServiceName}:${string}`,
     auth: U,
     permissions?: Permissions,
   ): Promise<string> {
-    return fetchApi("api", "/sign-access-token", {
-      method: "POST",
-      body: JSON.stringify({ auth, scope, permissions }),
-      headers: {
-        "Authorization": (await atm.getAccessToken()).join(" "),
-      },
-    }).then((res) => res.text());
+    return atm.signAccessToken(scope, auth, permissions);
   }
 
   Session<T extends Record<string, unknown> = Record<string, unknown>>(
