@@ -31,11 +31,12 @@ export default class DurableKVImpl implements DurableKV {
 
   async #headers(init?: HeadersInit): Promise<Headers> {
     const headers = new Headers(init);
-    headers.set("Namespace", this.#namespace);
-    if (!this.#socket) {
-      headers.append("Authorization", (await atm.getAccessToken(`durable-kv:${this.#namespace}`)).join(" "));
-    }
+    headers.append("Authorization", (await atm.getAccessToken(`durable-kv:${this.#namespace}`)).join(" "));
     return headers;
+  }
+
+  #fetchApi(pathname?: string, init?: RequestInit & { ignore404?: boolean }): Promise<Response> {
+    return fetchApi(`/durable-kv/${this.#namespace}${pathname ?? ""}`, { socket: this.#socket, ...init });
   }
 
   async get(keyOrKeys: string | string[], options?: DurableKVGetOptions): Promise<any> {
@@ -58,7 +59,7 @@ export default class DurableKVImpl implements DurableKV {
       appendOptionsToHeaders(options, headers);
     }
 
-    const res = await fetchApi("durable-kv", pathname, { socket: this.#socket, headers, ignore404: true });
+    const res = await this.#fetchApi(pathname, { headers, ignore404: true });
     if (res.status === 404) {
       return closeBody(res); // release body
     }
@@ -125,7 +126,7 @@ export default class DurableKVImpl implements DurableKV {
       throw new Error("Invalid value type: not a record");
     }
 
-    const res = await fetchApi("durable-kv", pathname, { socket: this.#socket, method: "PUT", headers, body });
+    const res = await this.#fetchApi(pathname, { method: "PUT", headers, body });
     await closeBody(res); // release body
   }
 
@@ -137,12 +138,7 @@ export default class DurableKVImpl implements DurableKV {
     if (options) {
       appendOptionsToHeaders(options, headers);
     }
-    const res = await fetchApi("durable-kv", "/" + key, {
-      socket: this.#socket,
-      method: "PATCH",
-      body: delta.toString(),
-      headers,
-    });
+    const res = await this.#fetchApi(`/${key}`, { method: "PATCH", body: delta.toString(), headers });
     const ret = await res.text();
     return parseFloat(ret);
   }
@@ -172,7 +168,7 @@ export default class DurableKVImpl implements DurableKV {
       appendOptionsToHeaders(options, headers);
     }
 
-    const res = await fetchApi("durable-kv", pathname, { socket: this.#socket, method: "DELETE", headers });
+    const res = await this.#fetchApi(pathname, { method: "DELETE", headers });
     const ret = await res.text();
     if (typeof keyOrKeysOrOptions === "string") {
       return ret === "true";
@@ -185,7 +181,7 @@ export default class DurableKVImpl implements DurableKV {
     if (options) {
       appendOptionsToHeaders(options, headers);
     }
-    const res = await fetchApi("durable-kv", { socket: this.#socket, method: "DELETE", headers });
+    const res = await this.#fetchApi(undefined, { method: "DELETE", headers });
     await closeBody(res); // release body
   }
 
@@ -194,7 +190,7 @@ export default class DurableKVImpl implements DurableKV {
     if (options) {
       appendOptionsToHeaders(options, headers);
     }
-    const res = await fetchApi("durable-kv", { socket: this.#socket, headers });
+    const res = await this.#fetchApi(undefined, { headers });
     const data = await res.json();
     const map = new Map<string, T>();
     if (Array.isArray(data)) {

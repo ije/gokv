@@ -25,7 +25,7 @@ export class AccessTokenManager {
     auth: U,
     permissions?: Permissions,
   ): Promise<string> {
-    return fetchApi("api", "/sign-access-token", {
+    return fetchApi("/sign-access-token", {
       method: "POST",
       body: JSON.stringify({ auth, scope, permissions }),
       headers: {

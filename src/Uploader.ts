@@ -19,12 +19,11 @@ export default class UploaderImpl implements Uploader {
     const sha1 = toHex(sum, 16);
 
     // Check if the file already exists
-    const { ok, headers } = await fetchApi("upload", {
+    const { ok, headers } = await fetchApi(`/upload/${this.#namespace}`, {
       ignore404: true,
       method: "HEAD",
       headers: {
         Authorization: (await atm.getAccessToken(`upload:${this.#namespace}`)).join(" "),
-        Namespace: this.#namespace,
         "X-File-Sha1": sha1,
       },
     });
@@ -49,12 +48,11 @@ export default class UploaderImpl implements Uploader {
 
     // Upload the file
     // todo: support progress
-    const res = await fetchApi("upload", {
+    const res = await fetchApi(`/upload/${this.#namespace}`, {
       method: "POST",
       body: file.stream(),
       headers: {
         Authorization: (await atm.getAccessToken(`upload:${this.#namespace}`)).join(" "),
-        Namespace: this.#namespace,
         "X-File-Sha1": sha1,
         "X-File-Meta": JSON.stringify({
           name: file.name,

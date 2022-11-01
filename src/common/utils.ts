@@ -158,14 +158,11 @@ type FetchOptions = RequestInit & {
   ignore404?: boolean;
 };
 
-export async function fetchApi(service: string, path?: string, options?: FetchOptions): Promise<Response>;
-export async function fetchApi(service: string, options?: FetchOptions): Promise<Response>;
-export async function fetchApi(service: string, pathOrOptions?: string | FetchOptions, options?: FetchOptions) {
-  const url = new URL(typeof pathOrOptions === "string" ? pathOrOptions : "/", `https://${service}.gokv.io`);
-  const init = typeof pathOrOptions === "string" || pathOrOptions === undefined ? options : pathOrOptions;
-  const fetcher = init?.socket?.fetch ?? fetch;
-  const res = await fetcher(url, init);
-  if (res.status === 404 && init?.ignore404) {
+export async function fetchApi(path: string, options?: FetchOptions): Promise<Response> {
+  const url = new URL(path, "https://api.gokv.io");
+  const fetcher = options?.socket?.fetch ?? fetch;
+  const res = await fetcher(url, options);
+  if (res.status === 404 && options?.ignore404) {
     return res;
   }
   if (!res.ok) {
@@ -173,4 +170,28 @@ export async function fetchApi(service: string, pathOrOptions?: string | FetchOp
     throw new Error(`fetch ${url.href}: <${res.status}> ${res.statusText}`);
   }
   return res;
+}
+
+export async function createWebSocket(url: string, protocols?: string | string[]) {
+  // workaround for cloudflare worker
+  // ref https://developers.cloudflare.com/workers/learning/using-websockets/#writing-a-websocket-client
+  if (typeof WebSocket === "undefined" && typeof fetch === "function") {
+    const headers = new Headers({ Upgrade: "websocket" });
+    if (protocols) {
+      if (Array.isArray(protocols)) {
+        headers.append("Sec-WebSocket-Protocol", protocols.join(","));
+      } else {
+        headers.append("Sec-WebSocket-Protocol", String(protocols));
+      }
+    }
+    const res = await fetch(url, { headers });
+    // deno-lint-ignore no-explicit-any
+    const ws = (res as any).webSocket;
+    if (!ws) {
+      throw new Error("Server didn't accept WebSocket");
+    }
+    ws.accept();
+    return ws as WebSocket;
+  }
+  return new WebSocket(url, protocols);
 }

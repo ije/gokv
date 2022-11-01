@@ -33,10 +33,7 @@ export default class KVImpl implements KV {
 
   async #headers(init?: HeadersInit): Promise<Headers> {
     const headers = new Headers(init);
-    headers.set("Namespace", this.#namespace);
-    if (!this.#socket) {
-      headers.append("Authorization", (await atm.getAccessToken(`kv:${this.#namespace}`)).join(" "));
-    }
+    headers.append("Authorization", (await atm.getAccessToken(`kv:${this.#namespace}`)).join(" "));
     return headers;
   }
 
@@ -48,7 +45,7 @@ export default class KVImpl implements KV {
     if (options && typeof options !== "string") {
       appendOptionsToHeaders(options, headers);
     }
-    const res = await fetchApi("kv", "/" + key, { socket: this.#socket, headers, ignore404: true });
+    const res = await fetchApi(`kv/${this.#namespace}/${key}`, { socket: this.#socket, headers, ignore404: true });
     if (res.status === 404) {
       await closeBody(res);
       return null;
@@ -83,7 +80,7 @@ export default class KVImpl implements KV {
     if (options && typeof options !== "string") {
       appendOptionsToHeaders(options, headers);
     }
-    const res = await fetchApi("kv", "/" + key, { socket: this.#socket, headers, ignore404: true });
+    const res = await fetchApi(`kv/${this.#namespace}/${key}`, { socket: this.#socket, headers, ignore404: true });
     if (res.status == 404) {
       await closeBody(res);
       return { value: null, metadata: null };
@@ -130,7 +127,7 @@ export default class KVImpl implements KV {
     if (options) {
       appendOptionsToHeaders(options, headers);
     }
-    const res = await fetchApi("kv", "/" + key, {
+    const res = await fetchApi(`kv/${this.#namespace}/${key}`, {
       socket: this.#socket,
       method: "PUT",
       headers,
@@ -147,7 +144,7 @@ export default class KVImpl implements KV {
     if (options) {
       appendOptionsToHeaders(options, headers);
     }
-    const res = await fetchApi("kv", "/" + key, { socket: this.#socket, method: "DELETE", headers });
+    const res = await fetchApi(`kv/${this.#namespace}/${key}`, { socket: this.#socket, method: "DELETE", headers });
     await closeBody(res); // release body
   }
 
@@ -156,7 +153,7 @@ export default class KVImpl implements KV {
     if (options) {
       appendOptionsToHeaders(options, headers);
     }
-    const res = await fetchApi("kv", { socket: this.#socket, headers });
+    const res = await fetchApi(`kv/${this.#namespace}`, { socket: this.#socket, headers });
     return res.json();
   }
 }

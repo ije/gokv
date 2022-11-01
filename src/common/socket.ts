@@ -1,8 +1,7 @@
 import type { Socket } from "../../types/common.d.ts";
 import atm from "../AccessTokenManager.ts";
-import { conactBytes, CRLF, dec, enc, splitByChar, splitBytesByCRLF, toBytesInt32 } from "./utils.ts";
+import { conactBytes, createWebSocket, CRLF, dec, enc, splitByChar, splitBytesByCRLF, toBytesInt32 } from "./utils.ts";
 
-const socketUrl = "wss://socket.gokv.io";
 const defaultTimeout = 30 * 1000; // 30 seconds
 const frameStart = 0x04;
 
@@ -12,34 +11,12 @@ export enum SocketStatus {
   CLOSE = 2,
 }
 
-export async function createWebSocket(url: string, protocols?: string | string[]) {
-  // workaround for cloudflare worker
-  // ref https://developers.cloudflare.com/workers/learning/using-websockets/#writing-a-websocket-client
-  if (typeof WebSocket === "undefined" && typeof fetch === "function") {
-    const headers = new Headers({ Upgrade: "websocket" });
-    if (protocols) {
-      if (Array.isArray(protocols)) {
-        headers.append("Sec-WebSocket-Key", protocols.join(","));
-      } else {
-        headers.append("Sec-WebSocket-Key", String(protocols));
-      }
-    }
-    const res = await fetch(url, { headers });
-    // deno-lint-ignore no-explicit-any
-    const ws = (res as any).webSocket;
-    if (!ws) {
-      throw new Error("Server didn't accept WebSocket");
-    }
-    ws.accept();
-    return ws as WebSocket;
-  }
-  return new WebSocket(url, protocols);
-}
-
-/** Creating a web socket to send/receive HTTP requests/responses. */
+/** Creating a `WebSocket` connection to handle HTTP requests. */
 export async function connect(): Promise<Socket> {
   const nativeFetch = globalThis.fetch;
   const awaits = new Map<number, (data: ArrayBuffer) => void>();
+  const token = await atm.getAccessToken();
+  const socketUrl = `wss://api.gokv.io/socket?authToken=${token.join("-")}`;
   let ws = await createWebSocket(socketUrl);
   return new Promise((resolve, reject) => {
     let status: SocketStatus = SocketStatus.PENDING;
@@ -72,9 +49,8 @@ export async function connect(): Promise<Socket> {
       ws.close();
     };
 
-    const onopen = async () => {
-      const token = await atm.getAccessToken();
-      ws.send(token.join(" "));
+    const onopen = () => {
+      ws.send("HELLO");
     };
 
     const onmessage = ({ data }: MessageEvent) => {
@@ -86,13 +62,9 @@ export async function connect(): Promise<Socket> {
             awaits.get(id)?.(data.slice(5));
           }
         }
-      } else if (typeof data === "string") {
-        if (data.startsWith("OK ")) {
-          status = SocketStatus.READY;
-          resolve({ fetch, close });
-        } else if (data.startsWith("ERROR ")) {
-          reject(new Error("socket: " + data));
-        }
+      } else if (data === "OK") {
+        status = SocketStatus.READY;
+        resolve({ fetch, close });
       }
     };
 
@@ -167,12 +139,13 @@ function deserializeHttpResponse(buffer: ArrayBuffer): Response {
   let statusText = "OK";
   let line = lines.shift();
   if (line) {
-    const match = dec.decode(line).match(/^HTTP\/[\d\.]+ (\d+) (.*)$/);
-    if (!match) {
+    const s = dec.decode(line);
+    if (!s.startsWith("HTTP/")) {
       throw new Error("invalid http response");
     }
-    status = parseInt(match[1]);
-    statusText = match[2];
+    const [_, code, text] = s.split(" ");
+    status = parseInt(code);
+    statusText = text;
   }
   // deno-lint-ignore no-cond-assign
   while (line = lines.shift()) {
