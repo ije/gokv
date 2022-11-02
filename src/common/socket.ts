@@ -50,21 +50,17 @@ export async function connect(): Promise<Socket> {
     };
 
     const onopen = () => {
-      ws.send("HELLO");
+      status = SocketStatus.READY;
+      resolve({ fetch, close });
     };
 
     const onmessage = ({ data }: MessageEvent) => {
-      if (data instanceof ArrayBuffer) {
-        if (status === SocketStatus.READY) {
-          const view = new DataView(data);
-          if (view.getInt8(0) === frameStart) {
-            const id = view.getInt32(1);
-            awaits.get(id)?.(data.slice(5));
-          }
+      if (status === SocketStatus.READY && data instanceof ArrayBuffer) {
+        const view = new DataView(data);
+        if (view.getInt8(0) === frameStart) {
+          const id = view.getInt32(1);
+          awaits.get(id)?.(data.slice(5));
         }
-      } else if (data === "OK") {
-        status = SocketStatus.READY;
-        resolve({ fetch, close });
       }
     };
 
