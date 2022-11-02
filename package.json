@@ -1,6 +1,6 @@
 {
   "name": "gokv",
-  "version": "0.0.20",
+  "version": "0.0.21",
   "description": "A global, low-latency, and druable key-value store.",
   "type": "module",
   "main": "./dist/index.mjs",
