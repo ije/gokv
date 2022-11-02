@@ -19,6 +19,7 @@ export type Permissions = {
 
 export type ModuleConfigOptions = {
   token?: string;
+  signUrl?: string;
   maxConn?: number;
 };
 

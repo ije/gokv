@@ -27,9 +27,12 @@ import { snapshot, subscribe } from "./src/common/proxy.ts";
 class ModuleImpl implements Module {
   #connPool = new ConnPool(4);
 
-  config({ token, maxConn }: ModuleConfigOptions): this {
+  config({ token, signUrl, maxConn }: ModuleConfigOptions): this {
     if (token) {
       atm.setToken(token);
+    }
+    if (signUrl) {
+      atm.setSignUrl(signUrl);
     }
     if (maxConn) {
       this.#connPool.setCap(maxConn);
