@@ -1,12 +1,12 @@
 import "https://deno.land/std@0.160.0/dotenv/load.ts";
 import { assertEquals } from "https://deno.land/std@0.160.0/testing/asserts.ts";
-import DurableKV from "./DurableKV.ts";
+import Storage from "./Storage.ts";
 import { connect } from "./common/socket.ts";
 
 const socket = await connect();
 
-Deno.test("Duration KV", async () => {
-  const kv = new DurableKV({ namespace: "dev", connPool: socket });
+Deno.test("Storage", async () => {
+  const kv = new Storage({ namespace: "dev", connPool: socket });
 
   // delete all records firstly
   await kv.deleteAll();

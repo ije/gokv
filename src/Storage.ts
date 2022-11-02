@@ -1,20 +1,20 @@
 // deno-lint-ignore-file no-explicit-any
 
 import type {
-  DurableKV,
-  DurableKVDeleteOptions,
-  DurableKVGetOptions,
-  DurableKVListOptions,
-  DurableKVPutOptions,
-  InitKVOptions,
+  Storage,
+  StorageDeleteOptions,
+  StorageGetOptions,
+  StorageListOptions,
+  StorageOptions,
+  StoragePutOptions,
 } from "../types/core.d.ts";
 import atm from "./AccessTokenManager.ts";
 import { appendOptionsToHeaders, checkNamespace, closeBody } from "./common/utils.ts";
 
-export default class DurableKVImpl implements DurableKV {
-  readonly #options: InitKVOptions;
+export default class StorageImpl implements Storage {
+  readonly #options: StorageOptions;
 
-  constructor(options?: InitKVOptions) {
+  constructor(options?: StorageOptions) {
     this.#options = {
       ...options,
       namespace: checkNamespace(options?.namespace ?? "default"),
@@ -23,9 +23,9 @@ export default class DurableKVImpl implements DurableKV {
 
   async #fetchApi(pathname?: string, init?: RequestInit & { ignore404?: boolean }): Promise<Response> {
     const fetcher = this.#options.connPool ?? { fetch };
-    const url = `https://api.gokv.io/durable-kv/${this.#options.namespace}${pathname ?? ""}`;
+    const url = `https://api.gokv.io/storage/${this.#options.namespace}${pathname ?? ""}`;
     const headers = new Headers(init?.headers);
-    headers.append("Authorization", (await atm.getAccessToken(`durable-kv:${this.#options.namespace}`)).join(" "));
+    headers.append("Authorization", (await atm.getAccessToken(`storage:${this.#options.namespace}`)).join(" "));
     const res = await fetcher.fetch(url, { ...init, headers });
     if (res.status >= 400) {
       if (res.status === 404 && init?.ignore404) {
@@ -37,7 +37,7 @@ export default class DurableKVImpl implements DurableKV {
     return res;
   }
 
-  async get(keyOrKeys: string | string[], options?: DurableKVGetOptions): Promise<any> {
+  async get(keyOrKeys: string | string[], options?: StorageGetOptions): Promise<any> {
     let pathname: string;
     const multipleKeys = Array.isArray(keyOrKeys);
     if (multipleKeys) {
@@ -90,7 +90,7 @@ export default class DurableKVImpl implements DurableKV {
     }
   }
 
-  async put(keyOrEntries: string | Record<string, any>, value?: any, options?: DurableKVPutOptions): Promise<void> {
+  async put(keyOrEntries: string | Record<string, any>, value?: any, options?: StoragePutOptions): Promise<void> {
     let pathname: string | undefined = undefined;
     let body: string | undefined = undefined;
     const headers = new Headers();
@@ -128,7 +128,7 @@ export default class DurableKVImpl implements DurableKV {
     await closeBody(res); // release body
   }
 
-  async updateNumber(key: string, delta: number, options?: DurableKVPutOptions): Promise<number> {
+  async updateNumber(key: string, delta: number, options?: StoragePutOptions): Promise<number> {
     if (key === "" || Number.isNaN(delta)) {
       throw new Error("Invalid key or delta");
     }
@@ -142,8 +142,8 @@ export default class DurableKVImpl implements DurableKV {
   }
 
   async delete(
-    keyOrKeysOrOptions: string | string[] | DurableKVDeleteOptions,
-    options?: DurableKVPutOptions,
+    keyOrKeysOrOptions: string | string[] | StorageDeleteOptions,
+    options?: StoragePutOptions,
   ): Promise<any> {
     const multipleKeys = Array.isArray(keyOrKeysOrOptions);
     let pathname: string | undefined = undefined;
@@ -174,7 +174,7 @@ export default class DurableKVImpl implements DurableKV {
     return parseInt(ret);
   }
 
-  async deleteAll(options?: DurableKVPutOptions): Promise<void> {
+  async deleteAll(options?: StoragePutOptions): Promise<void> {
     const headers = new Headers({ "delete-all": "1" });
     if (options) {
       appendOptionsToHeaders(options, headers);
@@ -183,7 +183,7 @@ export default class DurableKVImpl implements DurableKV {
     await closeBody(res); // release body
   }
 
-  async list<T = unknown>(options?: DurableKVListOptions): Promise<Map<string, T>> {
+  async list<T = unknown>(options?: StorageListOptions): Promise<Map<string, T>> {
     const headers = new Headers();
     if (options) {
       appendOptionsToHeaders(options, headers);

@@ -49,36 +49,8 @@ await test("Sign Access Token", async () => {
   assert.equal(typeof payload.$expires, "number");
 });
 
-await test("KV", async () => {
-  const kv = gokv.KV({ namespace: "dev" });
-
-  await kv.put("document", `{"id": "xxxxxx", "type": "json"}`, {
-    metadata: { author: "sual" },
-  });
-  await kv.put("text", "Hello world!", {
-    metadata: { keywords: ["foo", "bar"] },
-  });
-  await kv.put("tmp", "null");
-  await kv.delete("tmp");
-
-  assert.deepEqual(await kv.get("document", "json"), { id: "xxxxxx", type: "json" });
-  assert.deepEqual(await kv.getWithMetadata("document", "json"), {
-    value: { id: "xxxxxx", type: "json" },
-    metadata: { author: "sual" },
-  });
-  assert.equal(await kv.get("text"), "Hello world!");
-  assert.equal(await kv.get("tmp"), null);
-
-  const list = await kv.list();
-  assert.equal(Array.isArray(list.keys), true);
-  if (list.keys.length > 0) {
-    const key = list.keys[0];
-    assert.equal("name" in key, true);
-  }
-});
-
-await test("Duration KV", async () => {
-  const kv = gokv.DurableKV({ namespace: "dev" });
+await test("Storage", async () => {
+  const kv = gokv.Storage({ namespace: "dev" });
 
   // delete all records firstly
   await kv.deleteAll();
@@ -126,7 +98,7 @@ await test("Duration KV", async () => {
   assert.deepEqual(await kv.list(), new Map(new Array(3).fill(0).map((_, index) => [`k-${index}`, null])));
 });
 
-await test("Session Manager", async () => {
+await test("Session Storage", async () => {
   const config = { namespace: "dev", cookieName: "sess" };
 
   let session = await gokv.Session(new Request("https://gokv.io/"), config);

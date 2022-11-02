@@ -4,13 +4,13 @@ import type {
   ChatRoomOptions,
   Document,
   DocumentOptions,
+  FileStorage,
+  FileStorageOptions,
   Module,
   ModuleConfigOptions,
-  Uploader,
-  UploaderOptions,
 } from "./types/web.d.ts";
 import atm from "./src/AccessTokenManager.ts";
-import UploaderImpl from "./src/Uploader.ts";
+import FileStorageImpl from "./src/FileStorage.ts";
 import ChatRoomImpl from "./src/ChatRoom.ts";
 import DocumentImpl from "./src/Document.ts";
 import { snapshot, subscribe } from "./src/common/proxy.ts";
@@ -19,8 +19,8 @@ class ModuleImpl implements Module {
   config({ signUrl }: ModuleConfigOptions) {
     atm.setSignUrl(signUrl);
   }
-  Uploader(options?: UploaderOptions): Uploader {
-    return new UploaderImpl(options);
+  FileStorage(options?: FileStorageOptions): FileStorage {
+    return new FileStorageImpl(options);
   }
   ChatRoom<U extends AuthUser>(roomId: string, options?: ChatRoomOptions): ChatRoom<U> {
     return new ChatRoomImpl(roomId, options);

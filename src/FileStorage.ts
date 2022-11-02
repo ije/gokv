@@ -1,13 +1,13 @@
-import type { Uploader, UploaderOptions, UploadResult } from "../types/Uploader.d.ts";
+import type { FileStorage, FileStorageOptions, UploadResult } from "../types/FileStorage.d.ts";
 import atm from "./AccessTokenManager.ts";
 import { checkNamespace, toHex } from "./common/utils.ts";
 
 const MB = 1 << 20;
 
-export default class UploaderImpl implements Uploader {
+export default class FileStorageImpl implements FileStorage {
   #namespace: string;
 
-  constructor(options?: { namespace?: string } & UploaderOptions) {
+  constructor(options?: { namespace?: string } & FileStorageOptions) {
     this.#namespace = checkNamespace(options?.namespace ?? "default");
   }
 

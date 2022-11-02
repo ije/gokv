@@ -1,4 +1,4 @@
-export type UploaderOptions = {
+export type FileStorageOptions = {
   namespace?: string;
 };
 
@@ -14,7 +14,7 @@ export type UploadResult = {
   readonly uploadedAt: number;
 };
 
-export class Uploader {
-  constructor(options: UploaderOptions);
+export class FileStorage {
+  constructor(options: FileStorageOptions);
   upload(file: File): Promise<UploadResult>;
 }

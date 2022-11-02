@@ -1,11 +1,11 @@
 import "https://deno.land/std@0.160.0/dotenv/load.ts";
 import { assert, assertEquals } from "https://deno.land/std@0.160.0/testing/asserts.ts";
-import Uploader from "./Uploader.ts";
+import FileStorage from "./FileStorage.ts";
 
-const up = new Uploader({ namespace: "dev" });
+const fs = new FileStorage({ namespace: "dev" });
 
 Deno.test("Upload text file", async () => {
-  const ret = await up.upload(new File(["Hello world!"], "hello.txt", { type: "plain/text" }));
+  const ret = await fs.upload(new File(["Hello world!"], "hello.txt", { type: "plain/text" }));
 
   assert(ret.url.startsWith("https://file.gokv.io/"));
   assertEquals(typeof ret.sha1, "string");
@@ -42,7 +42,7 @@ Deno.test("Upload image file", async () => {
   const png64 =
     "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAATSURBVHgBY2BkYv4PAgwgAsQBAFcpCgNJk2elAAAAAElFTkSuQmCC";
   const png = Uint8Array.from(atob(png64), (c) => c.charCodeAt(0));
-  const ret = await up.upload(new File([png], "pixels.png", { type: "image/png" }));
+  const ret = await fs.upload(new File([png], "pixels.png", { type: "image/png" }));
 
   assert(ret.url.startsWith("https://img.gokv.io/"));
   assertEquals(typeof ret.sha1, "string");

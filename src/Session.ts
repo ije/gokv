@@ -1,13 +1,13 @@
-import type { DurableKV, InitKVOptions, Session, SessionOptions } from "../types/core.d.ts";
+import type { Session, SessionOptions, Storage, StorageOptions } from "../types/core.d.ts";
 import atm from "./AccessTokenManager.ts";
-import DurableKVImpl from "./DurableKV.ts";
+import StorageImpl from "./Storage.ts";
 import { hashText, hmacSign, parseCookie, splitByChar } from "./common/utils.ts";
 
 const minMaxAge = 60; // one minute
 const defaultMaxAge = 30 * 60; // half an hour
 
 export default class SessionImpl<StoreType extends Record<string, unknown>> implements Session<StoreType> {
-  #kv: DurableKV;
+  #storage: Storage;
   #store: StoreType | null;
   #id: string;
   #upTimer: number | null = null;
@@ -15,11 +15,11 @@ export default class SessionImpl<StoreType extends Record<string, unknown>> impl
 
   static async create<T extends Record<string, unknown>>(
     request: Request | { cookies: Record<string, string> },
-    options?: SessionOptions & InitKVOptions,
+    options?: SessionOptions & StorageOptions,
   ): Promise<Session<T>> {
     const namespace = "session/" + (options?.namespace ?? "default");
     const cookieName = options?.cookieName || "session";
-    const kv: DurableKV = new DurableKVImpl({ namespace, connPool: options?.connPool });
+    const kv: Storage = new StorageImpl({ namespace, connPool: options?.connPool });
     const [_, token] = await atm.getAccessToken();
     let sid = request instanceof Request ? parseCookie(request).get(cookieName) : request.cookies[cookieName];
     let store: T | null = null;
@@ -46,9 +46,9 @@ export default class SessionImpl<StoreType extends Record<string, unknown>> impl
     return new SessionImpl<T>(sid, kv, store, options);
   }
 
-  constructor(sid: string, kv: DurableKV, initStore: StoreType | null, options?: SessionOptions) {
+  constructor(sid: string, kv: Storage, initStore: StoreType | null, options?: SessionOptions) {
     this.#id = sid;
-    this.#kv = kv;
+    this.#storage = kv;
     this.#store = initStore;
     this.#options = { ...options, maxAge: Math.max(options?.maxAge || defaultMaxAge, minMaxAge) };
     if (initStore !== null) {
@@ -110,10 +110,10 @@ export default class SessionImpl<StoreType extends Record<string, unknown>> impl
       this.#upTimer = null;
     }
     if (nextStore === null) {
-      await this.#kv.delete(this.#id);
+      await this.#storage.delete(this.#id);
       this.#store = null;
     } else {
-      await this.#kv.put(this.#id, { data: nextStore, expires: Date.now() + 1000 * this.#options.maxAge });
+      await this.#storage.put(this.#id, { data: nextStore, expires: Date.now() + 1000 * this.#options.maxAge });
       this.#store = nextStore;
     }
   }

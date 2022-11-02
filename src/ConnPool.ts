@@ -42,15 +42,13 @@ export default class ConnPool {
     this.#pool.setMaxConn(max);
   }
 
-  getSocket(): Promise<Socket> {
-    return this.#pool.get();
-  }
-
   async fetch(
     input: URL | string,
     init?: RequestInit,
   ): Promise<Response> {
-    const socket = await this.getSocket();
-    return socket.fetch(input, init).finally(() => this.#pool.put(socket));
+    const socket = await this.#pool.get();
+    const promise = socket.fetch(input, init);
+    this.#pool.put(socket);
+    return promise;
   }
 }
