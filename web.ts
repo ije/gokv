@@ -33,6 +33,6 @@ class ModuleImpl implements Module {
   }
 }
 
-export { ChatRoomImpl as ChatRoom, DocumentImpl as Document, snapshot, subscribe, UploaderImpl as Uploader };
+export { ChatRoomImpl as ChatRoom, DocumentImpl as Document, FileStorageImpl as FileStorage, snapshot, subscribe };
 
 export default new ModuleImpl();

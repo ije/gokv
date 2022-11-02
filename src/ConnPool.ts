@@ -3,52 +3,50 @@ import { connect } from "./common/socket.ts";
 
 class Pool {
   #pool: Socket[] = [];
-  #maxConn: number;
+  #cap: number;
   #create: () => Promise<Socket>;
 
-  constructor(maxConn: number, create: () => Promise<Socket>) {
-    this.#maxConn = maxConn;
+  constructor(cap: number, create: () => Promise<Socket>) {
+    this.#cap = cap;
     this.#create = create;
   }
 
-  setMaxConn(max: number): void {
-    this.#maxConn = max;
+  setCap(cap: number): void {
+    this.#cap = Math.max(cap, 1);
   }
 
-  get(): Promise<Socket> {
+  async getSocket(): Promise<Socket> {
     if (this.#pool.length > 0) {
-      return Promise.resolve(this.#pool.shift()!);
+      return this.#pool.shift()!;
     }
-    return this.#create();
+    return await this.#create();
   }
 
-  put(socket: Socket): void {
-    if (this.#pool.length < this.#maxConn) {
+  putBack(socket: Socket): void {
+    if (this.#pool.length < this.#cap) {
       this.#pool.push(socket);
     } else {
       socket.close();
     }
   }
+
+  flush(): void {
+    this.#pool.splice(0).forEach((socket) => socket.close());
+  }
 }
 
-export default class ConnPool {
-  #pool: Pool;
-
-  constructor(maxConn: number) {
-    this.#pool = new Pool(maxConn, connect);
-  }
-
-  setMaxConn(max: number): void {
-    this.#pool.setMaxConn(max);
+export default class ConnPool extends Pool {
+  constructor(cap: number) {
+    super(cap, connect);
   }
 
   async fetch(
     input: URL | string,
     init?: RequestInit,
   ): Promise<Response> {
-    const socket = await this.#pool.get();
+    const socket = await this.getSocket();
     const promise = socket.fetch(input, init);
-    this.#pool.put(socket);
+    this.putBack(socket);
     return promise;
   }
 }

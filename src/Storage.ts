@@ -9,6 +9,7 @@ import type {
   StoragePutOptions,
 } from "../types/core.d.ts";
 import atm from "./AccessTokenManager.ts";
+import ConnPool from "./ConnPool.ts";
 import { appendOptionsToHeaders, checkNamespace, closeBody } from "./common/utils.ts";
 
 export default class StorageImpl implements Storage {
@@ -17,6 +18,7 @@ export default class StorageImpl implements Storage {
   constructor(options?: StorageOptions) {
     this.#options = {
       ...options,
+      connPool: options?.connPool ?? new ConnPool(4),
       namespace: checkNamespace(options?.namespace ?? "default"),
     };
   }

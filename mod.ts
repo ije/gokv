@@ -29,7 +29,7 @@ class ModuleImpl implements Module {
       atm.setToken(token);
     }
     if (maxConn) {
-      this.#connPool.setMaxConn(Math.max(maxConn, 4));
+      this.#connPool.setCap(maxConn);
     }
     return this;
   }
