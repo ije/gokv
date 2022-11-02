@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.160.0/http/server.ts";
-import gokv from "../../mod.ts";
+import gokv from "https://deno.land/x/gokv@0.0.23/mod.ts";
 
 // Ensure `GOKV_TOKEN` env variable is set, check https://gokv.io/docs/access-token
 const kv = gokv.Storage({ namespace: "gokv-example" });
