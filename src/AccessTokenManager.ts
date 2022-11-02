@@ -1,4 +1,4 @@
-import type { AuthUser, Permissions, ServiceName } from "../types/core.d.ts";
+import type { AuthUser, Permissions, ServiceName } from "../types/mod.d.ts";
 import { getEnv } from "./common/utils.ts";
 
 export class AccessTokenManager {

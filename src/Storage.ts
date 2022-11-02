@@ -7,7 +7,7 @@ import type {
   StorageListOptions,
   StorageOptions,
   StoragePutOptions,
-} from "../types/core.d.ts";
+} from "../types/mod.d.ts";
 import atm from "./AccessTokenManager.ts";
 import ConnPool from "./ConnPool.ts";
 import { appendOptionsToHeaders, checkNamespace, closeBody } from "./common/utils.ts";

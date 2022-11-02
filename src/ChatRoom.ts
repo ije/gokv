@@ -1,4 +1,5 @@
-import type { AuthUser, Chat, ChatRoom, ChatRoomOptions } from "../types/web.d.ts";
+import type { AuthUser } from "../types/common.d.ts";
+import type { Chat, ChatRoom, ChatRoomOptions } from "../types/ChatRoom.d.ts";
 import { checkNamespace } from "./common/utils.ts";
 
 export default class ChatRoomImpl<U extends AuthUser> implements ChatRoom<U> {

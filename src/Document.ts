@@ -1,4 +1,4 @@
-import type { Document, DocumentOptions } from "../types/web.d.ts";
+import type { Document, DocumentOptions } from "../types/Document.d.ts";
 import atm from "./AccessTokenManager.ts";
 import { applyPatch, Op, Patch, proxy, remix, restoreArray } from "./common/proxy.ts";
 import { SocketStatus } from "./common/socket.ts";

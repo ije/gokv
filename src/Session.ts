@@ -1,4 +1,4 @@
-import type { Session, SessionOptions, Storage, StorageOptions } from "../types/core.d.ts";
+import type { Session, SessionOptions, Storage, StorageOptions } from "../types/mod.d.ts";
 import atm from "./AccessTokenManager.ts";
 import StorageImpl from "./Storage.ts";
 import { hashText, hmacSign, parseCookie, splitByChar } from "./common/utils.ts";

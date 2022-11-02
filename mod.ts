@@ -1,5 +1,7 @@
 import type {
   AuthUser,
+  ChatRoom,
+  ChatRoomOptions,
   Document,
   DocumentOptions,
   FileStorage,
@@ -12,11 +14,12 @@ import type {
   SessionOptions,
   Storage,
   StorageOptions,
-} from "./types/core.d.ts";
+} from "./types/mod.d.ts";
 import atm from "./src/AccessTokenManager.ts";
 import ConnPool from "./src/ConnPool.ts";
 import StorageImpl from "./src/Storage.ts";
 import SessionImpl from "./src/Session.ts";
+import ChatRoomImpl from "./src/ChatRoom.ts";
 import DocumentImpl from "./src/Document.ts";
 import FileStorageImpl from "./src/FileStorage.ts";
 import { snapshot, subscribe } from "./src/common/proxy.ts";
@@ -51,6 +54,10 @@ class ModuleImpl implements Module {
 
   Storage(options?: StorageOptions): Storage {
     return new StorageImpl({ connPool: this.#connPool, ...options });
+  }
+
+  ChatRoom<U extends AuthUser>(roomId: string, options?: ChatRoomOptions): ChatRoom<U> {
+    return new ChatRoomImpl(roomId, options);
   }
 
   Document<T extends Record<string, unknown> | Array<unknown>>(
