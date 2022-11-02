@@ -1,5 +1,3 @@
-import type { Socket } from "../../types/core.d.ts";
-
 /** CR and LF are control characters or bytecode that can be used to mark a line break in a text file. */
 export const CRLF = new Uint8Array([13, 10]);
 
@@ -67,25 +65,23 @@ export function conactBytes(...bytes: Uint8Array[]) {
   return u8a;
 }
 
-export function splitBytesByCRLF(bytes: Uint8Array) {
-  const lines: Uint8Array[] = [];
+export function* readline(bytes: Uint8Array) {
   let start = 0;
   for (let i = 0; i < bytes.length; i++) {
     if (bytes[i] === 13 && bytes[i + 1] === 10) {
       const line = bytes.slice(start, i);
-      lines.push(line);
+      yield line;
       start = i + 2;
-      // ingore rest bytes when double CRLF found
       if (line.length === 0) {
+        // ingore rest bytes when double CRLF found
         break;
       }
       i++;
     }
   }
   if (start < bytes.length) {
-    lines.push(bytes.slice(start));
+    yield bytes.slice(start);
   }
-  return lines;
 }
 
 export function toHex(buf: ArrayBuffer, radix = 36): string {
@@ -148,28 +144,9 @@ export function appendOptionsToHeaders(options: Record<string, unknown>, headers
 
 export function closeBody(res: Response): Promise<void> {
   if (res.body?.cancel) {
-    return res.body!.cancel();
+    return res.body.cancel();
   }
   return Promise.resolve();
-}
-
-type FetchOptions = RequestInit & {
-  socket?: Socket;
-  ignore404?: boolean;
-};
-
-export async function fetchApi(path: string, options?: FetchOptions): Promise<Response> {
-  const url = new URL(path, "https://api.gokv.io");
-  const fetcher = options?.socket?.fetch ?? fetch;
-  const res = await fetcher(url, options);
-  if (res.status === 404 && options?.ignore404) {
-    return res;
-  }
-  if (!res.ok) {
-    await closeBody(res);
-    throw new Error(`fetch ${url.href}: <${res.status}> ${res.statusText}`);
-  }
-  return res;
 }
 
 export async function createWebSocket(url: string, protocols?: string | string[]) {

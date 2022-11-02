@@ -6,7 +6,7 @@ import { connect } from "./common/socket.ts";
 const socket = await connect();
 
 Deno.test("Session Storage", async () => {
-  const config = { namespace: "dev", cookieName: "sess", getSocket: () => socket };
+  const config = { namespace: "dev", cookieName: "sess", connPool: socket };
 
   let session = await Session.create(new Request("https://gokv.io/"), config);
   assertEquals(session.store, null);

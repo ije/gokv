@@ -34,7 +34,7 @@ export type KVListResult = {
 };
 
 export type InitKVOptions = {
-  getSocket?: () => Socket | undefined;
+  connPool?: Pick<Socket, "fetch"> | undefined;
   namespace?: string;
 };
 

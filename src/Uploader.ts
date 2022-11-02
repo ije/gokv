@@ -1,6 +1,6 @@
 import type { Uploader, UploaderOptions, UploadResult } from "../types/Uploader.d.ts";
 import atm from "./AccessTokenManager.ts";
-import { checkNamespace, fetchApi, toHex } from "./common/utils.ts";
+import { checkNamespace, toHex } from "./common/utils.ts";
 
 const MB = 1 << 20;
 
@@ -19,16 +19,18 @@ export default class UploaderImpl implements Uploader {
     const sha1 = toHex(sum, 16);
 
     // Check if the file already exists
-    const { ok, headers } = await fetchApi(`/upload/${this.#namespace}`, {
-      ignore404: true,
+    let res = await fetch(`https://api.gokv.io/upload/${this.#namespace}`, {
       method: "HEAD",
       headers: {
         Authorization: (await atm.getAccessToken(`upload:${this.#namespace}`)).join(" "),
         "X-File-Sha1": sha1,
       },
     });
-    if (ok && headers.has("X-Upload-Id")) {
-      const id = headers.get("X-Upload-Id")!;
+    if (res.status >= 400 && res.status !== 404) {
+      throw new Error(await res.text());
+    }
+    if (res.ok && res.headers.has("X-Upload-Id")) {
+      const id = res.headers.get("X-Upload-Id")!;
       const [type, uploadedAt, ...rest] = id.split("-");
       const $hash = rest.join("-");
       if ($hash) {
@@ -48,7 +50,7 @@ export default class UploaderImpl implements Uploader {
 
     // Upload the file
     // todo: support progress
-    const res = await fetchApi(`/upload/${this.#namespace}`, {
+    res = await fetch(`https://api.gokv.io/upload/${this.#namespace}`, {
       method: "POST",
       body: file.stream(),
       headers: {

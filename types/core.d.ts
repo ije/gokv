@@ -1,4 +1,4 @@
-import { AuthUser, Socket } from "./common.d.ts";
+import { AuthUser } from "./common.d.ts";
 import { DurableKV, InitKVOptions, KV, Session, SessionOptions } from "./KV.d.ts";
 import { Document, DocumentOptions } from "./Document.d.ts";
 import { Uploader, UploaderOptions } from "./Uploader.d.ts";
@@ -16,12 +16,12 @@ export type Permissions = {
 };
 
 export type ModuleConfigOptions = {
-  token: string;
+  token?: string;
+  maxConn?: number;
 };
 
 export interface Module {
   config(options: ModuleConfigOptions): this;
-  connect(): Promise<Socket>;
   signAccessToken<U extends AuthUser>(
     scope: `${ServiceName}:${string}`,
     auth: U,

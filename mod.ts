@@ -11,34 +11,29 @@ import type {
   ServiceName,
   Session,
   SessionOptions,
-  Socket,
   Uploader,
   UploaderOptions,
 } from "./types/core.d.ts";
 import atm from "./src/AccessTokenManager.ts";
+import ConnPool from "./src/ConnPool.ts";
 import KVImpl from "./src/KV.ts";
 import DurableKVImpl from "./src/DurableKV.ts";
 import SessionImpl from "./src/Session.ts";
 import DocumentImpl from "./src/Document.ts";
 import UploaderImpl from "./src/Uploader.ts";
 import { snapshot, subscribe } from "./src/common/proxy.ts";
-import { connect } from "./src/common/socket.ts";
-import { fetchApi } from "./src/common/utils.ts";
 
 class ModuleImpl implements Module {
-  #socket: Socket | undefined;
+  #connPool = new ConnPool(4);
 
-  config({ token }: ModuleConfigOptions): this {
-    atm.setToken(token);
-    return this;
-  }
-
-  async connect(): Promise<Socket> {
-    if (typeof WebSocket === "undefined") {
-      throw new Error("WebSocket is not supported");
+  config({ token, maxConn }: ModuleConfigOptions): this {
+    if (token) {
+      atm.setToken(token);
     }
-    this.#socket = await connect();
-    return this.#socket;
+    if (maxConn) {
+      this.#connPool.setMaxConn(Math.max(maxConn, 4));
+    }
+    return this;
   }
 
   signAccessToken<U extends AuthUser>(
@@ -53,15 +48,15 @@ class ModuleImpl implements Module {
     request: Request | { cookies: Record<string, string> },
     options?: SessionOptions & InitKVOptions,
   ): Promise<Session<T>> {
-    return SessionImpl.create<T>(request, { getSocket: () => this.#socket, ...options });
+    return SessionImpl.create<T>(request, { connPool: this.#connPool, ...options });
   }
 
   KV(options?: InitKVOptions): KV {
-    return new KVImpl({ getSocket: () => this.#socket, ...options });
+    return new KVImpl({ connPool: this.#connPool, ...options });
   }
 
   DurableKV(options?: InitKVOptions): DurableKV {
-    return new DurableKVImpl({ getSocket: () => this.#socket, ...options });
+    return new DurableKVImpl({ connPool: this.#connPool, ...options });
   }
 
   Document<T extends Record<string, unknown> | Array<unknown>>(

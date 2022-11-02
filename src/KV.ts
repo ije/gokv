@@ -8,10 +8,9 @@ import type {
   KVListOptions,
   KVListResult,
   KVPutOptions,
-  Socket,
 } from "../types/core.d.ts";
 import atm from "./AccessTokenManager.ts";
-import { appendOptionsToHeaders, checkNamespace, closeBody, fetchApi } from "./common/utils.ts";
+import { appendOptionsToHeaders, checkNamespace, closeBody } from "./common/utils.ts";
 
 export default class KVImpl implements KV {
   readonly #options: InitKVOptions;
@@ -23,29 +22,31 @@ export default class KVImpl implements KV {
     };
   }
 
-  get #namespace(): string {
-    return this.#options.namespace!;
-  }
-
-  get #socket(): Socket | undefined {
-    return this.#options.getSocket?.();
-  }
-
-  async #headers(init?: HeadersInit): Promise<Headers> {
-    const headers = new Headers(init);
-    headers.append("Authorization", (await atm.getAccessToken(`kv:${this.#namespace}`)).join(" "));
-    return headers;
+  async #fetchApi(pathname?: string, init?: RequestInit & { ignore404?: boolean }): Promise<Response> {
+    const fetcher = this.#options.connPool ?? { fetch };
+    const url = `https://api.gokv.io/kv/${this.#options.namespace}${pathname ?? ""}`;
+    const headers = new Headers(init?.headers);
+    headers.append("Authorization", (await atm.getAccessToken(`durable-kv:${this.#options.namespace}`)).join(" "));
+    const res = await fetcher.fetch(url, { ...init, headers });
+    if (res.status >= 400) {
+      if (res.status === 404 && init?.ignore404) {
+        return res;
+      }
+      const err = await res.text();
+      throw new Error(err);
+    }
+    return res;
   }
 
   async get(key: string, options?: string | { type?: string; cacheTtl?: number }): Promise<any> {
     if (key === "") {
       return undefined;
     }
-    const headers = await this.#headers();
+    const headers = new Headers();
     if (options && typeof options !== "string") {
       appendOptionsToHeaders(options, headers);
     }
-    const res = await fetchApi(`kv/${this.#namespace}/${key}`, { socket: this.#socket, headers, ignore404: true });
+    const res = await this.#fetchApi(`/${key}`, { headers, ignore404: true });
     if (res.status === 404) {
       await closeBody(res);
       return null;
@@ -76,11 +77,11 @@ export default class KVImpl implements KV {
     if (key === "") {
       return { value: null, metadata: null };
     }
-    const headers = await this.#headers({ "accept-metadata": "1" });
+    const headers = new Headers({ "accept-metadata": "1" });
     if (options && typeof options !== "string") {
       appendOptionsToHeaders(options, headers);
     }
-    const res = await fetchApi(`kv/${this.#namespace}/${key}`, { socket: this.#socket, headers, ignore404: true });
+    const res = await this.#fetchApi(`/${key}`, { headers, ignore404: true });
     if (res.status == 404) {
       await closeBody(res);
       return { value: null, metadata: null };
@@ -123,12 +124,11 @@ export default class KVImpl implements KV {
     if (key === "") {
       return;
     }
-    const headers = await this.#headers({ "accept-metadata": "1" });
+    const headers = new Headers({ "accept-metadata": "1" });
     if (options) {
       appendOptionsToHeaders(options, headers);
     }
-    const res = await fetchApi(`kv/${this.#namespace}/${key}`, {
-      socket: this.#socket,
+    const res = await this.#fetchApi(`/${key}`, {
       method: "PUT",
       headers,
       body: value,
@@ -140,20 +140,20 @@ export default class KVImpl implements KV {
     if (key === "") {
       return;
     }
-    const headers = await this.#headers();
+    const headers = new Headers();
     if (options) {
       appendOptionsToHeaders(options, headers);
     }
-    const res = await fetchApi(`kv/${this.#namespace}/${key}`, { socket: this.#socket, method: "DELETE", headers });
+    const res = await this.#fetchApi(`/${key}`, { method: "DELETE", headers });
     await closeBody(res); // release body
   }
 
   async list(options?: KVListOptions): Promise<KVListResult> {
-    const headers = await this.#headers();
+    const headers = new Headers();
     if (options) {
       appendOptionsToHeaders(options, headers);
     }
-    const res = await fetchApi(`kv/${this.#namespace}`, { socket: this.#socket, headers });
+    const res = await this.#fetchApi(undefined, { headers });
     return res.json();
   }
 }

@@ -1,5 +1,5 @@
 import type { AuthUser, Permissions, ServiceName } from "../types/core.d.ts";
-import { fetchApi, getEnv } from "./common/utils.ts";
+import { getEnv } from "./common/utils.ts";
 
 export class AccessTokenManager {
   #token?: string;
@@ -25,13 +25,18 @@ export class AccessTokenManager {
     auth: U,
     permissions?: Permissions,
   ): Promise<string> {
-    return fetchApi("/sign-access-token", {
+    return fetch("https://api.gokv.io/sign-access-token", {
       method: "POST",
       body: JSON.stringify({ auth, scope, permissions }),
       headers: {
         "Authorization": (await this.getAccessToken()).join(" "),
       },
-    }).then((res) => res.text());
+    }).then((res) => {
+      if (!res.ok) {
+        throw new Error(`Failed to sign access token: ${res.status} ${res.statusText}`);
+      }
+      return res.text();
+    });
   }
 
   async getAccessToken(scope?: `${ServiceName}:${string}`): Promise<Readonly<["Bearer" | "JWT", string]>> {
@@ -64,4 +69,5 @@ export class AccessTokenManager {
   }
 }
 
+// global access token manager
 export default new AccessTokenManager();

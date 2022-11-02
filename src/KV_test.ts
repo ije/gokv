@@ -6,7 +6,7 @@ import { connect } from "./common/socket.ts";
 const socket = await connect();
 
 Deno.test("KV", async () => {
-  const kv = new KV({ namespace: "dev", getSocket: () => socket });
+  const kv = new KV({ namespace: "dev", connPool: socket });
 
   await kv.put("document", `{"id": "xxxxxx", "type": "json"}`, {
     metadata: { author: "sual" },

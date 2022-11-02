@@ -1,6 +1,6 @@
 import type { Socket } from "../../types/common.d.ts";
 import atm from "../AccessTokenManager.ts";
-import { conactBytes, createWebSocket, CRLF, dec, enc, splitByChar, splitBytesByCRLF, toBytesInt32 } from "./utils.ts";
+import { conactBytes, createWebSocket, CRLF, dec, enc, readline, splitByChar, toBytesInt32 } from "./utils.ts";
 
 const defaultTimeout = 30 * 1000; // 30 seconds
 const frameStart = 0x04;
@@ -54,8 +54,8 @@ export async function connect(): Promise<Socket> {
     };
 
     const onmessage = ({ data }: MessageEvent) => {
-      if (status === SocketStatus.READY) {
-        if (data instanceof ArrayBuffer) {
+      if (data instanceof ArrayBuffer) {
+        if (status === SocketStatus.READY) {
           const view = new DataView(data);
           if (view.getInt8(0) === frameStart) {
             const id = view.getInt32(1);
@@ -133,27 +133,27 @@ async function serializeHttpRequest(input: string | URL, init?: RequestInit): Pr
 }
 
 function deserializeHttpResponse(buffer: ArrayBuffer): Response {
-  const lines = splitBytesByCRLF(new Uint8Array(buffer));
+  const lines = readline(new Uint8Array(buffer));
   const headers = new Headers();
   let status = 200;
   let statusText = "OK";
-  let line = lines.shift();
+  let line = lines.next().value;
   if (line) {
     const s = dec.decode(line);
     if (!s.startsWith("HTTP/")) {
-      throw new Error("invalid http response");
+      throw new Error("Invalid http response");
     }
     const [_, code, text] = s.split(" ");
     status = parseInt(code);
     statusText = text;
   }
   // deno-lint-ignore no-cond-assign
-  while (line = lines.shift()) {
+  while (line = lines.next().value) {
     if (line.length == 0) {
       break;
     }
     const [k, v] = splitByChar(dec.decode(line), ":");
     headers.set(k, v.trimStart());
   }
-  return new Response(lines[0], { status, statusText, headers });
+  return new Response(lines.next().value ?? null, { status, statusText, headers });
 }

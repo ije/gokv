@@ -1,4 +1,5 @@
 // deno-lint-ignore-file no-explicit-any
+
 import type {
   DurableKV,
   DurableKVDeleteOptions,
@@ -6,10 +7,9 @@ import type {
   DurableKVListOptions,
   DurableKVPutOptions,
   InitKVOptions,
-  Socket,
 } from "../types/core.d.ts";
 import atm from "./AccessTokenManager.ts";
-import { appendOptionsToHeaders, checkNamespace, closeBody, fetchApi } from "./common/utils.ts";
+import { appendOptionsToHeaders, checkNamespace, closeBody } from "./common/utils.ts";
 
 export default class DurableKVImpl implements DurableKV {
   readonly #options: InitKVOptions;
@@ -21,22 +21,20 @@ export default class DurableKVImpl implements DurableKV {
     };
   }
 
-  get #namespace(): string {
-    return this.#options.namespace!;
-  }
-
-  get #socket(): Socket | undefined {
-    return this.#options.getSocket?.();
-  }
-
-  async #headers(init?: HeadersInit): Promise<Headers> {
-    const headers = new Headers(init);
-    headers.append("Authorization", (await atm.getAccessToken(`durable-kv:${this.#namespace}`)).join(" "));
-    return headers;
-  }
-
-  #fetchApi(pathname?: string, init?: RequestInit & { ignore404?: boolean }): Promise<Response> {
-    return fetchApi(`/durable-kv/${this.#namespace}${pathname ?? ""}`, { socket: this.#socket, ...init });
+  async #fetchApi(pathname?: string, init?: RequestInit & { ignore404?: boolean }): Promise<Response> {
+    const fetcher = this.#options.connPool ?? { fetch };
+    const url = `https://api.gokv.io/durable-kv/${this.#options.namespace}${pathname ?? ""}`;
+    const headers = new Headers(init?.headers);
+    headers.append("Authorization", (await atm.getAccessToken(`durable-kv:${this.#options.namespace}`)).join(" "));
+    const res = await fetcher.fetch(url, { ...init, headers });
+    if (res.status >= 400) {
+      if (res.status === 404 && init?.ignore404) {
+        return res;
+      }
+      const err = await res.text();
+      throw new Error(err);
+    }
+    return res;
   }
 
   async get(keyOrKeys: string | string[], options?: DurableKVGetOptions): Promise<any> {
@@ -51,7 +49,7 @@ export default class DurableKVImpl implements DurableKV {
       return undefined;
     }
 
-    const headers = await this.#headers();
+    const headers = new Headers();
     if (multipleKeys) {
       headers.append("multiple-keys", "1");
     }
@@ -95,7 +93,7 @@ export default class DurableKVImpl implements DurableKV {
   async put(keyOrEntries: string | Record<string, any>, value?: any, options?: DurableKVPutOptions): Promise<void> {
     let pathname: string | undefined = undefined;
     let body: string | undefined = undefined;
-    const headers = await this.#headers();
+    const headers = new Headers();
     if (typeof keyOrEntries === "string") {
       if (keyOrEntries === "" || value === undefined) {
         return;
@@ -134,7 +132,7 @@ export default class DurableKVImpl implements DurableKV {
     if (key === "" || Number.isNaN(delta)) {
       throw new Error("Invalid key or delta");
     }
-    const headers = await this.#headers([["update-number", "1"]]);
+    const headers = new Headers([["update-number", "1"]]);
     if (options) {
       appendOptionsToHeaders(options, headers);
     }
@@ -160,7 +158,7 @@ export default class DurableKVImpl implements DurableKV {
       return undefined;
     }
 
-    const headers = await this.#headers();
+    const headers = new Headers();
     if (multipleKeys) {
       headers.append("multiple-keys", "1");
     }
@@ -177,7 +175,7 @@ export default class DurableKVImpl implements DurableKV {
   }
 
   async deleteAll(options?: DurableKVPutOptions): Promise<void> {
-    const headers = await this.#headers({ "delete-all": "1" });
+    const headers = new Headers({ "delete-all": "1" });
     if (options) {
       appendOptionsToHeaders(options, headers);
     }
@@ -186,7 +184,7 @@ export default class DurableKVImpl implements DurableKV {
   }
 
   async list<T = unknown>(options?: DurableKVListOptions): Promise<Map<string, T>> {
-    const headers = await this.#headers();
+    const headers = new Headers();
     if (options) {
       appendOptionsToHeaders(options, headers);
     }

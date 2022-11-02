@@ -2,7 +2,7 @@ import type { Document, DocumentOptions } from "../types/web.d.ts";
 import atm from "./AccessTokenManager.ts";
 import { applyPatch, Op, Patch, proxy, remix, restoreArray } from "./common/proxy.ts";
 import { SocketStatus } from "./common/socket.ts";
-import { checkNamespace, createWebSocket, fetchApi, getEnv, isTagedJson } from "./common/utils.ts";
+import { checkNamespace, createWebSocket, getEnv, isTagedJson } from "./common/utils.ts";
 
 export default class DocumentImpl<T extends Record<string, unknown> | Array<unknown>> implements Document<T> {
   #docId: string;
@@ -14,16 +14,19 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
   }
 
   async getSnapshot(): Promise<T> {
-    const res = await fetchApi(`/document/${this.#docId}?snapshot`, {
+    const res = await fetch(`https://api.gokv.io/document/${this.#docId}?snapshot`, {
       headers: {
         "Authorization": (await atm.getAccessToken()).join(" "),
       },
     });
+    if (!res.ok) {
+      throw new Error(`Failed to get document snapshot: ${res.status} ${res.statusText}`);
+    }
     return restoreArray(await res.json()) as T;
   }
 
   async reset(data?: T): Promise<void> {
-    await fetchApi(`/document/${this.#docId}`, {
+    const res = await fetch(`https://api.gokv.io/document/${this.#docId}`, {
       method: "PUT",
       headers: {
         "Authorization": (await atm.getAccessToken()).join(" "),
@@ -31,6 +34,9 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
         "X-Reset-Document-Data": JSON.stringify(data ?? this.#options?.initData ?? {}),
       },
     });
+    if (!res.ok) {
+      throw new Error(`Failed to reset document: ${res.status} ${res.statusText}`);
+    }
   }
 
   async sync(): Promise<T> {
