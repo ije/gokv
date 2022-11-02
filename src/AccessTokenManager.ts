@@ -25,18 +25,21 @@ export class AccessTokenManager {
     auth: U,
     permissions?: Permissions,
   ): Promise<string> {
-    return fetch("https://api.gokv.io/sign-access-token", {
+    const token = this.#token ?? (this.#token = getEnv("GOKV_TOKEN"));
+    if (!token) {
+      throw new Error("token is not set");
+    }
+    const res = await fetch("https://api.gokv.io/sign-access-token", {
       method: "POST",
       body: JSON.stringify({ auth, scope, permissions }),
       headers: {
-        "Authorization": (await this.getAccessToken()).join(" "),
+        "Authorization": `Bearer ${token}`,
       },
-    }).then((res) => {
-      if (!res.ok) {
-        throw new Error(`Failed to sign access token: ${res.status} ${res.statusText}`);
-      }
-      return res.text();
     });
+    if (!res.ok) {
+      throw new Error(`Failed to sign access token: ${res.status} ${res.statusText}`);
+    }
+    return res.text();
   }
 
   async getAccessToken(scope?: `${ServiceName}:${string}`): Promise<Readonly<["Bearer" | "JWT", string]>> {
@@ -45,9 +48,9 @@ export class AccessTokenManager {
         return ["JWT", this.#tokenCache];
       }
       const now = Date.now();
-      const url = new URL(this.#signUrl, location?.href ?? "http://localhost");
+      const url = new URL(this.#signUrl, location?.href);
       if (!scope) {
-        throw new Error("missing scope");
+        throw new Error("Missing scope");
       }
       url.searchParams.append("scope", scope);
       const res = await fetch(url, { headers: { scope } });
