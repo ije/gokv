@@ -93,31 +93,25 @@ await test("Duration KV", async () => {
     obj: { message: "Hello world!" },
   };
 
-  // put records one by one
-  await Promise.all(
-    Object.entries(records).map(async ([key, value]) => {
-      await kv.put(key, value);
-      assert.deepEqual(await kv.get(key), value);
-    }),
-  );
+  // put key-value pairs
+  await Promise.all(Object.entries(records).map(([key, value]) => kv.put(key, value)));
   assert.deepEqual(await kv.list(), new Map(Object.entries(records)));
 
-  // delete all records one by one
+  // delete key-value pairs
   await Promise.all(Object.keys(records).map((key) => kv.delete(key)));
   assert.deepEqual(await kv.list(), new Map());
 
-  // put multiple records
+  // put key-value pairs
   await kv.put(records);
-  assert.deepEqual(await kv.get(["foo", "num"]), new Map([["foo", "bar"], ["num", 123]]));
   assert.deepEqual(await kv.list(), new Map(Object.entries(records)));
+  assert.deepEqual(await kv.get(["foo", "num"]), new Map([["foo", "bar"], ["num", 123]]));
 
   // flush
   await kv.deleteAll();
   assert.deepEqual(await kv.list(), new Map());
 
-  // put 10 records concurrency
-  await Promise.all(new Array(10).fill(null).map((val, index) => kv.put(`k-${index}`, val)));
-  assert.deepEqual(await kv.list(), new Map(new Array(10).fill(0).map((_, index) => [`k-${index}`, null])));
+  // list with condition
+  await kv.put(Object.fromEntries(new Array(10).fill(null).map((val, index) => [`k-${index}`, val])));
   assert.deepEqual(
     await kv.list({ prefix: "k-" }),
     new Map(new Array(10).fill(0).map((_, index) => [`k-${index}`, null])),
@@ -128,7 +122,7 @@ await test("Duration KV", async () => {
   assert.deepEqual(await kv.list({ start: "k-7", limit: 2 }), new Map([["k-7", null], ["k-8", null]]));
   assert.deepEqual(await kv.list({ start: "k-7", end: "k-9" }), new Map([["k-7", null], ["k-8", null]]));
 
-  // delete by list condition
+  // delete with condition
   assert.deepEqual(await kv.delete({ limit: 5, reverse: true }), 5);
   assert.deepEqual(await kv.delete(["k-3", "k-4"]), 2);
   assert.deepEqual(await kv.list(), new Map(new Array(3).fill(0).map((_, index) => [`k-${index}`, null])));
