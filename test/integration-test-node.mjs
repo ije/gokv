@@ -6,8 +6,6 @@ import "../dist/web-polyfill.mjs";
 // load `.env`
 dotenv.config();
 
-const socket = await gokv.connect();
-
 async function test(name, fn) {
   const t = Date.now();
   process.stdout.write(`${name} ... `);
@@ -159,4 +157,4 @@ await test("Session Manager", async () => {
   assert.deepEqual(session.store, null);
 });
 
-socket.close();
+process.exit(0);
