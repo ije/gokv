@@ -13,31 +13,33 @@ export enum SocketStatus {
 
 /** Creating a `WebSocket` connection to handle HTTP requests. */
 export async function connect(): Promise<Socket> {
-  const nativeFetch = globalThis.fetch;
   const awaits = new Map<number, (data: ArrayBuffer) => void>();
   const token = await atm.getAccessToken();
   const socketUrl = `wss://api.gokv.io/socket?authToken=${token.join("-")}`;
   let ws = await createWebSocket(socketUrl);
   return new Promise((resolve, reject) => {
     let status: SocketStatus = SocketStatus.PENDING;
+    let rejected = false;
     let frameIndex = 0;
 
     const fetch = (input: string | URL, init?: RequestInit) =>
-      status === SocketStatus.CLOSE ? nativeFetch(input, init) : new Promise<Response>((resolve, reject) => {
-        const frameId = frameIndex++;
-        serializeHttpRequest(input, init).then((bytes) => {
-          ws.send(conactBytes(new Uint8Array([frameStart]), toBytesInt32(frameId), bytes));
-          const timer = setTimeout(() => {
-            awaits.delete(frameId);
-            reject(new Error("timeout"));
-          }, defaultTimeout);
-          awaits.set(frameId, (data) => {
-            clearTimeout(timer);
-            awaits.delete(frameId);
-            resolve(deserializeHttpResponse(data));
+      status === SocketStatus.CLOSE
+        ? Promise.reject(new Error("Dead socket"))
+        : new Promise<Response>((resolve, reject) => {
+          const frameId = frameIndex++;
+          serializeHttpRequest(input, init).then((bytes) => {
+            ws.send(conactBytes(new Uint8Array([frameStart]), toBytesInt32(frameId), bytes));
+            const timer = setTimeout(() => {
+              awaits.delete(frameId);
+              reject(new Error("timeout"));
+            }, defaultTimeout);
+            awaits.set(frameId, (data) => {
+              clearTimeout(timer);
+              awaits.delete(frameId);
+              resolve(deserializeHttpResponse(data));
+            });
           });
         });
-      });
 
     const close = () => {
       status = SocketStatus.CLOSE;
@@ -65,19 +67,22 @@ export async function connect(): Promise<Socket> {
     };
 
     const onerror = (e: Event | ErrorEvent) => {
-      if (status === SocketStatus.PENDING) {
+      if (!rejected && status === SocketStatus.PENDING) {
         reject(e);
+        rejected = true;
       }
     };
 
     const onclose = () => {
+      const reconnect = status === SocketStatus.READY;
       status = SocketStatus.CLOSE;
-      // reconnect
-      createWebSocket(socketUrl).then((newSocket) => {
-        status = SocketStatus.PENDING;
-        ws = newSocket;
-        go();
-      });
+      if (reconnect) {
+        createWebSocket(socketUrl).then((newSocket) => {
+          status = SocketStatus.PENDING;
+          ws = newSocket;
+          go();
+        });
+      }
     };
 
     const go = () => {
