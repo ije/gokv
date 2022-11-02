@@ -1,5 +1,4 @@
 # Examples
 
-- [Durable KV](./durable-kv)
-- [KV](./kv)
-- [Session Manager](./session)
+- [Storage](./storage)
+- [Session Storage](./session)
