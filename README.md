@@ -1,19 +1,21 @@
 # gokv
 
-**gokv** is a global Key-Value store for _serverless at edge_ that is built on top of
-[Cloudflare](https://www.cloudflare.com/) edge network. Druable, low-latency, and easy to use.
+> ⚠️ Not yet 1.0. Many things are subject to change. Documentation is lacking in many places. Try it out and give us
+> feedback!
+
+**gokv** syncs your data at edge. It's built on top of [Cloudflare](https://cloudflare.com) edge network, durable,
+low-latency, and easy to use.
 
 Core features:
 
-- Global KV Storage
-- Durable KV Storage
-- File Storage and Delivery
+- Co-Document in real-time
+- Durable Key-Value Storage
+- File Storage and Delivery network
 - Store, Resize, and Optimize Images
-- Session Storage and Manager
-- Chat Room (WIP)
-- Co Editing (WIP)
+- Session Storage
+- Chat Room
 
-gokv supports any kind of serverless framework & platform at edge.
+gokv supports any kind of serverless runtime & frontend framework at edge.
 
 ## Getting Started
 
