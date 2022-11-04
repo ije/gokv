@@ -1,11 +1,13 @@
-import "https://deno.land/std@0.160.0/dotenv/load.ts";
-import { assert, assertEquals } from "https://deno.land/std@0.160.0/testing/asserts.ts";
+import { assert, assertEquals } from "asserts";
 import FileStorage from "./FileStorage.ts";
+import "dotenv";
 
 const fs = new FileStorage({ namespace: "dev" });
 
 Deno.test("Upload text file", async () => {
-  const ret = await fs.upload(new File(["Hello world!"], "hello.txt", { type: "plain/text" }));
+  const ret = await fs.upload(
+    new File(["Hello world!"], "hello.txt", { type: "plain/text" }),
+  );
 
   assert(ret.url.startsWith("https://file.gokv.io/"));
   assertEquals(typeof ret.sha1, "string");
@@ -42,11 +44,13 @@ Deno.test("Upload image file", async () => {
   const png64 =
     "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAATSURBVHgBY2BkYv4PAgwgAsQBAFcpCgNJk2elAAAAAElFTkSuQmCC";
   const png = Uint8Array.from(atob(png64), (c) => c.charCodeAt(0));
-  const ret = await fs.upload(new File([png], "pixels.png", { type: "image/png" }));
+  const ret = await fs.upload(
+    new File([png], "pixels.png", { type: "image/png" }),
+  );
 
   assert(ret.url.startsWith("https://img.gokv.io/"));
   assertEquals(typeof ret.sha1, "string");
-  assertEquals(typeof ret.cfImageID, "string");
+  assertEquals(typeof ret.image, "object");
   assertEquals(typeof ret.uploadedAt, "number");
   assertEquals(typeof ret.lastModified, "number");
   assertEquals(ret.name, "pixels.png");
@@ -58,11 +62,14 @@ Deno.test("Upload image file", async () => {
   assertEquals(res.status, 200);
   assertEquals(res.headers.get("content-type"), "image/png");
 
-  const res2 = await fetch(ret.url + "/width=2,height=2,fit=contain,format=webp", {
-    headers: {
-      "accept": "image/webp",
+  const res2 = await fetch(
+    ret.url + "/width=2,height=2,fit=contain,format=webp",
+    {
+      headers: {
+        "accept": "image/webp",
+      },
     },
-  });
+  );
   await res2.body?.cancel();
   assertEquals(res2.status, 200);
   assertEquals(res2.headers.get("content-type"), "image/webp");

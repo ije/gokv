@@ -1,6 +1,6 @@
-import "https://deno.land/std@0.160.0/dotenv/load.ts";
-import { assertEquals } from "https://deno.land/std@0.160.0/testing/asserts.ts";
+import { assertEquals } from "asserts";
 import { connect } from "./socket.ts";
+import "dotenv";
 
 const socket = await connect();
 
@@ -15,7 +15,9 @@ Deno.test("fetch API over WebSocket", async () => {
   assertEquals(get.status, 200);
   assertEquals(await get.text(), "foo is bar");
 
-  const del = await socket.fetch("https://api.gokv.io/storage/dev/foo/bar", { method: "DELETE" });
+  const del = await socket.fetch("https://api.gokv.io/storage/dev/foo/bar", {
+    method: "DELETE",
+  });
   assertEquals(del.status, 200);
 
   const get2 = await socket.fetch("https://api.gokv.io/storage/dev/foo/bar");

@@ -1,17 +1,22 @@
-import "https://deno.land/std@0.160.0/dotenv/load.ts";
-import { assertEquals } from "https://deno.land/std@0.160.0/testing/asserts.ts";
+import { assertEquals } from "asserts";
 import Document from "./Document.ts";
 import { snapshot, subscribe } from "./common/proxy.ts";
+import "dotenv";
 
 Deno.env.set("DEBUG", "true");
 
-const doc = new Document("doc-dev", { initData: { foo: "bar", baz: "qux", arr: ["Hello", "world!"] } });
+const doc = new Document("doc-dev", {
+  initData: { foo: "bar", baz: "qux", arr: ["Hello", "world!"] },
+});
 await doc.reset();
 
 const obj = await doc.sync();
 const jbo = await doc.sync();
 
-const onChange = <T extends Record<string, unknown> | Array<unknown>>(obj: T, predicate: (obj: T) => boolean) => {
+const onChange = <T extends Record<string, unknown> | Array<unknown>>(
+  obj: T,
+  predicate: (obj: T) => boolean,
+) => {
   return new Promise<void>((resolve, reject) => {
     const timer = setTimeout(() => {
       dispose();

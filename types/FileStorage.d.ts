@@ -5,7 +5,7 @@ export type FileStorageOptions = {
 export type UploadResult = {
   readonly exists?: boolean;
   readonly sha1: string;
-  readonly cfImageID?: string;
+  readonly image?: { width: number; height: number };
   readonly url: string;
   readonly name: string;
   readonly type: string;

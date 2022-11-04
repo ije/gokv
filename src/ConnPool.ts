@@ -35,7 +35,7 @@ class Pool {
   }
 }
 
-export default class ConnPool extends Pool {
+export class ConnPool extends Pool {
   constructor(cap: number) {
     super(cap, connect);
   }
@@ -50,3 +50,5 @@ export default class ConnPool extends Pool {
     return promise;
   }
 }
+
+export default new ConnPool(4);

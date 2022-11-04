@@ -9,7 +9,7 @@ import type {
   StoragePutOptions,
 } from "../types/mod.d.ts";
 import atm from "./AccessTokenManager.ts";
-import ConnPool from "./ConnPool.ts";
+import connPool from "./ConnPool.ts";
 import { appendOptionsToHeaders, checkNamespace, closeBody } from "./common/utils.ts";
 
 export default class StorageImpl implements Storage {
@@ -18,13 +18,13 @@ export default class StorageImpl implements Storage {
   constructor(options?: StorageOptions) {
     this.#options = {
       ...options,
-      connPool: options?.connPool ?? new ConnPool(4),
+      fetcher: options?.fetcher ?? connPool,
       namespace: checkNamespace(options?.namespace ?? "default"),
     };
   }
 
   async #fetchApi(pathname?: string, init?: RequestInit & { ignore404?: boolean }): Promise<Response> {
-    const fetcher = this.#options.connPool ?? { fetch };
+    const fetcher = this.#options.fetcher ?? { fetch };
     const url = `https://api.gokv.io/storage/${this.#options.namespace}${pathname ?? ""}`;
     const headers = new Headers(init?.headers);
     headers.append("Authorization", (await atm.getAccessToken(`storage:${this.#options.namespace}`)).join(" "));

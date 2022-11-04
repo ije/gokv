@@ -1,6 +1,6 @@
-import "https://deno.land/std@0.160.0/dotenv/load.ts";
-import { assertEquals } from "https://deno.land/std@0.160.0/testing/asserts.ts";
+import { assertEquals } from "asserts";
 import atm from "./AccessTokenManager.ts";
+import "dotenv";
 
 Deno.test("Sign Access Token", async () => {
   const token = await atm.signAccessToken(

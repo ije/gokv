@@ -20,22 +20,40 @@ export class AccessTokenManager {
     this.#signUrl = url;
   }
 
-  async signAccessToken<U extends AuthUser>(
+  signAccessToken<U extends AuthUser>(
     scope: `${ServiceName}:${string}`,
     auth: U,
     permissions?: Permissions,
-  ): Promise<string> {
+  ): Promise<string>;
+  signAccessToken<U extends AuthUser>(
+    request: Request,
+    auth: U,
+    permissions?: Permissions,
+  ): Promise<Response>;
+  async signAccessToken<U extends AuthUser>(
+    scopeOrReq: `${ServiceName}:${string}` | Request,
+    auth: U,
+    permissions?: Permissions,
+  ): Promise<string | Response> {
     const token = this.#token ?? (this.#token = getEnv("GOKV_TOKEN"));
     if (!token) {
       throw new Error("Please add `token` to options or set `GOKV_TOKEN` env, check https://gokv.io/docs/access-token");
     }
-    const res = await fetch("https://api.gokv.io/sign-access-token", {
+    const scope = typeof scopeOrReq === "string" ? scopeOrReq : new URL(scopeOrReq.url).searchParams.get("scope");
+    if (!scope) {
+      throw new Error("Missing scope parameter");
+    }
+    const promise = fetch("https://api.gokv.io/sign-access-token", {
       method: "POST",
       body: JSON.stringify({ auth, scope, permissions }),
       headers: {
         "Authorization": `Bearer ${token}`,
       },
     });
+    if (scopeOrReq instanceof Request) {
+      return promise;
+    }
+    const res = await promise;
     if (!res.ok) {
       throw new Error(`Failed to sign access token: ${res.status} ${res.statusText}`);
     }

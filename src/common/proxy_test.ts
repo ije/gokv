@@ -1,4 +1,4 @@
-import { assertEquals } from "https://deno.land/std@0.160.0/testing/asserts.ts";
+import { assertEquals } from "asserts";
 import { applyPatch, Op, Patch, proxy, proxyArray, remix, snapshot } from "./proxy.ts";
 
 Deno.test("Proxy object", () => {
@@ -49,7 +49,10 @@ Deno.test("Proxy array", () => {
   assertEquals(arr.shift(), proxy.shift());
   assertEquals(snapshot(proxy), arr);
 
-  assertEquals(arr.splice(2, 0, 2.5, 2.75, 2.875), proxy.splice(2, 0, 2.5, 2.75, 2.875));
+  assertEquals(
+    arr.splice(2, 0, 2.5, 2.75, 2.875),
+    proxy.splice(2, 0, 2.5, 2.75, 2.875),
+  );
   assertEquals(snapshot(proxy), arr);
 
   assertEquals(arr.splice(2, 1), proxy.splice(2, 1));
@@ -96,5 +99,8 @@ Deno.test("Remix proxy object", () => {
   assertEquals(patches, [
     [Op.SET, ["arr"], { $$indexs: ["a0"], $$values: { a0: "hello" } }],
   ]);
-  assertEquals(snapshot(state), { obj: { baz: "qux" }, arr: ["Hello", "world!"], num: 1 } as unknown);
+  assertEquals(
+    snapshot(state),
+    { obj: { baz: "qux" }, arr: ["Hello", "world!"], num: 1 } as unknown,
+  );
 });
