@@ -1,6 +1,6 @@
 {
   "name": "gokv",
-  "version": "0.0.23",
+  "version": "0.0.24",
   "description": "A global, low-latency, and druable key-value store.",
   "type": "module",
   "main": "./dist/index.mjs",
@@ -27,9 +27,9 @@
   ],
   "scripts": {
     "build": "pnpm esbuild --bundle --minify --platform=node --format=esm --target=node14 --sourcemap --outfile=dist/index.mjs mod.ts",
-    "build:react": "pnpm esbuild --bundle --minify --platform=node --format=esm --target=node14 --sourcemap --outfile=dist/react.mjs react.ts",
+    "build:react": "pnpm esbuild --bundle --minify --platform=node --format=esm --target=node14 --external:react --sourcemap --outfile=dist/react.mjs react.ts",
     "build:web-polyfill": "pnpm esbuild --bundle --minify --platform=node --format=esm --target=node14 --sourcemap --inject:./web-polyfill-shim.mjs --outfile=dist/web-polyfill.mjs web-polyfill.mjs",
-    "build:all": "pnpm build && build:react && pnpm build:web-polyfill",
+    "build:all": "pnpm build && pnpm build:react && pnpm build:web-polyfill",
     "test": "pnpm build:all && node test/integration-test-node.mjs",
     "prepublishOnly": "pnpm build:all"
   },
