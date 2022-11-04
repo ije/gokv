@@ -23,10 +23,10 @@ export const splitByChar = (str: string, char: string) => {
 
 export function checkNamespace(namespace: string) {
   if (namespace.length > 100) {
-    throw new Error("namespace must be 100 characters or less");
+    throw new Error("Namespace is too long");
   }
   if (!/^[@a-zA-Z0-9_\-\/\.]+$/.test(namespace)) {
-    throw new Error("namespace must only contain alphanumeric characters, underscores, and dashes");
+    throw new Error("Namespace must only contain alphanumeric characters, underscores, and dashes");
   }
   return namespace.toLowerCase();
 }

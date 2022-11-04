@@ -27,7 +27,7 @@ export class AccessTokenManager {
   ): Promise<string> {
     const token = this.#token ?? (this.#token = getEnv("GOKV_TOKEN"));
     if (!token) {
-      throw new Error("token is not set");
+      throw new Error("Please add `token` to options or set `GOKV_TOKEN` env, check https://gokv.io/docs/access-token");
     }
     const res = await fetch("https://api.gokv.io/sign-access-token", {
       method: "POST",
@@ -68,7 +68,9 @@ export class AccessTokenManager {
       return ["Bearer", token];
     }
 
-    throw new Error("token not found");
+    throw new Error(
+      "Please add `token` to options or set `GOKV_TOKEN` env, if you are using gokv in browsers you need to implement the `signUrl` API, check https://gokv.io/docs/access-token",
+    );
   }
 }
 
