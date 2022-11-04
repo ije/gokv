@@ -12,6 +12,10 @@
       "module": "./dist/index.mjs",
       "types": "./types/mod.d.ts"
     },
+    "./react": {
+      "module": "./dist/react.mjs",
+      "types": "./types/react.d.ts"
+    },
     "./web-polyfill": {
       "module": "./dist/web-polyfill.mjs"
     }
@@ -23,8 +27,9 @@
   ],
   "scripts": {
     "build": "pnpm esbuild --bundle --minify --platform=node --format=esm --target=node14 --sourcemap --outfile=dist/index.mjs mod.ts",
+    "build:react": "pnpm esbuild --bundle --minify --platform=node --format=esm --target=node14 --sourcemap --outfile=dist/react.mjs react.ts",
     "build:web-polyfill": "pnpm esbuild --bundle --minify --platform=node --format=esm --target=node14 --sourcemap --inject:./web-polyfill-shim.mjs --outfile=dist/web-polyfill.mjs web-polyfill.mjs",
-    "build:all": "pnpm build && pnpm build:web-polyfill",
+    "build:all": "pnpm build && build:react && pnpm build:web-polyfill",
     "test": "pnpm build:all && node test/integration-test-node.mjs",
     "prepublishOnly": "pnpm build:all"
   },
