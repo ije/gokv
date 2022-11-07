@@ -2,6 +2,8 @@
   "imports": {
     "asserts": "https://deno.land/std@0.160.0/testing/asserts.ts",
     "dotenv": "https://deno.land/std@0.160.0/dotenv/load.ts",
-    "react": "https://esm.sh/react@18.2.0"
+    "react": "https://esm.sh/react@18.2.0",
+    "gokv": "./mod.ts",
+    "gokv/react": "./react.ts"
   }
 }
