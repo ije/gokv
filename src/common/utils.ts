@@ -12,6 +12,14 @@ export const isTagedJson = (v: unknown, tagName: string, isArray?: boolean): v i
   return typeof v === "string" && v.startsWith(tagName + (isArray ? "[" : "{")) && v.endsWith(isArray ? "]" : "}");
 };
 
+export const pick = <T extends object, K extends keyof T>(obj: T, ...keys: K[]): Pick<T, K> => {
+  const ret: Partial<T> = {};
+  for (const key of keys) {
+    ret[key] = obj[key];
+  }
+  return ret as Pick<T, K>;
+};
+
 export const splitByChar = (str: string, char: string) => {
   for (let i = 0; i < str.length; i++) {
     if (str.charAt(i) === char) {

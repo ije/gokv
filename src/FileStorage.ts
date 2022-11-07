@@ -1,6 +1,6 @@
 import type { FileStorage, FileStorageObject, FileStorageOptions } from "../types/FileStorage.d.ts";
 import atm from "./AccessTokenManager.ts";
-import { checkNamespace } from "./common/utils.ts";
+import { checkNamespace, pick } from "./common/utils.ts";
 import { create64 } from "./vendor/xxhash.js";
 
 const MB = 1 << 20;
@@ -23,14 +23,17 @@ export default class FileStorageImpl implements FileStorage {
       if (done) break;
       h.update(value);
     }
-    const hash = h.digest().toString(16).padStart(16, "0");
+    const fileMeta = {
+      ...pick(file, "name", "type", "size", "lastModified"),
+      hash: h.digest().toString(16).padStart(16, "0"),
+    };
 
     // Check if the file already exists
     let res = await fetch(`https://api.gokv.io/file-storage/${this.#namespace}`, {
       method: "HEAD",
       headers: {
         Authorization: (await atm.getAccessToken(`file-storage:${this.#namespace}`)).join(" "),
-        "X-File-Hash": hash,
+        "X-File-Meta": JSON.stringify(fileMeta),
       },
     });
     if (res.status >= 400 && res.status !== 404) {
@@ -48,13 +51,7 @@ export default class FileStorageImpl implements FileStorage {
       body: file.stream(),
       headers: {
         Authorization: (await atm.getAccessToken(`file-storage:${this.#namespace}`)).join(" "),
-        "X-File-Hash": hash,
-        "X-File-Meta": JSON.stringify({
-          name: file.name,
-          type: file.type,
-          size: file.size,
-          lastModified: file.lastModified,
-        }),
+        "X-File-Meta": JSON.stringify(fileMeta),
       },
     });
     if (!res.ok) {

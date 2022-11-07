@@ -15,6 +15,7 @@ Deno.test("Upload text file", async () => {
   assertEquals(ret.name, "hello.txt");
   assertEquals(ret.type, "plain/text");
   assertEquals(ret.size, 12);
+  console.log(ret.name, ret.url);
 
   const res = await fetch(ret.url);
   assertEquals(res.status, 200);
@@ -54,6 +55,7 @@ Deno.test("Upload image file", async () => {
   assertEquals(ret.type, "image/png");
   assertEquals(ret.image, { width: 2, height: 2 });
   assertEquals(ret.size, png.length);
+  console.log(ret.name, ret.url);
 
   const res = await fetch(ret.url);
   await res.body?.cancel();
