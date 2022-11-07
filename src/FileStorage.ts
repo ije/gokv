@@ -1,6 +1,7 @@
 import type { FileStorage, FileStorageObject, FileStorageOptions } from "../types/FileStorage.d.ts";
 import atm from "./AccessTokenManager.ts";
-import { checkNamespace, closeBody, toHex } from "./common/utils.ts";
+import { checkNamespace } from "./common/utils.ts";
+import { create64 } from "./vendor/xxhash.js";
 
 const MB = 1 << 20;
 
@@ -14,16 +15,21 @@ export default class FileStorageImpl implements FileStorage {
   async put(file: File): Promise<FileStorageObject> {
     if (file.size > 100 * MB) throw new Error("File size is too large");
 
-    // todo: compute file hash use streaming
-    const sum = await crypto.subtle.digest({ name: "SHA-1" }, await file.slice().arrayBuffer());
-    const sha1 = toHex(sum, 16);
+    const h = await create64();
+    const reader = file.slice().stream().getReader();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      h.update(value);
+    }
+    const hash = h.digest().toString(16).padStart(16, "0");
 
-    // Check if the file already exists, maybe use faster xxhash?
+    // Check if the file already exists
     let res = await fetch(`https://api.gokv.io/file-storage/${this.#namespace}`, {
       method: "HEAD",
       headers: {
         Authorization: (await atm.getAccessToken(`file-storage:${this.#namespace}`)).join(" "),
-        "X-File-Sha1": sha1,
+        "X-File-Hash": hash,
       },
     });
     if (res.status >= 400 && res.status !== 404) {
@@ -41,7 +47,7 @@ export default class FileStorageImpl implements FileStorage {
       body: file.stream(),
       headers: {
         Authorization: (await atm.getAccessToken(`file-storage:${this.#namespace}`)).join(" "),
-        "X-File-Sha1": sha1,
+        "X-File-Hash": hash,
         "X-File-Meta": JSON.stringify({
           name: file.name,
           type: file.type,
@@ -66,6 +72,7 @@ export default class FileStorageImpl implements FileStorage {
     if (!res.ok) {
       throw new Error(await res.text());
     }
-    await closeBody(res);
+    // release body
+    res.body?.cancel();
   }
 }
