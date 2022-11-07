@@ -11,7 +11,7 @@ export interface ImageProps {
   readonly?: boolean;
   url?: string;
   alt?: string;
-  onChange: (url: string, alt?: string) => void;
+  onChange: (url: string) => void;
   className?: string;
   style?: CSSProperties;
   width?: CSSProperties["width"];

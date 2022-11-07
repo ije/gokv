@@ -2,19 +2,25 @@ export type FileStorageOptions = {
   namespace?: string;
 };
 
-export type UploadResult = {
-  readonly exists?: boolean;
-  readonly sha1: string;
-  readonly image?: { width: number; height: number };
+export type ImageAttr = {
+  width: number;
+  height: number;
+  orientation?: number;
+};
+
+export type FileStorageObject = {
+  readonly id: string;
   readonly url: string;
   readonly name: string;
   readonly type: string;
   readonly size: number;
+  readonly image?: ImageAttr;
   readonly lastModified: number;
   readonly uploadedAt: number;
 };
 
 export class FileStorage {
   constructor(options: FileStorageOptions);
-  upload(file: File): Promise<UploadResult>;
+  put(file: File): Promise<FileStorageObject>;
+  delete(id: string): Promise<void>;
 }
