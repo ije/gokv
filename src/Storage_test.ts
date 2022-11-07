@@ -44,32 +44,41 @@ Deno.test("Storage", async () => {
   // list with condition
   await kv.put(
     Object.fromEntries(
-      new Array(10).fill(null).map((val, index) => [`k-${index}`, val]),
+      new Array(10).fill(null).map((_, index) => [`k-${index}`, index]),
     ),
   );
   assertEquals(
     await kv.list({ prefix: "k-" }),
-    new Map(new Array(10).fill(0).map((_, index) => [`k-${index}`, null])),
+    new Map(new Array(10).fill(null).map((_, index) => [`k-${index}`, index])),
   );
   assertEquals(
     await kv.list({ limit: 5 }),
-    new Map(new Array(5).fill(0).map((_, index) => [`k-${index}`, null])),
+    new Map(new Array(5).fill(null).map((_, index) => [`k-${index}`, index])),
   );
   assertEquals(
     await kv.list({ limit: 3, reverse: true }),
-    new Map([["k-7", null], ["k-8", null], ["k-9", null]]),
+    new Map([["k-7", 7], ["k-8", 8], ["k-9", 9]]),
   );
   assertEquals(
     await kv.list({ start: "k-7" }),
-    new Map([["k-7", null], ["k-8", null], ["k-9", null]]),
+    new Map([["k-7", 7], ["k-8", 8], ["k-9", 9]]),
   );
   assertEquals(
     await kv.list({ start: "k-7", limit: 2 }),
-    new Map([["k-7", null], ["k-8", null]]),
+    new Map([["k-7", 7], ["k-8", 8]]),
   );
   assertEquals(
     await kv.list({ start: "k-7", end: "k-9" }),
-    new Map([["k-7", null], ["k-8", null]]),
+    new Map([["k-7", 7], ["k-8", 8]]),
+  );
+
+  // sum
+  assertEquals(
+    await kv.sum({ prefix: "k-" }),
+    {
+      items: 10,
+      sum: new Array(10).fill(null).reduce((acc, _, index) => acc + index, 0),
+    },
   );
 
   // delete with condition
@@ -77,6 +86,6 @@ Deno.test("Storage", async () => {
   assertEquals(await kv.delete(["k-3", "k-4"]), 2);
   assertEquals(
     await kv.list(),
-    new Map(new Array(3).fill(0).map((_, index) => [`k-${index}`, null])),
+    new Map(new Array(3).fill(0).map((_, index) => [`k-${index}`, index])),
   );
 });

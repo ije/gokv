@@ -200,4 +200,13 @@ export default class StorageImpl implements Storage {
     }
     return map;
   }
+
+  async sum(options?: StorageListOptions & { sumKey?: string }): Promise<{ items: number; sum: number }> {
+    const headers = new Headers({ mode: "sum" });
+    if (options) {
+      appendOptionsToHeaders(options, headers);
+    }
+    const res = await this.#fetchApi(undefined, { headers });
+    return await res.json();
+  }
 }
