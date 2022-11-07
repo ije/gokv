@@ -15,6 +15,7 @@ export default class FileStorageImpl implements FileStorage {
   async put(file: File): Promise<FileStorageObject> {
     if (file.size > 100 * MB) throw new Error("File size is too large");
 
+    // compute file hash using xxhash64
     const h = await create64();
     const reader = file.slice().stream().getReader();
     while (true) {

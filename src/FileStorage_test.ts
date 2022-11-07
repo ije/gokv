@@ -61,7 +61,7 @@ Deno.test("Upload image file", async () => {
   assertEquals(res.headers.get("content-type"), "image/png");
 
   const res2 = await fetch(
-    ret.url + "/width=2,height=2,fit=contain,format=webp",
+    ret.url + "/width=2,height=2,fit=cover",
     {
       headers: {
         "accept": "image/webp",
