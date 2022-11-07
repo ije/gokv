@@ -50,12 +50,12 @@ jobs:
       - name: Testing in Deno
         env:
           GOKV_TOKEN: ${{ secrets.GOKV_TOKEN }}
-        run: deno test -A src/ test/
+        run: deno test -A src/
 
       - name: Build dist
-        run: pnpm install && pnpm build:all
+        run: pnpm install
 
       - name: Testing in Node.js
         env:
           GOKV_TOKEN: ${{ secrets.GOKV_TOKEN }}
-        run: node test/integration-test-node.mjs
+        run: pnpm test
