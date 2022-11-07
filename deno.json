@@ -1,5 +1,9 @@
 {
   "importMap": "import_map.json",
+  "tasks": {
+    "test": "deno test -A src/",
+    "test:web": "deno run -A test/integration-test-for-browser/server.ts"
+  },
   "fmt": {
     "options": {
       "lineWidth": 120
