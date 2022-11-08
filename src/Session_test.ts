@@ -1,9 +1,9 @@
 import { assertEquals } from "asserts";
-import Storage from "./Storage.ts";
+import { connect } from "./common/rpc.ts";
 import Session from "./Session.ts";
 import "dotenv";
 
-const rpcSocket = await Storage.connect("dev");
+const rpcSocket = await connect(`wss://api.gokv.io/storage/session`);
 
 Deno.test("Session Storage", async () => {
   const config = { namespace: "dev", cookieName: "sess", rpcSocket };

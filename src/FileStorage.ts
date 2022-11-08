@@ -71,6 +71,6 @@ export default class FileStorageImpl implements FileStorage {
       throw new Error(await res.text());
     }
     // release body
-    res.body?.cancel?.();
+    await res.body?.cancel?.();
   }
 }

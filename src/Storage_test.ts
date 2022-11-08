@@ -1,8 +1,9 @@
 import { assertEquals } from "asserts";
+import { connect } from "./common/rpc.ts";
 import Storage from "./Storage.ts";
 import "dotenv";
 
-const rpcSocket = await Storage.connect("dev");
+const rpcSocket = await connect(`wss://api.gokv.io/storage/dev`);
 
 Deno.test("Storage", async () => {
   const kv = new Storage({ namespace: "dev", rpcSocket });
