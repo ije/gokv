@@ -1,12 +1,11 @@
 import { assertEquals } from "asserts";
 import Storage from "./Storage.ts";
-import { connect } from "./common/socket.ts";
 import "dotenv";
 
-const socket = await connect();
+const rpcSocket = await Storage.connect("dev");
 
 Deno.test("Storage", async () => {
-  const kv = new Storage({ namespace: "dev", fetcher: socket });
+  const kv = new Storage({ namespace: "dev", rpcSocket });
 
   // delete all records firstly
   await kv.deleteAll();

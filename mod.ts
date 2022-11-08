@@ -16,7 +16,6 @@ import type {
   StorageOptions,
 } from "./types/mod.d.ts";
 import atm from "./src/AccessTokenManager.ts";
-import connPool from "./src/ConnPool.ts";
 import StorageImpl from "./src/Storage.ts";
 import SessionImpl from "./src/Session.ts";
 import ChatRoomImpl from "./src/ChatRoom.ts";
@@ -33,15 +32,12 @@ export {
   subscribe,
 };
 
-export const config = ({ token, signUrl, maxConn }: ConfigOptions) => {
+export const config = ({ token, signUrl }: ConfigOptions) => {
   if (token) {
     atm.setToken(token);
   }
   if (signUrl) {
     atm.setSignUrl(signUrl);
-  }
-  if (maxConn) {
-    connPool.setCap(maxConn);
   }
 };
 

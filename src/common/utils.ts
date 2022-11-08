@@ -1,5 +1,8 @@
-/** CR and LF are control characters or bytecode that can be used to mark a line break in a text file. */
-export const CRLF = new Uint8Array([13, 10]);
+export enum SocketStatus {
+  PENDING = 0,
+  READY = 1,
+  CLOSE = 2,
+}
 
 export const enc = new TextEncoder();
 export const dec = new TextDecoder();
@@ -74,25 +77,6 @@ export function conactBytes(...bytes: Uint8Array[]) {
   return u8a;
 }
 
-export function* readline(bytes: Uint8Array) {
-  let start = 0;
-  for (let i = 0; i < bytes.length; i++) {
-    if (bytes[i] === 13 && bytes[i + 1] === 10) {
-      const line = bytes.slice(start, i);
-      yield line;
-      start = i + 2;
-      if (line.length === 0) {
-        // ingore rest bytes when double CRLF found
-        break;
-      }
-      i++;
-    }
-  }
-  if (start < bytes.length) {
-    yield bytes.slice(start);
-  }
-}
-
 export function toHex(buf: ArrayBuffer, radix = 36): string {
   return Array.from(new Uint8Array(buf)).map((b) => b.toString(radix).padStart(2, "0")).join("");
 }
@@ -126,36 +110,6 @@ export function parseCookie(req: Request): Map<string, string> {
     });
   }
   return cookie;
-}
-
-export function appendOptionsToHeaders(options: Record<string, unknown>, headers: Headers) {
-  Object.entries(options).forEach(([key, value]) => {
-    key = key.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase();
-    switch (typeof value) {
-      case "string":
-        headers.set(key, value);
-        break;
-      case "number":
-        headers.set(key, value.toString(10));
-        break;
-      case "boolean":
-        headers.set(key, value ? "1" : "0");
-        break;
-      case "object":
-        if (Array.isArray(value)) {
-          headers.set(key, value.join(","));
-        } else {
-          headers.set(key, JSON.stringify(value));
-        }
-    }
-  });
-}
-
-export function closeBody(res: Response): Promise<void> {
-  if (res.body?.cancel) {
-    return res.body.cancel();
-  }
-  return Promise.resolve();
 }
 
 export async function createWebSocket(url: string, protocols?: string | string[]) {

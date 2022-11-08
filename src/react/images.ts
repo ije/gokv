@@ -1,7 +1,12 @@
-import { createElement } from "react";
+import { createElement, useContext, useMemo } from "react";
 import { ImageProps } from "../../types/react.d.ts";
+import { FileStorage } from "../../mod.ts";
+import { $context } from "./provider.ts";
 
 export function Image(props: ImageProps) {
+  const { namespace } = useContext($context);
+  const fs = useMemo(() => new FileStorage({ namespace }), [namespace]);
+
   if (props.readonly) {
     if (!props.url) {
       return null;

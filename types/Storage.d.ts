@@ -1,8 +1,9 @@
-import { Socket } from "./common.d.ts";
+import { RPCSocket } from "./common.d.ts";
 
 export type StorageOptions = {
-  fetcher?: Pick<Socket, "fetch"> | undefined;
+  maxConn?: number;
   namespace?: string;
+  rpcSocket?: RPCSocket;
 };
 
 export type StorageGetOptions = {

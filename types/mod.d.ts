@@ -1,4 +1,4 @@
-import { AuthUser } from "./common.d.ts";
+import { AuthUser, Permissions, ServiceName } from "./common.d.ts";
 import { ChatRoom, ChatRoomOptions } from "./ChatRoom.d.ts";
 import { Document, DocumentOptions } from "./Document.d.ts";
 import { Storage, StorageOptions } from "./Storage.d.ts";
@@ -12,17 +12,9 @@ export * from "./Storage.d.ts";
 export * from "./Session.d.ts";
 export * from "./FileStorage.d.ts";
 
-export type ServiceName = "chat-room" | "document" | "storage" | "file-storage";
-
-export type Permissions = {
-  read: boolean;
-  write: boolean;
-};
-
 export type ConfigOptions = {
   token?: string;
   signUrl?: string;
-  maxConn?: number;
 };
 
 export const config: Module["config"];

@@ -1,10 +1,17 @@
+export type ServiceName = "chat-room" | "document" | "file-storage" | "storage";
+
 export interface AuthUser {
   uid: number | string;
   name: string;
 }
 
-export interface Socket {
-  fetch(input: string | URL, init?: RequestInit): Promise<Response>;
+export type Permissions = {
+  read: boolean;
+  write: boolean;
+};
+
+export interface RPCSocket {
+  invoke<T = unknown>(method: number, ...args: unknown[]): Promise<T>;
   close(): void;
 }
 

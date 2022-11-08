@@ -1,8 +1,7 @@
 import type { Document, DocumentOptions } from "../types/Document.d.ts";
 import atm from "./AccessTokenManager.ts";
 import { applyPatch, Op, Patch, proxy, remix, restoreArray } from "./common/proxy.ts";
-import { SocketStatus } from "./common/socket.ts";
-import { checkNamespace, createWebSocket, getEnv, isTagedJson } from "./common/utils.ts";
+import { checkNamespace, createWebSocket, getEnv, isTagedJson, SocketStatus } from "./common/utils.ts";
 
 export default class DocumentImpl<T extends Record<string, unknown> | Array<unknown>> implements Document<T> {
   #docId: string;

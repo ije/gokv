@@ -1,6 +1,5 @@
-// deno-lint-ignore-file no-explicit-any
-
 import type {
+  RPCSocket,
   Storage,
   StorageDeleteOptions,
   StorageGetOptions,
@@ -9,204 +8,170 @@ import type {
   StoragePutOptions,
 } from "../types/mod.d.ts";
 import atm from "./AccessTokenManager.ts";
-import connPool from "./ConnPool.ts";
-import { appendOptionsToHeaders, checkNamespace, closeBody } from "./common/utils.ts";
+import { checkNamespace, conactBytes, createWebSocket, dec, enc, SocketStatus, toBytesInt32 } from "./common/utils.ts";
+import { ConnPool } from "./common/rpc.ts";
+
+const frameStart = 0x04;
+const defaultTimeout = 30 * 1000; // 30 seconds
+
+const StorageMethod = {
+  get: 1,
+  put: 2,
+  delete: 3,
+  deleteAll: 4,
+  list: 5,
+  updateNumber: 6,
+  sum: 7,
+};
 
 export default class StorageImpl implements Storage {
-  readonly #options: StorageOptions;
+  readonly #rpc: RPCSocket;
 
   constructor(options?: StorageOptions) {
-    this.#options = {
-      ...options,
-      fetcher: options?.fetcher ?? connPool,
-      namespace: checkNamespace(options?.namespace ?? "default"),
-    };
+    const namespace = checkNamespace(options?.namespace ?? "default");
+    this.#rpc = options?.rpcSocket ??
+      new ConnPool(Math.max(options?.maxConn ?? 4, 1), () => StorageImpl.connect(namespace));
   }
 
-  async #fetchApi(pathname?: string, init?: RequestInit & { ignore404?: boolean }): Promise<Response> {
-    const fetcher = this.#options.fetcher ?? { fetch };
-    const url = `https://api.gokv.io/storage/${this.#options.namespace}${pathname ?? ""}`;
-    const headers = new Headers(init?.headers);
-    headers.append("Authorization", (await atm.getAccessToken(`storage:${this.#options.namespace}`)).join(" "));
-    const res = await fetcher.fetch(url, { ...init, headers });
-    if (res.status >= 400) {
-      if (res.status === 404 && init?.ignore404) {
-        return res;
-      }
-      const err = await res.text();
-      throw new Error(err);
-    }
-    return res;
-  }
+  /** Creating a `WebSocket` connection to handle HTTP requests. */
+  static async connect(namespace: string) {
+    const awaits = new Map<number, (data: ArrayBuffer) => void>();
+    const token = await atm.getAccessToken();
+    const socketUrl = `wss://api.gokv.io/storage/${namespace}?authToken=${token.join("-")}`;
+    let ws = await createWebSocket(socketUrl);
+    return new Promise<RPCSocket>((resolve, reject) => {
+      let status: SocketStatus = SocketStatus.PENDING;
+      let rejected = false;
+      let frameIndex = 0;
 
-  async get(keyOrKeys: string | string[], options?: StorageGetOptions): Promise<any> {
-    let pathname: string;
-    const multipleKeys = Array.isArray(keyOrKeys);
-    if (multipleKeys) {
-      pathname = "/" + keyOrKeys.join(",");
-    } else {
-      pathname = "/" + keyOrKeys;
-    }
-    if (pathname === "/") {
-      return undefined;
-    }
+      const invoke = <T = unknown>(method: number, ...args: unknown[]): Promise<T> =>
+        status === SocketStatus.CLOSE ? Promise.reject(new Error("Dead socket")) : new Promise((resolve, reject) => {
+          const frameId = frameIndex++;
+          ws.send(
+            conactBytes(
+              new Uint8Array([frameStart]),
+              toBytesInt32(frameId),
+              new Uint8Array([method]),
+              enc.encode(JSON.stringify(args)),
+            ),
+          );
+          const timer = setTimeout(() => {
+            awaits.delete(frameId);
+            reject(new Error("timeout"));
+          }, defaultTimeout);
+          awaits.set(frameId, (data) => {
+            clearTimeout(timer);
+            awaits.delete(frameId);
+            try {
+              const ret = JSON.parse(dec.decode(data));
+              if (ret === null) {
+                resolve(undefined as T);
+                return;
+              }
+              if (Array.isArray(ret)) {
+                resolve(new Map(ret) as T);
+                return;
+              }
+              if (ret.error) {
+                throw new Error(ret.error);
+              }
+              resolve(ret.value);
+            } catch (error) {
+              error;
+            }
+          });
+        });
 
-    const headers = new Headers();
-    if (multipleKeys) {
-      headers.append("multiple-keys", "1");
-    }
-    if (options) {
-      appendOptionsToHeaders(options, headers);
-    }
+      const close = () => {
+        status = SocketStatus.CLOSE;
+        awaits.clear();
+        ws.removeEventListener("open", onopen);
+        ws.removeEventListener("error", onerror);
+        ws.removeEventListener("message", onmessage);
+        ws.removeEventListener("close", onclose);
+        ws.close();
+      };
 
-    const res = await this.#fetchApi(pathname, { headers, ignore404: true });
-    if (res.status === 404) {
-      return closeBody(res); // release body
-    }
+      const onopen = () => {
+        status = SocketStatus.READY;
+        resolve({ invoke, close });
+      };
 
-    if (multipleKeys) {
-      const data = await res.json();
-      const map = new Map<string, unknown>();
-      if (Array.isArray(data)) {
-        for (const [key, value] of data) {
-          map.set(key, value);
+      const onmessage = ({ data }: MessageEvent) => {
+        if (status === SocketStatus.READY && data instanceof ArrayBuffer) {
+          const view = new DataView(data.slice(0, 5));
+          if (view.getInt8(0) === frameStart) {
+            const id = view.getInt32(1);
+            awaits.get(id)?.(data.slice(5));
+          }
         }
-      }
-      return map;
-    } else {
-      const vtype = res.headers.get("value-type");
-      switch (vtype) {
-        case "boolean": {
-          const val = await res.text();
-          return (val === "1" || val === "true");
+      };
+
+      const onerror = (e: Event | ErrorEvent) => {
+        if (!rejected && status === SocketStatus.PENDING) {
+          reject(e);
+          rejected = true;
         }
-        case "number": {
-          const val = await res.text();
-          return parseFloat(val);
+      };
+
+      const onclose = () => {
+        const reconnect = status === SocketStatus.READY;
+        status = SocketStatus.CLOSE;
+        if (reconnect) {
+          createWebSocket(socketUrl).then((newSocket) => {
+            status = SocketStatus.PENDING;
+            ws = newSocket;
+            go();
+          });
         }
-        case "object":
-          return res.json();
-        default:
-          return res.text();
-      }
-    }
+      };
+
+      const go = () => {
+        ws.binaryType = "arraybuffer";
+        ws.addEventListener("open", onopen);
+        ws.addEventListener("message", onmessage);
+        ws.addEventListener("error", onerror);
+        ws.addEventListener("close", onclose);
+      };
+
+      go();
+    });
   }
 
-  async put(keyOrEntries: string | Record<string, any>, value?: any, options?: StoragePutOptions): Promise<void> {
-    let pathname: string | undefined = undefined;
-    let body: string | undefined = undefined;
-    const headers = new Headers();
-    if (typeof keyOrEntries === "string") {
-      if (keyOrEntries === "" || value === undefined) {
-        return;
-      }
-      const vType = typeof value;
-      switch (vType) {
-        case "number":
-        case "boolean":
-          body = value.toString();
-          break;
-        case "string":
-          body = value;
-          break;
-        case "object":
-          body = JSON.stringify(value);
-          break;
-        default:
-          throw new Error("Invalid value type: " + vType);
-      }
-      headers.append("value-type", vType);
-      if (options) {
-        appendOptionsToHeaders(options, headers);
-      }
-      pathname = "/" + keyOrEntries;
-    } else if (typeof keyOrEntries === "object" && !Array.isArray(keyOrEntries)) {
-      body = JSON.stringify(keyOrEntries);
-    } else {
-      throw new Error("Invalid value type: not a record");
-    }
-
-    const res = await this.#fetchApi(pathname, { method: "PUT", headers, body });
-    await closeBody(res); // release body
+  // deno-lint-ignore no-explicit-any
+  get(keyOrKeys: string | string[], options?: StorageGetOptions): Promise<any> {
+    return this.#rpc.invoke(StorageMethod.get, keyOrKeys, options);
   }
 
-  async updateNumber(key: string, delta: number, options?: StoragePutOptions): Promise<number> {
-    if (key === "" || Number.isNaN(delta)) {
-      throw new Error("Invalid key or delta");
-    }
-    const headers = new Headers([["update-number", "1"]]);
-    if (options) {
-      appendOptionsToHeaders(options, headers);
-    }
-    const res = await this.#fetchApi(`/${key}`, { method: "PATCH", body: delta.toString(), headers });
-    const ret = await res.text();
-    return parseFloat(ret);
+  async put(
+    keyOrEntries: string | Record<string, unknown>,
+    value?: unknown,
+    options?: StoragePutOptions,
+  ): Promise<void> {
+    await this.#rpc.invoke(StorageMethod.put, keyOrEntries, value, options);
   }
 
-  async delete(
+  updateNumber(key: string, delta: number, options?: StoragePutOptions): Promise<number> {
+    return this.#rpc.invoke(StorageMethod.updateNumber, key, delta, options);
+  }
+
+  delete(
     keyOrKeysOrOptions: string | string[] | StorageDeleteOptions,
     options?: StoragePutOptions,
+    // deno-lint-ignore no-explicit-any
   ): Promise<any> {
-    const multipleKeys = Array.isArray(keyOrKeysOrOptions);
-    let pathname: string | undefined = undefined;
-    if (multipleKeys) {
-      pathname = "/" + keyOrKeysOrOptions.join(",");
-    } else if (typeof keyOrKeysOrOptions === "string") {
-      pathname = "/" + keyOrKeysOrOptions;
-    } else {
-      options = keyOrKeysOrOptions;
-    }
-    if (pathname === "/") {
-      return undefined;
-    }
-
-    const headers = new Headers();
-    if (multipleKeys) {
-      headers.append("multiple-keys", "1");
-    }
-    if (options) {
-      appendOptionsToHeaders(options, headers);
-    }
-
-    const res = await this.#fetchApi(pathname, { method: "DELETE", headers });
-    const ret = await res.text();
-    if (typeof keyOrKeysOrOptions === "string") {
-      return ret === "true";
-    }
-    return parseInt(ret);
+    return this.#rpc.invoke(StorageMethod.delete, keyOrKeysOrOptions, options);
   }
 
   async deleteAll(options?: StoragePutOptions): Promise<void> {
-    const headers = new Headers({ "delete-all": "1" });
-    if (options) {
-      appendOptionsToHeaders(options, headers);
-    }
-    const res = await this.#fetchApi(undefined, { method: "DELETE", headers });
-    await closeBody(res); // release body
+    await this.#rpc.invoke(StorageMethod.deleteAll, options);
   }
 
   async list<T = unknown>(options?: StorageListOptions): Promise<Map<string, T>> {
-    const headers = new Headers();
-    if (options) {
-      appendOptionsToHeaders(options, headers);
-    }
-    const res = await this.#fetchApi(undefined, { headers });
-    const data = await res.json();
-    const map = new Map<string, T>();
-    if (Array.isArray(data)) {
-      for (const [key, value] of data) {
-        map.set(key, value);
-      }
-    }
-    return map;
+    return await this.#rpc.invoke(StorageMethod.list, options);
   }
 
   async sum(options?: StorageListOptions & { sumKey?: string }): Promise<{ items: number; sum: number }> {
-    const headers = new Headers({ mode: "sum" });
-    if (options) {
-      appendOptionsToHeaders(options, headers);
-    }
-    const res = await this.#fetchApi(undefined, { headers });
-    return await res.json();
+    return await this.#rpc.invoke(StorageMethod.sum, options);
   }
 }
