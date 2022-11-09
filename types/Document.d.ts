@@ -2,6 +2,10 @@ export type DocumentOptions<T> = {
   initData?: T;
 };
 
+export type DocumentSyncOptions = {
+  signal?: AbortSignal;
+};
+
 /** Co Document syncs changes between sessions and saved automatically. */
 export class Document<T extends Record<string, unknown> | Array<unknown>> {
   constructor(documentId: string, options?: DocumentOptions<T>);
@@ -19,5 +23,5 @@ export class Document<T extends Record<string, unknown> | Array<unknown>> {
    * })
    * obj.foo = "baz";
    */
-  sync(): Promise<T>;
+  sync(options?: DocumentSyncOptions): Promise<T>;
 }
