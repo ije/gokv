@@ -1,6 +1,6 @@
-import type { Document, DocumentOptions } from "../types/Document.d.ts";
+import type { Document, DocumentOptions, DocumentSyncOptions } from "../types/Document.d.ts";
 import atm from "./AccessTokenManager.ts";
-import { applyPatch, Op, Patch, proxy, remix, restoreArray } from "./common/proxy.ts";
+import { applyPatch, disableNotify, Op, Patch, proxy, remix, restoreArray } from "./common/proxy.ts";
 import { checkNamespace, createWebSocket, getEnv, isTagedJson, SocketStatus } from "./common/utils.ts";
 
 export default class DocumentImpl<T extends Record<string, unknown> | Array<unknown>> implements Document<T> {
@@ -38,14 +38,14 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
     }
   }
 
-  async sync(): Promise<T> {
+  async sync(options?: DocumentSyncOptions): Promise<T> {
     const debug = Boolean(getEnv("DEBUG"));
     const token = await atm.getAccessToken(`document:${this.#docId}`);
     const socketUrl = `wss://api.gokv.io/document/${this.#docId}?authToken=${token.join("-")}`;
-    let ws = await createWebSocket(socketUrl);
     return new Promise((resolve, reject) => {
       let doc: T | null = null;
       let docVersion = -1;
+      let socket: WebSocket;
       let status: SocketStatus = SocketStatus.PENDING;
       let rejected = false;
 
@@ -54,7 +54,7 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
 
       const send = (message: string) => {
         debug && console.debug("gokv.io", "↑", message);
-        ws.send(message);
+        socket.send(message);
       };
 
       const push = (() => {
@@ -72,6 +72,7 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
       const drain = (patches: [string, ...Patch][]) => {
         try {
           send("patches" + JSON.stringify(patches));
+          patches.forEach(([id, ...patch]) => uncomfirmedPatches.set(id, patch));
         } catch (_) {
           // Whoops, this connection is dead. put back those patches in the queue.
           blockPatches.unshift(...patches);
@@ -83,6 +84,10 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
       };
 
       const onmessage = ({ data }: MessageEvent) => {
+        if (data instanceof ArrayBuffer) {
+          // TODO: decode binary data
+          return;
+        }
         debug && console.debug("gokv.io", "↓", data);
         if (isTagedJson(data, "document", true)) {
           const [version, snapshot] = JSON.parse(data.slice(8));
@@ -96,7 +101,6 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
               }
               const stripedPatch = arr as unknown as Patch;
               push(id, stripedPatch);
-              uncomfirmedPatches.set(id, stripedPatch);
             });
             if (this.#options?.initData) {
               for (const [key, value] of Object.entries(this.#options.initData)) {
@@ -170,7 +174,7 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
       const onerror = (e: Event | ErrorEvent) => {
         if (status === SocketStatus.PENDING && !rejected) {
           reject(
-            new Error(`[gokv] Document(${this.#docId}): ${(e as ErrorEvent)?.message ?? "unknown websocket error"}`),
+            new Error((e as ErrorEvent)?.message ?? "unknown websocket error"),
           );
           rejected = true;
           return;
@@ -178,27 +182,43 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
         console.warn(`[gokv] Document(${this.#docId}): ${(e as ErrorEvent)?.message ?? "unknown websocket error"}`);
       };
 
-      const onclose = () => {
-        uncomfirmedPatches.clear();
-        status = SocketStatus.CLOSE;
-        // reconnect if the document is synced
+      const onabort = () => {
+        if (!rejected) {
+          reject(new Error("aborted"));
+          rejected = true;
+        }
         if (doc !== null) {
-          createWebSocket(socketUrl, token.join("-")).then((newWs) => {
-            status = SocketStatus.PENDING;
-            ws = newWs;
-            go();
-          });
+          disableNotify(doc);
+          doc = null;
+        }
+        socket?.close();
+        status = SocketStatus.CLOSE;
+        uncomfirmedPatches.clear();
+        blockPatches.splice(0);
+        console.warn(`[gokv] Document(${this.#docId}): aborted`);
+      };
+
+      const onclose = () => {
+        status = SocketStatus.CLOSE;
+        uncomfirmedPatches.clear();
+        // reconnect if the document was synced
+        if (doc !== null) {
+          createWebSocket(socketUrl).then(start);
         }
       };
 
-      const go = () => {
-        ws.addEventListener("open", onopen);
-        ws.addEventListener("message", onmessage);
-        ws.addEventListener("error", onerror);
-        ws.addEventListener("close", onclose);
+      const start = (ws: WebSocket) => {
+        status = SocketStatus.PENDING;
+        socket = ws;
+        socket.addEventListener("open", onopen);
+        socket.addEventListener("message", onmessage);
+        socket.addEventListener("error", onerror);
+        socket.addEventListener("close", onclose);
       };
 
-      go();
+      options?.signal?.addEventListener("abort", onabort);
+
+      createWebSocket(socketUrl).then(start);
     });
   }
 }

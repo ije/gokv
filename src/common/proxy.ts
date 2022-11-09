@@ -334,7 +334,7 @@ function lookupValue(obj: Record<string, unknown> | Array<unknown>, path: Path):
 }
 
 // disable the `NOTIFY` of the project object if it's proxied
-function disableNotify(proxyObject: unknown): void {
+export function disableNotify(proxyObject: unknown): void {
   if (canProxy(proxyObject) && Reflect.get(proxyObject, INTERNAL)) {
     Reflect.set(proxyObject, NOTIFY, false);
     Reflect.set(proxyObject, NOTIFY, dummyFn);
