@@ -74,18 +74,24 @@ export async function connect(url: string) {
           awaits.delete(frameId);
           try {
             const ret = JSON.parse(dec.decode(data));
-            if (ret === null) {
-              resolve(undefined as T);
-              return;
+            if (typeof ret === "object") {
+              if (ret === null) {
+                resolve(undefined as T);
+                return;
+              }
+              if (Array.isArray(ret)) {
+                resolve(ret[0]);
+                return;
+              }
+              if (ret.error) {
+                throw new Error(ret.error);
+              }
+              if (Array.isArray(ret.map)) {
+                resolve(new Map(ret.map) as T);
+                return;
+              }
             }
-            if (Array.isArray(ret)) {
-              resolve(new Map(ret) as T);
-              return;
-            }
-            if (ret.error) {
-              throw new Error(ret.error);
-            }
-            resolve(ret.value);
+            throw new Error("Unknown PRC response");
           } catch (error) {
             reject(error);
           }
