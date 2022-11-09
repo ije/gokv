@@ -26,10 +26,12 @@ serve(async (req: Request) => {
       target: "es2022",
       bundle: false,
       write: false,
+      sourcemap: "inline",
     });
     return new Response(ret.outputFiles?.[0].text, {
       headers: {
         "Content-Type": "application/javascript; charset=utf-8",
+        "Cache-Control": "no-cache, no-store, must-revalidate",
       },
     });
   }
@@ -37,8 +39,11 @@ serve(async (req: Request) => {
   return html({
     scripts: [
       { type: "importmap", text: await Deno.readTextFile("./import_map.json") },
-      { type: "module", src: "/bootstrap.ts" },
+      { type: "module", src: "/bootstrap.tsx" },
     ],
     body: `<div id="root"></div>`,
+    headers: {
+      "Cache-Control": "no-cache, no-store, must-revalidate",
+    },
   });
 });
