@@ -1,11 +1,10 @@
-import assert from "node:assert";
 import * as dotenv from "dotenv";
 import "../../dist/web-polyfill.mjs";
 
 // load `.env`
 dotenv.config();
 
-global.assert = assert;
+global.assert = await import(`node:assert`);
 global.test = async (name, fn) => {
   const t = Date.now();
   process.stdout.write(`${name} ... `);
