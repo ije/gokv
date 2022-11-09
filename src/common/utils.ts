@@ -6,6 +6,7 @@ export enum SocketStatus {
 
 export const enc = new TextEncoder();
 export const dec = new TextDecoder();
+export const dummyFn = () => {};
 
 export const isPlainObject = (v: unknown): v is Record<string, unknown> => {
   return typeof v === "object" && v !== null && Object.getPrototypeOf(v) === Object.prototype;

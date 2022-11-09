@@ -3,7 +3,7 @@
 // The snapshot & subscribe feature is inspired by https://github.com/pmndrs/valtio
 
 import { generateNKeysBetween } from "../vendor/fractional-indexing.js";
-import { isPlainObject } from "./utils.ts";
+import { dummyFn, isPlainObject } from "./utils.ts";
 
 /** The operation (enum) for the `Patch`. */
 export enum Op {
@@ -26,10 +26,9 @@ export type Patch = Readonly<[
 ]>;
 
 // symbols
-const SNAPSHOT = Symbol();
-const LISTENERS = Symbol();
-const NOTIFY = Symbol();
 const INTERNAL = Symbol();
+const SNAPSHOT = Symbol();
+const NOTIFY = Symbol();
 
 // only plain object and array object can be proxied for now
 function canProxy(a: unknown): a is Record<string, unknown> | unknown[] {
@@ -83,8 +82,8 @@ export function proxyObject<T extends Record<string, unknown>>(
   const target = Object.create(Object.prototype);
   const proxyObject = new Proxy(target, {
     get: (target: T, prop: string | symbol, receiver: unknown): unknown => {
-      if (prop === LISTENERS) {
-        return listeners;
+      if (prop === INTERNAL) {
+        return { listeners, sideEffect };
       }
       if (prop === SNAPSHOT) {
         return snapshotCache ?? (snapshotCache = createSnapshot(target, receiver));
@@ -94,7 +93,11 @@ export function proxyObject<T extends Record<string, unknown>>(
     set: (target: T, prop: string | symbol, value: unknown, receiver: unknown): boolean => {
       if (typeof prop === "symbol") {
         if (prop === NOTIFY) {
-          shouldNotify = Boolean(value);
+          if (typeof value === "function") {
+            notify = value as typeof notify;
+          } else if (typeof value === "boolean") {
+            shouldNotify = Boolean(value);
+          }
         }
         return true;
       }
@@ -102,19 +105,12 @@ export function proxyObject<T extends Record<string, unknown>>(
       if (Object.is(value, oldValue)) {
         return true;
       }
-      const updated = Reflect.set(
-        target,
-        prop,
-        // cycle proxy if possible
-        canProxy(value) ? proxy(value as T, notify, [...path, prop]) : value,
-        receiver,
-      );
+      // cycle proxy if possible
+      const newValue = canProxy(value) ? proxy(value as T, notify, [...path, prop]) : value;
+      const updated = Reflect.set(target, prop, newValue, receiver);
       if (updated) {
         sideEffect();
-        // disable the `NOTIFY` of the old value if it's a proxy object
-        if (oldValue?.[NOTIFY]) {
-          oldValue[NOTIFY] = false;
-        }
+        disableNotify(oldValue);
         shouldNotify && !Array.isArray(value) && notify([
           value === undefined ? Op.DELETE : Op.SET,
           [...path, prop],
@@ -125,14 +121,14 @@ export function proxyObject<T extends Record<string, unknown>>(
       return updated;
     },
     deleteProperty: (target: T, prop: string | symbol): boolean => {
+      if (!Reflect.has(target, prop)) {
+        return false;
+      }
       const oldValue = Reflect.get(target, prop);
       const deleted = Reflect.deleteProperty(target, prop);
       if (deleted && typeof prop !== "symbol") {
         sideEffect();
-        // disable the `NOTIFY` of the old value if it's a proxy object
-        if (oldValue?.[NOTIFY]) {
-          oldValue[NOTIFY] = false;
-        }
+        disableNotify(oldValue);
         shouldNotify && notify([
           Op.DELETE,
           [...path, prop],
@@ -161,6 +157,7 @@ export function proxyArray<T>(
   notify: (patch: Patch) => void,
   path: Path = [],
 ): T[] {
+  let shouldNotify = true;
   let snapshotCache: Readonly<T[]> | null = null;
   const listeners = new Set<() => void>();
   const sideEffect = () => {
@@ -202,7 +199,7 @@ export function proxyArray<T>(
     Reflect.set(values, NOTIFY, true);
     if (added.length > 0 || deleted.length > 0) {
       sideEffect();
-      notify([Op.SPLICE, [...path], added, deleted]);
+      shouldNotify && notify([Op.SPLICE, [...path], added, deleted]);
     }
     return deleted.map(([, value]) => value);
   };
@@ -266,10 +263,7 @@ export function proxyArray<T>(
   const proxy = new Proxy(indexs, {
     get: (target: string[], prop: string | symbol, receiver: unknown): unknown => {
       if (prop === INTERNAL) {
-        return { indexs, values, sideEffect };
-      }
-      if (prop === LISTENERS) {
-        return listeners;
+        return { indexs, values, sideEffect, listeners };
       }
       if (prop === SNAPSHOT) {
         return snapshotCache ?? (snapshotCache = createSnapshot());
@@ -280,6 +274,14 @@ export function proxyArray<T>(
       return (hijack as Record<string | symbol, unknown>)[prop] ?? Reflect.get(target, prop, receiver);
     },
     set: (target: string[], prop: string | symbol, value: unknown, receiver: unknown): boolean => {
+      if (prop === NOTIFY) {
+        if (typeof value === "function") {
+          notify = value as typeof notify;
+        } else if (typeof value === "boolean") {
+          shouldNotify = Boolean(value);
+        }
+        return true;
+      }
       if (typeof prop === "string" && prop.charCodeAt(0) >= 48 && prop.charCodeAt(0) <= 57) {
         const i = Number(prop);
         const d = i - indexs.length;
@@ -329,6 +331,23 @@ function lookupValue(obj: Record<string, unknown> | Array<unknown>, path: Path):
     }
   }
   return value;
+}
+
+// disable the `NOTIFY` of the project object if it's proxied
+function disableNotify(proxyObject: unknown): void {
+  if (canProxy(proxyObject) && Reflect.get(proxyObject, INTERNAL)) {
+    Reflect.set(proxyObject, NOTIFY, false);
+    Reflect.set(proxyObject, NOTIFY, dummyFn);
+    if (Array.isArray(proxyObject)) {
+      for (const item of proxyObject) {
+        disableNotify(item);
+      }
+    } else {
+      for (const key in proxyObject) {
+        disableNotify(proxyObject[key]);
+      }
+    }
+  }
 }
 
 export function remix(proxyObject: Record<string, unknown> | Array<unknown>, updateObject: Record<string, unknown>) {
@@ -392,7 +411,10 @@ export function applyPatch(proxyObject: Record<string, unknown> | Array<unknown>
       const value = patch[2];
       // allow to update the internal `indexs` of proxy array, added for the `remix` function
       if (Array.isArray(target) && key === "$$indexs" && Array.isArray(value)) {
-        const proxyArray: { indexs: string[]; sideEffect: () => void } | undefined = Reflect.get(target, INTERNAL);
+        const proxyArray: { indexs: string[]; sideEffect: () => void } | undefined = Reflect.get(
+          target,
+          INTERNAL,
+        );
         if (proxyArray) {
           const { indexs, sideEffect } = proxyArray;
           indexs.splice(0, indexs.length, ...value);
@@ -456,10 +478,11 @@ export function subscribe(proxyObject: Record<string, unknown> | Array<unknown>,
   if (!canProxy(proxyObject)) {
     throw new Error("requires object");
   }
-  const listeners = Reflect.get(proxyObject, LISTENERS) as Set<() => void> | undefined;
-  if (listeners === undefined) {
+  const internal = Reflect.get(proxyObject, INTERNAL) as { listeners: Set<() => void> } | undefined;
+  if (internal === undefined) {
     throw new Error("can't subscribe a non-proxy object");
   }
+  const { listeners } = internal;
   let promise: Promise<void> | undefined;
   const listener = () => {
     promise = promise ?? Promise.resolve().then(() => {
