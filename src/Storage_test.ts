@@ -2,7 +2,7 @@ import { assertEquals } from "asserts";
 import Storage from "./Storage.ts";
 import "dotenv";
 
-Deno.test("Storage", { sanitizeOps: false, sanitizeResources: false }, async () => {
+Deno.test("KV Storage", { sanitizeOps: false, sanitizeResources: false }, async () => {
   const kv = new Storage();
 
   // delete all records firstly
