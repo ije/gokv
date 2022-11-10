@@ -1,6 +1,6 @@
 import gokv from "../../dist/index.mjs";
 
-await test("Storage", async () => {
+await test("Durable Storage", async () => {
   const kv = gokv.Storage();
 
   // delete all records firstly

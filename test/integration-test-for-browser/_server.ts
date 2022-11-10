@@ -7,8 +7,8 @@ import "dotenv";
 serve(async (req: Request) => {
   const { pathname } = new URL(req.url);
 
-  if (pathname === "/sign-access-token") {
-    return gokv.signAccessToken(req, { uid: 1, name: "admin" });
+  if (pathname === "/sign-gokv-token") {
+    return gokv.signAccessToken(req, { uid: 1, name: "admin" }, "superuser");
   }
 
   if (/\.(jsx?|tsx?)$/.test(pathname)) {
@@ -26,6 +26,7 @@ serve(async (req: Request) => {
       target: "es2022",
       bundle: false,
       write: false,
+      minify: true,
       sourcemap: "inline",
     });
     return new Response(ret.outputFiles?.[0].text, {
@@ -39,7 +40,7 @@ serve(async (req: Request) => {
   return html({
     scripts: [
       { type: "importmap", text: await Deno.readTextFile("./import_map.json") },
-      { type: "module", src: "/bootstrap.tsx" },
+      { type: "module", src: "/_bootstrap.tsx" },
     ],
     body: `<div id="root"></div>`,
     headers: {

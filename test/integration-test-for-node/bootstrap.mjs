@@ -17,8 +17,8 @@ global.test = async (name, fn) => {
 
 console.log("\x1b[2mRunning integration tests...\x1b[0m");
 
-await import("./token.mjs");
-await import("./storage.mjs");
-await import("./session.mjs");
+await import("./TestAccessToken.mjs");
+await import("./TestStorage.mjs");
+await import("./TestSession.mjs");
 
 process.exit(0);

@@ -1,9 +1,10 @@
-/** @jsx createElement  */
+/// <reference lib="dom" />
+/** @jsx createElement */
 import { createElement, useEffect, useState } from "react";
 import { render } from "react-dom";
 
 const tests = [
-  ["foo", "./foo.ts"],
+  ["Durable Storage", "./TestStorage.ts"],
 ];
 
 interface Task {
@@ -54,7 +55,14 @@ function TestApp() {
           <li id={task.name}>
             <strong>{task.name}</strong>
             {!task.done && <em>testing...</em>}
-            {task.done && !task.error && <span>✅ {task.duration !== undefined && <em>{task.duration}ms</em>}</span>}
+            {task.done && !task.error && (
+              <span>
+                ✅{" "}
+                {task.duration !== undefined && (
+                  <em>{task.duration >= 1000 ? (task.duration / 1000).toFixed(1) + "s" : task.duration + "ms"}</em>
+                )}
+              </span>
+            )}
             {task.done && task.error && <span style={{ color: "red" }}>❌ {task.error}</span>}
           </li>
         ))}
