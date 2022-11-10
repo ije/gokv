@@ -1,7 +1,7 @@
 import gokv from "../../dist/index.mjs";
 
 await test("Storage", async () => {
-  const kv = gokv.Storage({ namespace: "dev" });
+  const kv = gokv.Storage();
 
   // delete all records firstly
   await kv.deleteAll();

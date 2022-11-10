@@ -1,7 +1,7 @@
 import gokv from "../../dist/index.mjs";
 
 await test("Session Storage", async () => {
-  const config = { namespace: "dev", cookieName: "sess" };
+  const config = { cookieName: "sess" };
 
   let session = await gokv.Session(new Request("https://gokv.io/"), config);
   assert.deepEqual(session.store, null);

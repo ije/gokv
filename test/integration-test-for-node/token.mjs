@@ -2,12 +2,12 @@ import gokv from "../../dist/index.mjs";
 
 await test("Sign Access Token", async () => {
   const token = await gokv.signAccessToken(
-    "chat-room:room-id",
+    "document:default/doc-id",
     {
       uid: 123,
       name: "Guest",
     },
-    { read: true, write: true },
+    "superuser",
   );
 
   let [data] = token.split(".");
@@ -22,11 +22,10 @@ await test("Sign Access Token", async () => {
   data = data.replace(/\-/g, "+").replace(/_/g, "/");
 
   const payload = JSON.parse(Buffer.from(data, "base64").toString());
-  assert.equal(payload.scope, "chat-room:room-id");
+  assert.equal(payload.scope, "document:default/doc-id");
   assert.equal(payload.auth.uid, 123);
   assert.equal(payload.auth.name, "Guest");
-  assert.equal(payload.permissions.read, true);
-  assert.equal(payload.permissions.write, true);
+  assert.equal(payload.perm, "superuser");
   assert.equal(typeof payload.$gokvUID, "string");
   assert.equal(typeof payload.$expires, "number");
 });
