@@ -20,16 +20,18 @@ export default class FileStorageImpl implements FileStorage {
     if (file.size > 100 * MB) throw new Error("File size is too large");
 
     // compute file hash using xxhash64
-    const h = await create64();
+    const h1 = await create64(1n);
+    const h2 = await create64(2n);
     const reader = file.slice().stream().getReader();
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      h.update(value);
+      h1.update(value);
+      h2.update(value);
     }
     const fileMeta = {
       ...pick(file, "name", "type", "size", "lastModified"),
-      hash: h.digest().toString(16).padStart(16, "0"),
+      hash: h1.digest().toString(16) + h2.digest().toString(16),
     };
 
     // Check if the file already exists
