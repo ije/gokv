@@ -5,7 +5,7 @@ import "dotenv";
 
 Deno.env.set("DEBUG", "true");
 
-const doc = new Document("doc-dev", {
+const doc = new Document("dev-doc", {
   initData: { foo: "bar", baz: "qux", arr: ["Hello", "world!"] },
 });
 await doc.reset();

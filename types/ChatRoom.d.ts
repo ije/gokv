@@ -22,9 +22,9 @@ export type Chat<U> = {
 };
 
 export type ChatRoomOptions = {
-  history?: number;
-  rateLimit?: number; // in ms
-  listenUserType?: boolean;
+  namespace?: string;
+  history?: number; // default 100
+  rateLimit?: number; // in seconds
 };
 
 export class ChatRoom<U extends AuthUser> {

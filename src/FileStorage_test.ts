@@ -2,7 +2,7 @@ import { assert, assertEquals } from "asserts";
 import FileStorage from "./FileStorage.ts";
 import "dotenv";
 
-const fs = new FileStorage({ namespace: "dev" });
+const fs = new FileStorage();
 
 Deno.test("Upload text file", async () => {
   const ret = await fs.put(

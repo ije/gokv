@@ -18,7 +18,7 @@ export default class SessionImpl<StoreType extends Record<string, unknown>> impl
     options?: SessionOptions & StorageOptions,
   ): Promise<Session<T>> {
     const cookieName = options?.cookieName || "session";
-    const kv: Storage = new StorageImpl({ namespace: "session", rpcSocket: options?.rpcSocket });
+    const kv: Storage = new StorageImpl({ namespace: "__session__", rpcSocket: options?.rpcSocket });
     const [_, token] = await atm.getAccessToken();
     let sid = request instanceof Request ? parseCookie(request).get(cookieName) : request.cookies[cookieName];
     let store: T | null = null;

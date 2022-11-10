@@ -4,16 +4,22 @@ import { applyPatch, disableNotify, Op, Patch, proxy, remix, restoreArray } from
 import { checkNamespace, createWebSocket, getEnv, isTagedJson, SocketStatus } from "./common/utils.ts";
 
 export default class DocumentImpl<T extends Record<string, unknown> | Array<unknown>> implements Document<T> {
+  #namespace: string;
   #docId: string;
-  #options?: DocumentOptions<T>;
+  #initData?: T;
 
   constructor(docId: string, options?: DocumentOptions<T>) {
+    this.#namespace = checkNamespace(options?.namespace ?? "default");
     this.#docId = checkNamespace(docId);
-    this.#options = options;
+    this.#initData = options?.initData;
+  }
+
+  get #apiUrl() {
+    return `https://api.gokv.io/document/${this.#namespace}/${this.#docId}`;
   }
 
   async getSnapshot(): Promise<T> {
-    const res = await fetch(`https://api.gokv.io/document/${this.#docId}?snapshot`, {
+    const res = await fetch(`${this.#apiUrl}?snapshot`, {
       headers: {
         "Authorization": (await atm.getAccessToken()).join(" "),
       },
@@ -25,12 +31,12 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
   }
 
   async reset(data?: T): Promise<void> {
-    const res = await fetch(`https://api.gokv.io/document/${this.#docId}`, {
+    const res = await fetch(this.#apiUrl, {
       method: "PUT",
       headers: {
         "Authorization": (await atm.getAccessToken()).join(" "),
         "X-Reset-Document": "true",
-        "X-Reset-Document-Data": JSON.stringify(data ?? this.#options?.initData ?? {}),
+        "X-Reset-Document-Data": JSON.stringify(data ?? this.#initData ?? {}),
       },
     });
     if (!res.ok) {
@@ -40,8 +46,8 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
 
   async sync(options?: DocumentSyncOptions): Promise<T> {
     const debug = Boolean(getEnv("DEBUG"));
-    const token = await atm.getAccessToken(`document:${this.#docId}`);
-    const socketUrl = `wss://api.gokv.io/document/${this.#docId}?authToken=${token.join("-")}`;
+    const token = await atm.getAccessToken(`document:${this.#namespace}/${this.#docId}`);
+    const socketUrl = `wss:${this.#apiUrl.slice("https:".length)}?authToken=${token.join("-")}`;
     return new Promise((resolve, reject) => {
       let doc: T | null = null;
       let docVersion = -1;
@@ -102,8 +108,8 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
               const stripedPatch = arr as unknown as Patch;
               push(id, stripedPatch);
             });
-            if (this.#options?.initData) {
-              for (const [key, value] of Object.entries(this.#options.initData)) {
+            if (this.#initData) {
+              for (const [key, value] of Object.entries(this.#initData)) {
                 if (!Reflect.has(doc!, key)) {
                   // todo: deep check
                   Reflect.set(doc!, key, value);

@@ -3,10 +3,10 @@ import { connect } from "./common/rpc.ts";
 import Storage from "./Storage.ts";
 import "dotenv";
 
-const rpcSocket = await connect(`wss://api.gokv.io/storage/dev`);
+const rpcSocket = await connect(`wss://api.gokv.io/storage/default`);
 
 Deno.test("Storage", async () => {
-  const kv = new Storage({ namespace: "dev", rpcSocket });
+  const kv = new Storage({ rpcSocket });
 
   // delete all records firstly
   await kv.deleteAll();

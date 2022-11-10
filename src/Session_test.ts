@@ -3,10 +3,10 @@ import { connect } from "./common/rpc.ts";
 import Session from "./Session.ts";
 import "dotenv";
 
-const rpcSocket = await connect(`wss://api.gokv.io/storage/session`);
+const rpcSocket = await connect(`wss://api.gokv.io/storage/__session__`);
 
 Deno.test("Session Storage", async () => {
-  const config = { namespace: "dev", cookieName: "sess", rpcSocket };
+  const config = { cookieName: "sess", rpcSocket };
 
   let session = await Session.create(new Request("https://gokv.io/"), config);
   assertEquals(session.store, null);
