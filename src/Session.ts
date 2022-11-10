@@ -7,9 +7,9 @@ const minMaxAge = 60; // one minute
 const defaultMaxAge = 30 * 60; // half an hour
 
 export default class SessionImpl<StoreType extends Record<string, unknown>> implements Session<StoreType> {
+  #id: string;
   #storage: Storage;
   #store: StoreType | null;
-  #id: string;
   #upTimer: number | null = null;
   #options: Omit<SessionOptions, "maxAge"> & { maxAge: number };
 
@@ -18,7 +18,7 @@ export default class SessionImpl<StoreType extends Record<string, unknown>> impl
     options?: SessionOptions & StorageOptions,
   ): Promise<Session<T>> {
     const cookieName = options?.cookieName || "session";
-    const kv: Storage = new StorageImpl({ namespace: "__session__", rpcSocket: options?.rpcSocket });
+    const kv: Storage = new StorageImpl({ namespace: "__session__" });
     const [_, token] = await atm.getAccessToken();
     let sid = request instanceof Request ? parseCookies(request).get(cookieName) : request.cookies[cookieName];
     let store: T | null = null;
@@ -108,6 +108,7 @@ export default class SessionImpl<StoreType extends Record<string, unknown>> impl
       clearTimeout(this.#upTimer);
       this.#upTimer = null;
     }
+
     if (nextStore === null) {
       await this.#storage.delete(this.#id);
       this.#store = null;

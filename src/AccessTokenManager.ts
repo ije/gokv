@@ -4,12 +4,10 @@ import { getEnv } from "./common/utils.ts";
 export class AccessTokenManager {
   #token?: string;
   #signUrl?: string;
-  #tokenCache?: string;
-  #tokenExpires?: number;
 
   constructor(options?: { token?: string; signUrl?: string }) {
     this.#token = options?.token;
-    this.#signUrl = options?.signUrl;
+    this.#signUrl = options?.signUrl ?? "/sign-gokv-token";
   }
 
   setToken(token: string): void {
@@ -22,17 +20,17 @@ export class AccessTokenManager {
 
   async signAccessToken<U extends AuthUser>(
     scope: `${ServiceName}:${string}`,
-    auth: U,
+    user: U,
     perm?: Permissions,
   ): Promise<string>;
   async signAccessToken<U extends AuthUser>(
     request: Request,
-    auth: U,
+    user: U,
     perm?: Permissions,
   ): Promise<Response>;
   async signAccessToken<U extends AuthUser>(
     scopeOrReq: `${ServiceName}:${string}` | Request,
-    auth: U,
+    user: U,
     perm?: Permissions,
   ): Promise<string | Response> {
     const token = this.#token ?? (this.#token = getEnv("GOKV_TOKEN"));
@@ -47,7 +45,7 @@ export class AccessTokenManager {
     }
     const promise = fetch("https://api.gokv.io/sign-access-token", {
       method: "POST",
-      body: JSON.stringify({ scope, auth, perm }),
+      body: JSON.stringify({ scope, user, perm }),
       headers: {
         "Authorization": `Bearer ${token}`,
       },
@@ -63,33 +61,45 @@ export class AccessTokenManager {
   }
 
   async getAccessToken(scope?: `${ServiceName}:${string}`): Promise<Readonly<["Bearer" | "JWT", string]>> {
-    if (this.#signUrl) {
-      if (this.#tokenCache && this.#tokenExpires && this.#tokenExpires > Date.now()) {
-        return ["JWT", this.#tokenCache];
-      }
-      const now = Date.now();
-      const url = new URL(this.#signUrl, location?.href);
-      if (!scope) {
-        throw new Error("Missing scope");
-      }
-      url.searchParams.append("scope", scope);
-      const res = await fetch(url, { headers: { scope } });
-      if (res.status >= 400) {
-        throw new Error(await res.text());
-      }
-      const token = await res.text();
-      this.#tokenCache = token;
-      this.#tokenExpires = now + 5 * 60 * 1000;
-      return ["JWT", token];
-    }
-
     const token = this.#token ?? (this.#token = getEnv("GOKV_TOKEN"));
     if (token) {
       return ["Bearer", token];
     }
 
+    if (this.#signUrl) {
+      if (!scope) {
+        throw new Error("Missing scope");
+      }
+      const value = globalThis.localStorage?.getItem(`gokv_token:${scope}`);
+      try {
+        const { token, expires } = JSON.parse(value!);
+        if (typeof token === "string" && typeof expires === "number" && expires > Date.now()) {
+          return ["JWT", token];
+        }
+      } catch (_) {
+        // ignore
+      }
+      const now = Date.now();
+      const url = new URL(this.#signUrl, location?.href);
+      url.searchParams.append("scope", scope);
+      const res = await fetch(url, { headers: { scope } });
+      if (res.status >= 400 && res.status !== 404) {
+        throw new Error(await res.text());
+      }
+      if (res.ok) {
+        const token = await res.text();
+        if (/\.[a-z0-9]{64}$/.test(token)) {
+          globalThis.localStorage?.setItem(
+            `gokv_token:${scope}`,
+            JSON.stringify({ token, expires: now + (9.5 * 60 * 1000) }),
+          );
+          return ["JWT", token];
+        }
+      }
+    }
+
     throw new Error(
-      "Please add `token` to the options or set `GOKV_TOKEN` env, if you are using gokv in browsers you need to implement the `signUrl` API, check https://gokv.io/docs/access-token",
+      "Please add `token` to the options or set `GOKV_TOKEN` env, if you are using gokv in browser you need to implement the `signUrl` API, check https://gokv.io/docs/access-token",
     );
   }
 }

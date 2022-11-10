@@ -1,12 +1,9 @@
 import { assertEquals } from "asserts";
-import { connect } from "./common/rpc.ts";
 import Session from "./Session.ts";
 import "dotenv";
 
-const rpcSocket = await connect(`wss://api.gokv.io/storage/__session__`);
-
-Deno.test("Session Storage", async () => {
-  const config = { cookieName: "sess", rpcSocket };
+Deno.test("Session Storage", { sanitizeOps: false, sanitizeResources: false }, async () => {
+  const config = { cookieName: "sess" };
 
   let session = await Session.create(new Request("https://gokv.io/"), config);
   assertEquals(session.store, null);

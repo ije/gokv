@@ -8,7 +8,7 @@ import type {
   StoragePutOptions,
 } from "../types/mod.d.ts";
 import { checkNamespace } from "./common/utils.ts";
-import { connect, ConnPool } from "./common/rpc.ts";
+import { createPool } from "./common/rpc.ts";
 
 const StorageMethod = {
   get: 1,
@@ -25,10 +25,7 @@ export default class StorageImpl implements Storage {
 
   constructor(options?: StorageOptions) {
     const namespace = checkNamespace(options?.namespace ?? "default");
-    this.#rpc = options?.rpcSocket ??
-      new ConnPool(Math.max(options?.maxConn ?? 4, 1), () => {
-        return connect(`wss://api.gokv.io/storage/${namespace}`);
-      });
+    this.#rpc = createPool("storage", namespace);
   }
 
   // deno-lint-ignore no-explicit-any

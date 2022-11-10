@@ -1,9 +1,5 @@
-import { RPCSocket } from "./common.d.ts";
-
 export type StorageOptions = {
-  maxConn?: number;
   namespace?: string;
-  rpcSocket?: RPCSocket;
 };
 
 export type StorageGetOptions = {
@@ -41,7 +37,7 @@ export class Storage {
   delete(options: StorageDeleteOptions): Promise<number>;
   deleteAll(options?: StoragePutOptions): Promise<void>;
   list<T = unknown>(options?: StorageListOptions): Promise<Map<string, T>>;
-  sum(options?: StorageListOptions & { sumKey: string }): Promise<{ items: number; sum: number }>;
+  sum(options?: StorageListOptions & { sumKey?: string }): Promise<{ items: number; sum: number }>;
   updateNumber: (key: string, delta: number, options?: StoragePutOptions) => Promise<number>;
   // todo: pushElement: (key: string, value: unknown, options?: StoragePutOptions) => Promise<number>;
   // todo: unshiftElement: (key: string, value: unknown, options?: StoragePutOptions) => Promise<number>;

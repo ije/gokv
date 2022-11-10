@@ -23,11 +23,11 @@ Deno.test("Sign Access Token", async () => {
   }
   data = data.replace(/\-/g, "+").replace(/_/g, "/");
 
-  const payload = JSON.parse(atob(data));
-  assertEquals(payload.scope, "document:default/doc-id");
-  assertEquals(payload.auth.uid, 123);
-  assertEquals(payload.auth.name, "Guest");
-  assertEquals(payload.perm, "superuser");
-  assertEquals(typeof payload.$gokvUID, "string");
-  assertEquals(typeof payload.$expires, "number");
+  const [$gokvUID, $expires, scope, user, perm] = JSON.parse(atob(data));
+  assertEquals(scope, "document:default/doc-id");
+  assertEquals(user.uid, 123);
+  assertEquals(user.name, "Guest");
+  assertEquals(perm, "superuser");
+  assertEquals(typeof $gokvUID, "string");
+  assertEquals(typeof $expires, "number");
 });

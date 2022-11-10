@@ -24,12 +24,12 @@ export interface Module {
   config(options: ConfigOptions): void;
   signAccessToken<U extends AuthUser>(
     scope: `${ServiceName}:${string}`,
-    auth: U,
+    user: U,
     permissions?: Permissions,
   ): Promise<string>;
   signAccessToken<U extends AuthUser>(
     request: Request,
-    auth: U,
+    user: U,
     permissions?: Permissions,
   ): Promise<Response>;
   ChatRoom<U extends AuthUser>(roomId: string, options?: ChatRoomOptions): ChatRoom<U>;

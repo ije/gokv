@@ -1,12 +1,9 @@
 import { assertEquals } from "asserts";
-import { connect } from "./common/rpc.ts";
 import Storage from "./Storage.ts";
 import "dotenv";
 
-const rpcSocket = await connect(`wss://api.gokv.io/storage/default`);
-
-Deno.test("Storage", async () => {
-  const kv = new Storage({ rpcSocket });
+Deno.test("Storage", { sanitizeOps: false, sanitizeResources: false }, async () => {
+  const kv = new Storage();
 
   // delete all records firstly
   await kv.deleteAll();
