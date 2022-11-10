@@ -110,6 +110,12 @@ export function equal(c: unknown, d: unknown): boolean {
   })(c, d);
 }
 
+export function assert(expr: unknown) {
+  if (!expr) {
+    throw new Error("Assertion error, check console for details");
+  }
+}
+
 export function assertEquals(actual: unknown, expected: unknown) {
   if (equal(actual, expected)) {
     return;

@@ -4,39 +4,57 @@ import { createElement, useEffect, useState } from "react";
 import { render } from "react-dom";
 
 const tests = [
-  ["Durable Storage", "./TestStorage.ts"],
+  ["KV Storage", "./TestKVStorage.ts"],
+  ["File Storage", "./TestFileStorage.ts"],
 ];
 
 interface Task {
   name: string;
+  desc?: string;
   done: boolean;
   duration?: number;
   error?: string;
+  hidden?: boolean;
 }
 
 function TestApp() {
   const [tasks, setTasks] = useState<Task[]>([]);
 
-  async function test(name: string, module: string) {
-    setTasks((tasks) => [...tasks, { name, done: false }]);
+  async function test(name: string, src: string | CallableFunction, desc?: string) {
+    setTasks((tasks) => [...tasks, { name, desc, done: false }]);
+    const subTasks: [string, CallableFunction][] = [];
     let duration: number | undefined;
     let error: string | undefined;
+    let hidden: boolean | undefined;
     try {
-      const { test: testFn } = await import(module);
-      const t = Date.now();
-      await testFn();
-      duration = Date.now() - t;
+      const { test: testFn, ...rest } = typeof src === "string" ? await import(src) : { test: src };
+      if (typeof testFn === "function") {
+        const t = Date.now();
+        await testFn();
+        duration = Date.now() - t;
+      } else {
+        hidden = true;
+      }
+      for (const [key, value] of Object.entries(rest)) {
+        if (key.startsWith("test_") && typeof value === "function") {
+          subTasks.push([key.slice(5), value]);
+        }
+      }
     } catch (e) {
+      console.error(e);
       error = e.message;
     }
     setTasks((tasks) =>
       tasks.map((task) => {
-        if (task.name === name) {
-          return { ...task, done: true, duration, error };
+        if (task.name === name && task.desc === desc) {
+          return { ...task, done: true, duration, error, hidden };
         }
         return task;
       })
     );
+    for (const [desc, fn] of subTasks) {
+      await test(name, fn, desc);
+    }
   }
 
   useEffect(() => {
@@ -51,14 +69,15 @@ function TestApp() {
     <div>
       <h1>Gokv Testing</h1>
       <ul>
-        {tasks.map((task) => (
+        {tasks.filter((t) => !t.hidden).map((task) => (
           <li id={task.name}>
-            <strong>{task.name}</strong>
+            <strong>{task.name} {task.desc && <em>({task.desc})</em>}</strong>
+            &nbsp;
             {!task.done && <em>testing...</em>}
             {task.done && !task.error && (
               <span>
                 ✅{" "}
-                {task.duration !== undefined && (
+                {task.duration && (
                   <em>{task.duration >= 1000 ? (task.duration / 1000).toFixed(1) + "s" : task.duration + "ms"}</em>
                 )}
               </span>
