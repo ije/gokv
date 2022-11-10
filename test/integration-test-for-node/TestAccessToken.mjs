@@ -21,11 +21,11 @@ await test("Sign Access Token", async () => {
   }
   data = data.replace(/\-/g, "+").replace(/_/g, "/");
 
-  const payload = JSON.parse(Buffer.from(data, "base64").toString());
-  assert.equal(payload.scope, "document:default/doc-id");
-  assert.equal(payload.auth.uid, 123);
-  assert.equal(payload.auth.name, "Guest");
-  assert.equal(payload.perm, "superuser");
-  assert.equal(typeof payload.$gokvUID, "string");
-  assert.equal(typeof payload.$expires, "number");
+  const [$gokvUID, $expires, scope, user, perm] = JSON.parse(Buffer.from(data, "base64").toString());
+  assert.equal(scope, "document:default/doc-id");
+  assert.equal(user.uid, 123);
+  assert.equal(user.name, "Guest");
+  assert.equal(perm, "superuser");
+  assert.equal(typeof $gokvUID, "string");
+  assert.equal(typeof $expires, "number");
 });
