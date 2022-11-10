@@ -56,7 +56,9 @@ export class ConnPool implements RPCSocket {
 
 export function createPool(service: ServiceName, namespace: string): ConnPool {
   const key = `${service}:${namespace}`;
-  if (pools.has(key)) return pools.get(key)!;
+  if (pools.has(key)) {
+    return pools.get(key)!;
+  }
   const pool = new ConnPool(
     Reflect.has(globalThis, "document") ? 1 : maxConn,
     () => connect(`wss://api.gokv.io/${service}/${namespace}`, `${service}:${namespace}`),
