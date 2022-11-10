@@ -1,7 +1,7 @@
 {
   "name": "gokv",
   "version": "0.0.31",
-  "description": "A global, low-latency, and druable key-value store.",
+  "description": "Sync your data at edge.",
   "type": "module",
   "main": "./dist/index.mjs",
   "module": "./dist/index.mjs",
@@ -22,8 +22,7 @@
   },
   "files": [
     "dist/",
-    "types/",
-    "web-polyfill.mjs"
+    "types/"
   ],
   "scripts": {
     "build": "pnpm esbuild --bundle --minify --platform=node --format=esm --target=node14 --sourcemap --outfile=dist/index.mjs mod.ts",
@@ -31,7 +30,7 @@
     "build:web-polyfill": "pnpm esbuild --bundle --minify --platform=node --format=esm --target=node14 --sourcemap --inject:./web-polyfill-shim.mjs --outfile=dist/web-polyfill.mjs web-polyfill.mjs",
     "build:all": "pnpm build && pnpm build:react && pnpm build:web-polyfill",
     "test": "pnpm build:all && node test/integration-test-for-node/bootstrap.mjs",
-    "prepublishOnly": "pnpm build:all"
+    "prepublishOnly": "rm -rf dist && pnpm build:all"
   },
   "repository": {
     "type": "git",
