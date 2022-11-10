@@ -4,12 +4,12 @@ import "dotenv";
 
 Deno.test("Sign Access Token", async () => {
   const token = await atm.signAccessToken(
-    "chat-room:room-id",
+    "document:default/doc-id",
     {
       uid: 123,
       name: "Guest",
     },
-    { read: true, write: true },
+    "superuser",
   );
 
   let [data] = token.split(".");
@@ -24,11 +24,10 @@ Deno.test("Sign Access Token", async () => {
   data = data.replace(/\-/g, "+").replace(/_/g, "/");
 
   const payload = JSON.parse(atob(data));
-  assertEquals(payload.scope, "chat-room:room-id");
+  assertEquals(payload.scope, "document:default/doc-id");
   assertEquals(payload.auth.uid, 123);
   assertEquals(payload.auth.name, "Guest");
-  assertEquals(payload.permissions.read, true);
-  assertEquals(payload.permissions.write, true);
+  assertEquals(payload.perm, "superuser");
   assertEquals(typeof payload.$gokvUID, "string");
   assertEquals(typeof payload.$expires, "number");
 });

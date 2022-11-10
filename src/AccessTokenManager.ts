@@ -20,20 +20,20 @@ export class AccessTokenManager {
     this.#signUrl = url;
   }
 
-  signAccessToken<U extends AuthUser>(
+  async signAccessToken<U extends AuthUser>(
     scope: `${ServiceName}:${string}`,
     auth: U,
-    permissions?: Permissions,
+    perm?: Permissions,
   ): Promise<string>;
-  signAccessToken<U extends AuthUser>(
+  async signAccessToken<U extends AuthUser>(
     request: Request,
     auth: U,
-    permissions?: Permissions,
+    perm?: Permissions,
   ): Promise<Response>;
   async signAccessToken<U extends AuthUser>(
     scopeOrReq: `${ServiceName}:${string}` | Request,
     auth: U,
-    permissions?: Permissions,
+    perm?: Permissions,
   ): Promise<string | Response> {
     const token = this.#token ?? (this.#token = getEnv("GOKV_TOKEN"));
     if (!token) {
@@ -45,7 +45,7 @@ export class AccessTokenManager {
     }
     const promise = fetch("https://api.gokv.io/sign-access-token", {
       method: "POST",
-      body: JSON.stringify({ auth, scope, permissions }),
+      body: JSON.stringify({ scope, auth, perm }),
       headers: {
         "Authorization": `Bearer ${token}`,
       },
