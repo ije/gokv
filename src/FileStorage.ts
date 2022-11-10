@@ -1,4 +1,9 @@
-import type { FileStorage, FileStorageObject, FileStorageOptions } from "../types/FileStorage.d.ts";
+import type {
+  FileStorage,
+  FileStorageObject,
+  FileStorageOptions,
+  FileStoragePutOptions,
+} from "../types/FileStorage.d.ts";
 import atm from "./AccessTokenManager.ts";
 import { checkNamespace, pick } from "./common/utils.ts";
 import { create64 } from "./vendor/xxhash.js";
@@ -16,7 +21,7 @@ export default class FileStorageImpl implements FileStorage {
     return `https://api.gokv.io/file-storage/${this.#namespace}`;
   }
 
-  async put(file: File): Promise<FileStorageObject> {
+  async put(file: File, options?: FileStoragePutOptions): Promise<FileStorageObject> {
     if (file.size > 100 * MB) throw new Error("File size is too large");
 
     // compute file hash using xxhash64
@@ -37,6 +42,7 @@ export default class FileStorageImpl implements FileStorage {
     // Check if the file already exists
     let res = await fetch(this.#apiUrl, {
       method: "HEAD",
+      mode: "cors",
       headers: {
         Authorization: (await atm.getAccessToken(`file-storage:${this.#namespace}`)).join(" "),
         "X-File-Meta": JSON.stringify(fileMeta),
@@ -51,10 +57,28 @@ export default class FileStorageImpl implements FileStorage {
     }
 
     // Upload the file
-    // todo: support progress
+    let bytesUploaded = 0;
+    const progressTrackingStream = new ReadableStream({
+      async start(controller) {
+        const reader = file.slice().stream().getReader();
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          controller.enqueue(value);
+          bytesUploaded += value.byteLength;
+          options?.onProgress?.(bytesUploaded, file.size);
+        }
+        controller.close();
+      },
+    });
     res = await fetch(this.#apiUrl, {
       method: "POST",
-      body: file.stream(),
+      body: progressTrackingStream,
+      // to fix error "The `duplex` member must be specified for a request with a streaming body"
+      // deno-lint-ignore ban-ts-comment
+      // @ts-ignore
+      duplex: "half",
+      mode: "cors",
       headers: {
         Authorization: (await atm.getAccessToken(`file-storage:${this.#namespace}`)).join(" "),
         "X-File-Meta": JSON.stringify(fileMeta),
@@ -69,6 +93,7 @@ export default class FileStorageImpl implements FileStorage {
   async delete(id: string): Promise<void> {
     const res = await fetch(`${this.#apiUrl}/${id}`, {
       method: "DELETE",
+      mode: "cors",
       headers: {
         Authorization: (await atm.getAccessToken(`file-storage:${this.#namespace}`)).join(" "),
       },

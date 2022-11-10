@@ -2,6 +2,10 @@ export type FileStorageOptions = {
   namespace?: string;
 };
 
+export type FileStoragePutOptions = {
+  onProgress?: (loaded: number, total: number) => void;
+};
+
 export type ImageAttr = {
   width: number;
   height: number;
@@ -21,6 +25,6 @@ export type FileStorageObject = {
 
 export class FileStorage {
   constructor(options: FileStorageOptions);
-  put(file: File): Promise<FileStorageObject>;
+  put(file: File, options?: FileStoragePutOptions): Promise<FileStorageObject>;
   delete(id: string): Promise<void>;
 }
