@@ -99,7 +99,7 @@ export async function hmacSign(data: string, secret: string, hash = "SHA-256") {
   return toHex(signature);
 }
 
-export function parseCookie(req: Request): Map<string, string> {
+export function parseCookies(req: Request): Map<string, string> {
   const cookie: Map<string, string> = new Map();
   const value = req.headers.get("cookie");
   if (value) {

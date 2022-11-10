@@ -37,7 +37,9 @@ export class AccessTokenManager {
   ): Promise<string | Response> {
     const token = this.#token ?? (this.#token = getEnv("GOKV_TOKEN"));
     if (!token) {
-      throw new Error("Please add `token` to options or set `GOKV_TOKEN` env, check https://gokv.io/docs/access-token");
+      throw new Error(
+        "Please add `token` to the options or set `GOKV_TOKEN` env, check https://gokv.io/docs/access-token",
+      );
     }
     const scope = typeof scopeOrReq === "string" ? scopeOrReq : new URL(scopeOrReq.url).searchParams.get("scope");
     if (!scope) {
@@ -87,7 +89,7 @@ export class AccessTokenManager {
     }
 
     throw new Error(
-      "Please add `token` to options or set `GOKV_TOKEN` env, if you are using gokv in browsers you need to implement the `signUrl` API, check https://gokv.io/docs/access-token",
+      "Please add `token` to the options or set `GOKV_TOKEN` env, if you are using gokv in browsers you need to implement the `signUrl` API, check https://gokv.io/docs/access-token",
     );
   }
 }

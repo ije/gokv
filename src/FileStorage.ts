@@ -12,6 +12,10 @@ export default class FileStorageImpl implements FileStorage {
     this.#namespace = checkNamespace(options?.namespace ?? "default");
   }
 
+  get #apiUrl() {
+    return `https://api.gokv.io/file-storage/${this.#namespace}`;
+  }
+
   async put(file: File): Promise<FileStorageObject> {
     if (file.size > 100 * MB) throw new Error("File size is too large");
 
@@ -29,7 +33,7 @@ export default class FileStorageImpl implements FileStorage {
     };
 
     // Check if the file already exists
-    let res = await fetch(`https://api.gokv.io/file-storage/${this.#namespace}`, {
+    let res = await fetch(this.#apiUrl, {
       method: "HEAD",
       headers: {
         Authorization: (await atm.getAccessToken(`file-storage:${this.#namespace}`)).join(" "),
@@ -46,7 +50,7 @@ export default class FileStorageImpl implements FileStorage {
 
     // Upload the file
     // todo: support progress
-    res = await fetch(`https://api.gokv.io/file-storage/${this.#namespace}`, {
+    res = await fetch(this.#apiUrl, {
       method: "POST",
       body: file.stream(),
       headers: {
@@ -61,7 +65,7 @@ export default class FileStorageImpl implements FileStorage {
   }
 
   async delete(id: string): Promise<void> {
-    const res = await fetch(`https://api.gokv.io/file-storage/${this.#namespace}/${id}`, {
+    const res = await fetch(`${this.#apiUrl}/${id}`, {
       method: "DELETE",
       headers: {
         Authorization: (await atm.getAccessToken(`file-storage:${this.#namespace}`)).join(" "),

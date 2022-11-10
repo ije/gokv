@@ -14,14 +14,18 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
     this.#initData = options?.initData;
   }
 
+  get #scope() {
+    return this.#namespace + "/" + this.#docId;
+  }
+
   get #apiUrl() {
-    return `https://api.gokv.io/document/${this.#namespace}/${this.#docId}`;
+    return `https://api.gokv.io/document/${this.#scope}`;
   }
 
   async getSnapshot(): Promise<T> {
     const res = await fetch(`${this.#apiUrl}?snapshot`, {
       headers: {
-        "Authorization": (await atm.getAccessToken()).join(" "),
+        "Authorization": (await atm.getAccessToken(`document:${this.#scope}`)).join(" "),
       },
     });
     if (!res.ok) {
@@ -34,7 +38,7 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
     const res = await fetch(this.#apiUrl, {
       method: "PUT",
       headers: {
-        "Authorization": (await atm.getAccessToken()).join(" "),
+        "Authorization": (await atm.getAccessToken(`document:${this.#scope}`)).join(" "),
         "X-Reset-Document": "true",
         "X-Reset-Document-Data": JSON.stringify(data ?? this.#initData ?? {}),
       },
@@ -46,7 +50,7 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
 
   async sync(options?: DocumentSyncOptions): Promise<T> {
     const debug = Boolean(getEnv("DEBUG"));
-    const token = await atm.getAccessToken(`document:${this.#namespace}/${this.#docId}`);
+    const token = await atm.getAccessToken(`document:${this.#scope}`);
     const socketUrl = `wss:${this.#apiUrl.slice("https:".length)}?authToken=${token.join("-")}`;
     return new Promise((resolve, reject) => {
       let doc: T | null = null;

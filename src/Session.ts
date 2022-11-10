@@ -1,7 +1,7 @@
 import type { Session, SessionOptions, Storage, StorageOptions } from "../types/mod.d.ts";
 import atm from "./AccessTokenManager.ts";
 import StorageImpl from "./Storage.ts";
-import { hashText, hmacSign, parseCookie, splitByChar } from "./common/utils.ts";
+import { hashText, hmacSign, parseCookies, splitByChar } from "./common/utils.ts";
 
 const minMaxAge = 60; // one minute
 const defaultMaxAge = 30 * 60; // half an hour
@@ -20,7 +20,7 @@ export default class SessionImpl<StoreType extends Record<string, unknown>> impl
     const cookieName = options?.cookieName || "session";
     const kv: Storage = new StorageImpl({ namespace: "__session__", rpcSocket: options?.rpcSocket });
     const [_, token] = await atm.getAccessToken();
-    let sid = request instanceof Request ? parseCookie(request).get(cookieName) : request.cookies[cookieName];
+    let sid = request instanceof Request ? parseCookies(request).get(cookieName) : request.cookies[cookieName];
     let store: T | null = null;
     if (sid) {
       const [rid, signature] = splitByChar(sid, ".");
