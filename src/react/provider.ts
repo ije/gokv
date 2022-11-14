@@ -1,11 +1,23 @@
 import { createContext, createElement, PropsWithChildren } from "react";
-import { GokvProviderProps } from "../../types/react.d.ts";
+import { GokvContextProps, GokvProviderProps } from "../../types/react.d.ts";
+import { config } from "../../mod.ts";
 
-export const $context = createContext<GokvProviderProps>({
+const defaultGokvProps: GokvContextProps = {
   namespace: "default",
-  signUrl: "/sign-access-token",
-});
+  imagesHost: "img.gokv.io",
+};
 
-export function GokvProvider({ children, ...rest }: PropsWithChildren<GokvProviderProps>) {
-  return createElement($context.Provider, { value: rest }, children);
+export const $context = createContext<GokvContextProps>(defaultGokvProps);
+
+export function GokvProvider({ children, signUrl, ...rest }: PropsWithChildren<GokvProviderProps>) {
+  if (signUrl) {
+    config({ signUrl });
+  }
+  const value = { ...defaultGokvProps };
+  for (const [key, val] of Object.entries(rest)) {
+    if (val !== undefined) {
+      value[key as unknown as keyof GokvContextProps] = val;
+    }
+  }
+  return createElement($context.Provider, { value }, children);
 }

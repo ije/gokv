@@ -1,22 +1,25 @@
-import type { CSSProperties, FC, PropsWithChildren } from "react";
+/// <reference lib="dom" />
+
+import type { FC, FormEventHandler, ImgHTMLAttributes, PropsWithChildren } from "react";
+
+export type GokvContextProps = {
+  namespace: string;
+  imagesHost: string;
+};
 
 export type GokvProviderProps = {
-  namespace?: string;
   signUrl?: string;
-};
+} & Partial<GokvContextProps>;
 
 export const GokvProvider: FC<PropsWithChildren<GokvProviderProps>>;
 
-export interface ImageProps {
+export interface ImageProps extends ImgHTMLAttributes<HTMLImageElement & { averageColor: string }> {
   readonly?: boolean;
-  url?: string;
-  alt?: string;
-  onChange: (url: string) => void;
-  className?: string;
-  style?: CSSProperties;
-  width?: CSSProperties["width"];
-  height?: CSSProperties["height"];
-  fit?: "cover" | "contain";
+  fit?: "cover" | "contain" | "fill";
+  quality?: number;
+  onChange?:
+    | FormEventHandler<{ src: string; alt: string; width: number; height: number; averageColor: string }>
+    | undefined;
 }
 
 export const Image: FC<ImageProps>;

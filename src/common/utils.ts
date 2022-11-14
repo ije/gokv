@@ -8,6 +8,15 @@ export const enc = new TextEncoder();
 export const dec = new TextDecoder();
 export const dummyFn = () => {};
 
+export const toPInt = (v: unknown): number | undefined => {
+  if (typeof v === "number" && !Number.isNaN(v) && Number.isFinite(v)) {
+    const n = Math.round(v);
+    if (n > 0) {
+      return n;
+    }
+  }
+};
+
 export const isPlainObject = (v: unknown): v is Record<string, unknown> => {
   return typeof v === "object" && v !== null && Object.getPrototypeOf(v) === Object.prototype;
 };
