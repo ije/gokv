@@ -57,20 +57,23 @@ export default class FileStorageImpl implements FileStorage {
     }
 
     // Upload the file
-    let bytesUploaded = 0;
-    const progressTrackingStream = new ReadableStream({
-      async start(controller) {
-        const reader = file.slice().stream().getReader();
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          controller.enqueue(value);
-          bytesUploaded += value.byteLength;
-          options?.onProgress?.(bytesUploaded, file.size);
-        }
-        controller.close();
-      },
-    });
+    const onProgress = options?.onProgress;
+    const progressTrackingStream = typeof onProgress === "function" && typeof ReadableStream === "function"
+      ? new ReadableStream({
+        async start(controller) {
+          const reader = file.slice().stream().getReader();
+          let bytesUploaded = 0;
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            controller.enqueue(value);
+            bytesUploaded += value.byteLength;
+            onProgress(bytesUploaded, file.size);
+          }
+          controller.close();
+        },
+      })
+      : file.slice().stream();
     res = await fetch(this.#apiUrl, {
       method: "POST",
       body: progressTrackingStream,
