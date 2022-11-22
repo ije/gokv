@@ -21,9 +21,15 @@ export const isPlainObject = (v: unknown): v is Record<string, unknown> => {
   return typeof v === "object" && v !== null && Object.getPrototypeOf(v) === Object.prototype;
 };
 
-export const isTagedJson = (v: unknown, tagName: string, isArray?: boolean): v is string => {
-  return typeof v === "string" && v.startsWith(tagName + (isArray ? "[" : "{")) && v.endsWith(isArray ? "]" : "}");
-};
+export function checkNamespace(namespace: string) {
+  if (namespace.length > 100) {
+    throw new Error("Namespace is too long");
+  }
+  if (!/^[a-zA-Z0-9_\-\.]+$/.test(namespace)) {
+    throw new Error("Namespace must only contain alphanumeric characters, underscores, dots, and dashes");
+  }
+  return namespace.toLowerCase();
+}
 
 // deno-lint-ignore ban-types
 export const pick = <T extends object, K extends keyof T>(obj: T, ...keys: K[]): Pick<T, K> => {
@@ -43,16 +49,6 @@ export const splitByChar = (str: string, char: string) => {
   return [str, ""];
 };
 
-export function checkNamespace(namespace: string) {
-  if (namespace.length > 100) {
-    throw new Error("Namespace is too long");
-  }
-  if (!/^[a-zA-Z0-9_\-\.]+$/.test(namespace)) {
-    throw new Error("Namespace must only contain alphanumeric characters, underscores, dots, and dashes");
-  }
-  return namespace.toLowerCase();
-}
-
 export function getEnv(key: string): string | undefined {
   const denoNs = Reflect.get(globalThis, "Deno");
   if (denoNs) {
@@ -69,7 +65,7 @@ export function getEnv(key: string): string | undefined {
   return void 0;
 }
 
-export function toBytesInt32(n: number) {
+export function toUInt32Bytes(n: number) {
   const buf = new ArrayBuffer(4);
   const view = new DataView(buf);
   view.setUint32(0, n);
@@ -85,6 +81,10 @@ export function conactBytes(...bytes: Uint8Array[]) {
     offset += b.length;
   }
   return u8a;
+}
+
+export function typedJSON(type: number, data: Record<string, unknown> | unknown[]): Uint8Array {
+  return conactBytes(new Uint8Array([type]), enc.encode(JSON.stringify(data)));
 }
 
 export function toHex(buf: ArrayBuffer, radix = 36): string {
@@ -124,7 +124,7 @@ export function parseCookies(req: Request): Map<string, string> {
 
 export async function createWebSocket(url: string, protocols?: string | string[]) {
   // workaround for cloudflare worker
-  // ref https://developers.cloudflare.com/workers/learning/using-websockets/#writing-a-websocket-client
+  // see https://developers.cloudflare.com/workers/learning/using-websockets/#writing-a-websocket-client
   if (typeof WebSocket === "undefined" && typeof fetch === "function") {
     const headers = new Headers({ Upgrade: "websocket" });
     if (protocols) {

@@ -1,5 +1,6 @@
 export type Permissions = "readonly" | "readwrite" | "superuser";
-export type ServiceName = "chat-room" | "document" | "file-storage" | "storage";
+export type ServiceName = "chat" | "doc" | "fs" | "kv";
+export type ErrorEvent = Error & { code: string; message: string };
 
 export interface AuthUser {
   uid: number | string;

@@ -9,7 +9,7 @@ import { dummyFn, isPlainObject } from "./utils.ts";
 export enum Op {
   SET = 1,
   DELETE = 2,
-  /** for array mutations. */
+  /** for array mutations */
   SPLICE = 3,
 }
 
@@ -21,7 +21,7 @@ export type Patch = Readonly<[
   op: Op,
   path: Path,
   value?: unknown,
-  // makes sure each patch can be inverse applied.
+  // makes sure each patch can be inverse applied
   oldValue?: unknown,
 ]>;
 

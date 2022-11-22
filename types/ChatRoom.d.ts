@@ -1,10 +1,10 @@
-import { AuthUser } from "./common.d.ts";
+import { AuthUser, ErrorEvent } from "./common.d.ts";
 
 export type ChatMessage<U> = {
   id: string;
-  sendId?: string;
   content: string;
   contentType?: string;
+  marker?: string;
   createdAt: number;
   editedAt?: number;
   by: U;
@@ -16,14 +16,14 @@ export type Chat<U> = {
   readonly channel: AsyncIterable<ChatMessage<U>>;
   readonly onlineUsers: U[];
   pullHistory(n?: number): Promise<ChatMessage<U>[]>;
-  on(type: ChatEvent, listener: (event: { type: ChatEvent; user: U }) => void): () => void;
-  send(content: string, contentType?: string, sendId?: string): void;
+  on(type: ChatEvent, listener: (event: { type: ChatEvent; user: U } | ErrorEvent) => void): () => void;
+  send(content: string, contentType?: string, marker?: string): void;
   close(): void;
 };
 
 export type ChatRoomOptions = {
   namespace?: string;
-  history?: number; // default 100
+  history?: number; // default is 100
   rateLimit?: number; // in seconds
 };
 

@@ -2,9 +2,9 @@ import { assertEquals } from "asserts";
 import Session from "./Session.ts";
 import "dotenv";
 
-Deno.test("Session Storage", { sanitizeOps: false, sanitizeResources: false }, async () => {
-  const config = { cookieName: "sess" };
+const config = { cookieName: "sess" };
 
+Deno.test("Session Storage", { sanitizeOps: false, sanitizeResources: false }, async () => {
   let session = await Session.create(new Request("https://gokv.io/"), config);
   assertEquals(session.store, null);
 

@@ -9,7 +9,7 @@ Deno.test("Upload text file", async () => {
     new File(["Hello world!"], "hello.txt", { type: "plain/text" }),
   );
 
-  assert(ret.url.startsWith("https://file.gokv.io/"));
+  assert(ret.url.startsWith("https://file.gokv.dev/"));
   assertEquals(typeof ret.uploadedAt, "number");
   assertEquals(typeof ret.lastModified, "number");
   assertEquals(ret.name, "hello.txt");
@@ -22,19 +22,10 @@ Deno.test("Upload text file", async () => {
   assertEquals(await res.text(), "Hello world!");
   assert(res.headers.has("Etag"));
 
-  const etag = res.headers.get("Etag")!;
-  const res2 = await fetch(ret.url, {
-    headers: {
-      "If-None-Match": `"${etag}"`,
-    },
-  });
+  const res2 = await fetch(ret.url, { headers: { "If-None-Match": res.headers.get("Etag")! } });
   assertEquals(res2.status, 304);
 
-  const res3 = await fetch(ret.url, {
-    headers: {
-      range: "bytes=6-11",
-    },
-  });
+  const res3 = await fetch(ret.url, { headers: { range: "bytes=6-11" } });
   assertEquals(res3.status, 206);
   assertEquals(res3.headers.get("content-range"), "bytes 6-11/12");
   assertEquals(await res3.text(), "world!");
@@ -48,7 +39,7 @@ Deno.test("Upload image file", async () => {
     new File([png], "pixels.png", { type: "image/png" }),
   );
 
-  assert(ret.url.startsWith("https://img.gokv.io/"));
+  assert(ret.url.startsWith("https://img.gokv.dev/"));
   assertEquals(typeof ret.uploadedAt, "number");
   assertEquals(typeof ret.lastModified, "number");
   assertEquals(ret.name, "pixels.png");
@@ -80,13 +71,13 @@ Deno.test("Delete uploaded file", async () => {
     new File(["bar"], "foo.txt", { type: "plain/text" }),
   );
 
-  const res = await fetch(ret.url);
+  const res = await fetch(ret.url + "?t=" + Date.now());
   await res.body?.cancel();
   assertEquals(res.status, 200);
 
   await fs.delete(ret.id);
 
-  const res2 = await fetch(ret.url);
+  const res2 = await fetch(ret.url + "?t=" + Date.now());
   await res2.body?.cancel();
   assertEquals(res2.status, 404);
 });

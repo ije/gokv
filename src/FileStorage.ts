@@ -18,7 +18,7 @@ export default class FileStorageImpl implements FileStorage {
   }
 
   get #apiUrl() {
-    return `https://api.gokv.io/file-storage/${this.#namespace}`;
+    return `https://${atm.apiHost}/fs/${this.#namespace}`;
   }
 
   async put(file: File, options?: FileStoragePutOptions): Promise<FileStorageObject> {
@@ -44,7 +44,7 @@ export default class FileStorageImpl implements FileStorage {
       method: "HEAD",
       mode: "cors",
       headers: {
-        Authorization: (await atm.getAccessToken(`file-storage:${this.#namespace}`)).join(" "),
+        Authorization: (await atm.getAccessToken(`fs:${this.#namespace}`)).join(" "),
         "X-File-Meta": JSON.stringify(fileMeta),
       },
     });
@@ -58,7 +58,7 @@ export default class FileStorageImpl implements FileStorage {
 
     // Upload the file
     const onProgress = options?.onProgress;
-    const progressTrackingStream = typeof onProgress === "function" && typeof ReadableStream === "function"
+    const finalStream = typeof onProgress === "function" && typeof ReadableStream === "function"
       ? new ReadableStream({
         async start(controller) {
           const reader = file.slice().stream().getReader();
@@ -76,14 +76,14 @@ export default class FileStorageImpl implements FileStorage {
       : file.slice().stream();
     res = await fetch(this.#apiUrl, {
       method: "POST",
-      body: progressTrackingStream,
+      body: finalStream,
       // to fix error "The `duplex` member must be specified for a request with a streaming body"
       // deno-lint-ignore ban-ts-comment
       // @ts-ignore
       duplex: "half",
       mode: "cors",
       headers: {
-        Authorization: (await atm.getAccessToken(`file-storage:${this.#namespace}`)).join(" "),
+        Authorization: (await atm.getAccessToken(`fs:${this.#namespace}`)).join(" "),
         "X-File-Meta": JSON.stringify(fileMeta),
       },
     });
@@ -98,7 +98,7 @@ export default class FileStorageImpl implements FileStorage {
       method: "DELETE",
       mode: "cors",
       headers: {
-        Authorization: (await atm.getAccessToken(`file-storage:${this.#namespace}`)).join(" "),
+        Authorization: (await atm.getAccessToken(`fs:${this.#namespace}`)).join(" "),
       },
     });
     if (!res.ok) {

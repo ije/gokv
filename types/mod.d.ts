@@ -37,12 +37,12 @@ export interface Module {
     documentId: string,
     options?: DocumentOptions<T>,
   ): Document<T>;
-  Storage(options?: StorageOptions): Storage;
+  FileStorage(options?: FileStorageOptions): FileStorage;
   Session<T extends Record<string, unknown> = Record<string, unknown>>(
     request: Request | { cookies: Record<string, string> },
     options?: SessionOptions,
   ): Promise<Session<T>>;
-  FileStorage(options?: FileStorageOptions): FileStorage;
+  Storage(options?: StorageOptions): Storage;
 }
 
 export default Module;

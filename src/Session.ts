@@ -5,10 +5,10 @@ import { hashText, hmacSign, parseCookies, splitByChar } from "./common/utils.ts
 
 const minMaxAge = 60; // one minute
 const defaultMaxAge = 30 * 60; // half an hour
+const storage = new StorageImpl({ namespace: "__session__" }) as Storage;
 
 export default class SessionImpl<StoreType extends Record<string, unknown>> implements Session<StoreType> {
   #id: string;
-  #storage: Storage;
   #store: StoreType | null;
   #upTimer: number | null = null;
   #options: Omit<SessionOptions, "maxAge"> & { maxAge: number };
@@ -18,21 +18,20 @@ export default class SessionImpl<StoreType extends Record<string, unknown>> impl
     options?: SessionOptions & StorageOptions,
   ): Promise<Session<T>> {
     const cookieName = options?.cookieName || "session";
-    const kv: Storage = new StorageImpl({ namespace: "__session__" });
     const [_, token] = await atm.getAccessToken();
     let sid = request instanceof Request ? parseCookies(request).get(cookieName) : request.cookies[cookieName];
     let store: T | null = null;
     if (sid) {
       const [rid, signature] = splitByChar(sid, ".");
       if (signature && signature === await hmacSign(rid, token, "SHA-256")) {
-        const value = await kv.get<{ data: T; expires: number }>(sid);
+        const value = await storage.get<{ data: T; expires: number }>(sid);
         if (value) {
           const { expires, data } = value;
           if (Date.now() < expires) {
             store = data;
           } else {
             // delete expired session
-            await kv.delete(sid, { allowUnconfirmed: true });
+            await storage.delete(sid);
           }
         }
       }
@@ -42,20 +41,17 @@ export default class SessionImpl<StoreType extends Record<string, unknown>> impl
       const signature = await hmacSign(rid, token, "SHA-256");
       sid = rid + "." + signature;
     }
-    return new SessionImpl<T>(sid, kv, store, options);
+    return new SessionImpl<T>(sid, store, options);
   }
 
-  constructor(sid: string, kv: Storage, initStore: StoreType | null, options?: SessionOptions) {
+  constructor(sid: string, initStore: StoreType | null, options?: SessionOptions) {
     this.#id = sid;
-    this.#storage = kv;
     this.#store = initStore;
     this.#options = { ...options, maxAge: Math.max(options?.maxAge || defaultMaxAge, minMaxAge) };
     if (initStore !== null) {
       // update expires if the session is already stored
       this.#upTimer = setTimeout(() => {
-        kv.put(sid, { data: initStore, expires: Date.now() + 1000 * this.#options.maxAge }, {
-          allowUnconfirmed: true,
-        });
+        storage.put(sid, { data: initStore, expires: Date.now() + 1000 * this.#options.maxAge });
       }, 0);
     }
   }
@@ -110,10 +106,10 @@ export default class SessionImpl<StoreType extends Record<string, unknown>> impl
     }
 
     if (nextStore === null) {
-      await this.#storage.delete(this.#id);
+      await storage.delete(this.#id);
       this.#store = null;
     } else {
-      await this.#storage.put(this.#id, { data: nextStore, expires: Date.now() + 1000 * this.#options.maxAge });
+      await storage.put(this.#id, { data: nextStore, expires: Date.now() + 1000 * this.#options.maxAge });
       this.#store = nextStore;
     }
   }

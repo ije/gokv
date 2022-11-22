@@ -2,12 +2,14 @@ import type { AuthUser, Permissions, ServiceName } from "../types/mod.d.ts";
 import { getEnv } from "./common/utils.ts";
 
 export class AccessTokenManager {
+  #apiHost?: string;
   #token?: string;
   #signUrl?: string;
 
-  constructor(options?: { token?: string; signUrl?: string }) {
+  constructor(options?: { token?: string; signUrl?: string; apiHost?: string }) {
+    this.#apiHost = options?.apiHost;
     this.#token = options?.token;
-    this.#signUrl = options?.signUrl ?? "/sign-gokv-token";
+    this.#signUrl = options?.signUrl ?? (Reflect.has(globalThis, "document") ? "/sign-gokv-token" : undefined);
   }
 
   setToken(token: string): void {
@@ -16,6 +18,20 @@ export class AccessTokenManager {
 
   setSignUrl(url: string): void {
     this.#signUrl = url;
+  }
+
+  setAPIHost(host: string) {
+    this.#apiHost = host;
+  }
+
+  get apiHost(): string {
+    if (this.#apiHost) {
+      return this.#apiHost;
+    }
+    if (getEnv("GOKV_ENV") === "development") {
+      return this.#apiHost = "api.gokv.dev";
+    }
+    return "api.gokv.io";
   }
 
   async signAccessToken<U extends AuthUser>(
@@ -43,7 +59,7 @@ export class AccessTokenManager {
     if (!scope) {
       throw new Error("Missing scope parameter");
     }
-    const promise = fetch("https://api.gokv.io/sign-access-token", {
+    const promise = fetch(`https://${this.apiHost}/sign-access-token`, {
       method: "POST",
       body: JSON.stringify({ scope, user, perm }),
       headers: {

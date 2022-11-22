@@ -3,12 +3,11 @@ import Document from "./Document.ts";
 import { snapshot, subscribe } from "./common/proxy.ts";
 import "dotenv";
 
-Deno.env.set("DEBUG", "true");
+const doc = new Document<typeof initData>("dev-doc");
 
-const doc = new Document("dev-doc", {
-  initData: { foo: "bar", baz: "qux", arr: ["Hello", "world!"] },
-});
-await doc.reset();
+const initData = { foo: "bar", baz: "qux", arr: ["Hello", "world!"] };
+const { version } = await doc.reset(initData);
+console.log("document has been reset, current version is", version);
 
 const obj = await doc.sync();
 const jbo = await doc.sync();
@@ -21,7 +20,7 @@ const onChange = <T extends Record<string, unknown> | Array<unknown>>(
     const timer = setTimeout(() => {
       dispose();
       reject(new Error("timeout"));
-    }, 10 * 1000);
+    }, 5 * 1000);
     const dispose = subscribe(obj, () => {
       if (predicate(obj)) {
         clearTimeout(timer);

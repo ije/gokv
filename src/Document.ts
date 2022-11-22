@@ -1,17 +1,25 @@
 import type { Document, DocumentOptions, DocumentSyncOptions } from "../types/Document.d.ts";
 import atm from "./AccessTokenManager.ts";
 import { applyPatch, disableNotify, Op, Patch, proxy, remix, restoreArray } from "./common/proxy.ts";
-import { checkNamespace, createWebSocket, getEnv, isTagedJson, SocketStatus } from "./common/utils.ts";
+import { checkNamespace, createWebSocket, dec, getEnv, SocketStatus, typedJSON } from "./common/utils.ts";
+
+enum MessageType {
+  ERROR = 0,
+  PING = 1,
+  SYNC = 2,
+  DOC = 3,
+  DOCGZ = 4,
+  PATCH = 5,
+  CB = 6,
+}
 
 export default class DocumentImpl<T extends Record<string, unknown> | Array<unknown>> implements Document<T> {
   #namespace: string;
   #docId: string;
-  #initData?: T;
 
   constructor(docId: string, options?: DocumentOptions<T>) {
     this.#namespace = checkNamespace(options?.namespace ?? "default");
     this.#docId = checkNamespace(docId);
-    this.#initData = options?.initData;
   }
 
   get #scope() {
@@ -19,13 +27,13 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
   }
 
   get #apiUrl() {
-    return `https://api.gokv.io/document/${this.#scope}`;
+    return `https://${atm.apiHost}/doc/${this.#scope}`;
   }
 
   async getSnapshot(): Promise<T> {
     const res = await fetch(`${this.#apiUrl}?snapshot`, {
       headers: {
-        "Authorization": (await atm.getAccessToken(`document:${this.#scope}`)).join(" "),
+        "Authorization": (await atm.getAccessToken(`doc:${this.#scope}`)).join(" "),
       },
     });
     if (!res.ok) {
@@ -34,23 +42,24 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
     return restoreArray(await res.json()) as T;
   }
 
-  async reset(data?: T): Promise<void> {
+  async reset(data: T): Promise<{ version: number }> {
     const res = await fetch(this.#apiUrl, {
       method: "PUT",
       headers: {
-        "Authorization": (await atm.getAccessToken(`document:${this.#scope}`)).join(" "),
-        "X-Reset-Document": "true",
-        "X-Reset-Document-Data": JSON.stringify(data ?? this.#initData ?? {}),
+        "Authorization": (await atm.getAccessToken(`doc:${this.#scope}`)).join(" "),
+        "Content-Type": "application/json",
       },
+      body: JSON.stringify(data),
     });
     if (!res.ok) {
-      throw new Error(`Failed to reset document: ${res.status} ${res.statusText}`);
+      throw new Error(`Failed to reset document: ${res.status} ${await res.text()}`);
     }
+    return res.json();
   }
 
   async sync(options?: DocumentSyncOptions): Promise<T> {
-    const debug = Boolean(getEnv("DEBUG"));
-    const token = await atm.getAccessToken(`document:${this.#scope}`);
+    const debug = getEnv("GOKV_WS_LOG") === "true";
+    const token = await atm.getAccessToken(`doc:${this.#scope}`);
     const socketUrl = `wss:${this.#apiUrl.slice("https:".length)}?authToken=${token.join("-")}`;
     return new Promise((resolve, reject) => {
       let doc: T | null = null;
@@ -62,15 +71,21 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
       const blockPatches: [string, ...Patch][] = [];
       const uncomfirmedPatches = new Map<string, Patch>();
 
-      const send = (message: string) => {
-        debug && console.debug("gokv.io", "↑", message);
-        socket.send(message);
+      const send = (data: ArrayBufferLike) => {
+        debug && console.debug(
+          "%cgokv.io %c↑",
+          "color:grey",
+          "color:blue",
+          new Uint8Array(data, 0, 1).at(0),
+          dec.decode(data.slice(1)),
+        );
+        socket.send(data);
       };
 
       const push = (() => {
         let promise: Promise<void> | undefined;
         return (id: string, patch: Patch) => {
-          // TODO: remove outdated patches
+          // TODO: remove repeat patches
           blockPatches.push([id, ...patch]);
           promise = promise ?? Promise.resolve().then(() => {
             promise = undefined;
@@ -81,7 +96,7 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
 
       const drain = (patches: [string, ...Patch][]) => {
         try {
-          send("patches" + JSON.stringify(patches));
+          send(typedJSON(MessageType.PATCH, patches));
           patches.forEach(([id, ...patch]) => uncomfirmedPatches.set(id, patch));
         } catch (_) {
           // Whoops, this connection is dead. put back those patches in the queue.
@@ -90,106 +105,121 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
       };
 
       const onopen = () => {
-        send(doc === null ? "HELLO" : "RESYNC" + JSON.stringify({ version: docVersion }));
+        const acceptGzip = typeof CompressionStream === "function";
+        send(typedJSON(MessageType.SYNC, { version: docVersion, acceptGzip }));
       };
 
       const onmessage = ({ data }: MessageEvent) => {
-        if (data instanceof ArrayBuffer) {
-          // TODO: decode binary data
+        if (!(data instanceof ArrayBuffer && data.byteLength > 0)) {
           return;
         }
-        debug && console.debug("gokv.io", "↓", data);
-        if (isTagedJson(data, "document", true)) {
-          const [version, snapshot] = JSON.parse(data.slice(8));
-          if (doc === null) {
-            doc = proxy(snapshot, (patch) => {
-              // todo: merge patches
-              const id = Date.now().toString(36).slice(4) + Math.random().toString(36).slice(2, 6);
-              const arr = patch.slice(0, patch[0] === Op.DELETE ? 2 : 3);
-              if (patch[0] === Op.SPLICE) {
-                arr.push((patch[3] as [string, unknown][]).map(([k]) => [k]));
-              }
-              const stripedPatch = arr as unknown as Patch;
-              push(id, stripedPatch);
-            });
-            if (this.#initData) {
-              for (const [key, value] of Object.entries(this.#initData)) {
-                if (!Reflect.has(doc!, key)) {
-                  // todo: deep check
-                  Reflect.set(doc!, key, value);
+        const [code] = new Uint8Array(data, 0, 1);
+        debug && console.debug(
+          "%cgokv.io%c %c↓",
+          "color:grey",
+          "color:white",
+          "color:green",
+          code,
+          dec.decode(data.slice(1)),
+        );
+        switch (code) {
+          case MessageType.PING: {
+            // todo: call next heartbeat
+            break;
+          }
+          case MessageType.DOC: {
+            const [version, snapshot] = JSON.parse(dec.decode(data.slice(1)));
+            if (doc === null) {
+              doc = proxy(snapshot, (patch) => {
+                // todo: merge patches
+                const id = Date.now().toString(36).slice(4) + Math.random().toString(36).slice(2, 6);
+                const arr = patch.slice(0, patch[0] === Op.DELETE ? 2 : 3);
+                if (patch[0] === Op.SPLICE) {
+                  arr.push((patch[3] as [string, unknown][]).map(([k]) => [k]));
                 }
+                const stripedPatch = arr as unknown as Patch;
+                push(id, stripedPatch);
+              });
+              resolve(doc!);
+            } else {
+              // update the project object with the new version
+              remix(doc, snapshot);
+              if (blockPatches.length > 0) {
+                const patches = blockPatches.splice(0);
+                for (const [, ...patch] of patches) {
+                  applyPatch(doc, patch);
+                }
+                drain(patches);
               }
             }
-            resolve(doc!);
-          } else {
-            remix(doc, snapshot);
-            if (blockPatches.length > 0) {
-              const patches = blockPatches.splice(0);
-              for (const [, ...patch] of patches) {
-                applyPatch(doc, patch);
-              }
-              drain(patches);
-            }
-          }
-          docVersion = version;
-          status = SocketStatus.READY;
-        } else if (isTagedJson(data, "patches", true)) {
-          if (status === SocketStatus.PENDING) {
-            // Theoretically, the server would not send any `patch` message before
-            // the `document` message, just ignore this message.
-            return;
-          }
-          const [version, ...patches] = JSON.parse(data.slice(7)) as [number, ...Patch[]];
-          for (const patch of patches) {
-            const [$op, $path, $values] = patch;
-            let shouldApply = true;
-            for (const [id, patch] of uncomfirmedPatches) {
-              const [op, path] = patch;
-              if (
-                $op <= Op.DELETE && op <= Op.DELETE &&
-                $path.length === path.length && $path.every((v, i) => v === path[i])
-              ) {
-                // mark to discard the patch to avoid "flickering" of conflicts
-                shouldApply = false;
-              } else if (
-                ($op === Op.SET && typeof $values === "object" && $values !== null) &&
-                ($path.length < path.length && $path.every((v, i) => v === path[i]))
-              ) {
-                // mark to re-apply the changes for new parent
-                uncomfirmedPatches.set(`${id}-recycle`, true as unknown as Patch);
-              }
-            }
-            shouldApply && applyPatch(doc!, patch);
-          }
-          if (typeof version === "number" && version > docVersion) {
             docVersion = version;
+            status = SocketStatus.READY;
+            break;
           }
-        } else if (isTagedJson(data, "*update", true)) {
-          const ids = JSON.parse(data.slice(8));
-          for (const id of ids) {
-            if (!uncomfirmedPatches.has(id)) {
-              // illegal message
+          case MessageType.PATCH: {
+            if (status === SocketStatus.PENDING) {
+              // Theoretically, the server would not send any `patch` message before
+              // the `document` message, just ignore this message.
               return;
             }
-            // re-apply the patch for new parent
-            if (uncomfirmedPatches.has(`${id}-recycle`)) {
-              applyPatch(doc!, uncomfirmedPatches.get(id)!);
-              uncomfirmedPatches.delete(`${id}-recycle`);
+            const [version, ...patches] = JSON.parse(dec.decode(data.slice(1))) as [number, ...Patch[]];
+            for (const patch of patches) {
+              const [$op, $path, $values] = patch;
+              let shouldApply = true;
+              for (const [id, patch] of uncomfirmedPatches) {
+                const [op, path] = patch;
+                if (
+                  $op <= Op.DELETE && op <= Op.DELETE &&
+                  $path.length === path.length && $path.every((v, i) => v === path[i])
+                ) {
+                  // mark to discard the patch to avoid "flickering" of conflicts
+                  shouldApply = false;
+                } else if (
+                  ($op === Op.SET && typeof $values === "object" && $values !== null) &&
+                  ($path.length < path.length && $path.every((v, i) => v === path[i]))
+                ) {
+                  // mark to re-apply the changes for new parent
+                  uncomfirmedPatches.set(`${id}-recycle`, true as unknown as Patch);
+                }
+              }
+              shouldApply && applyPatch(doc!, patch);
             }
-            uncomfirmedPatches.delete(id);
+            if (typeof version === "number" && version > docVersion) {
+              docVersion = version;
+            }
+            break;
+          }
+          case MessageType.CB: {
+            const ids = JSON.parse(dec.decode(data.slice(1)));
+            for (const id of ids) {
+              if (!uncomfirmedPatches.has(id)) {
+                // illegal message
+                return;
+              }
+              // re-apply the patch for new parent
+              if (uncomfirmedPatches.has(`${id}-recycle`)) {
+                applyPatch(doc!, uncomfirmedPatches.get(id)!);
+                uncomfirmedPatches.delete(`${id}-recycle`);
+              }
+              uncomfirmedPatches.delete(id);
+            }
+            break;
+          }
+          case MessageType.ERROR: {
+            const { code, message } = JSON.parse(dec.decode(data.slice(1)));
+            options?.onError?.(code, message);
+            console.error(`[gokv] Document(${this.#docId}): ${code} ${message}`);
+            break;
           }
         }
       };
 
       const onerror = (e: Event | ErrorEvent) => {
-        if (status === SocketStatus.PENDING && !rejected) {
-          reject(
-            new Error((e as ErrorEvent)?.message ?? "unknown websocket error"),
-          );
+        if (!rejected) {
+          reject(new Error((e as ErrorEvent)?.message ?? "unknown websocket error"));
           rejected = true;
-          return;
         }
-        console.warn(`[gokv] Document(${this.#docId}): ${(e as ErrorEvent)?.message ?? "unknown websocket error"}`);
+        console.error(`[gokv] Document(${this.#docId}): ${(e as ErrorEvent)?.message ?? "unknown websocket error"}`);
       };
 
       const onabort = () => {
@@ -205,7 +235,7 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
         status = SocketStatus.CLOSE;
         uncomfirmedPatches.clear();
         blockPatches.splice(0);
-        console.warn(`[gokv] Document(${this.#docId}): aborted`);
+        console.error(`[gokv] Document(${this.#docId}): aborted`);
       };
 
       const onclose = () => {
@@ -220,6 +250,7 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
       const start = (ws: WebSocket) => {
         status = SocketStatus.PENDING;
         socket = ws;
+        socket.binaryType = "arraybuffer";
         socket.addEventListener("open", onopen);
         socket.addEventListener("message", onmessage);
         socket.addEventListener("error", onerror);

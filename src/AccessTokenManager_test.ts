@@ -4,7 +4,7 @@ import "dotenv";
 
 Deno.test("Sign Access Token", async () => {
   const token = await atm.signAccessToken(
-    "document:default/doc-id",
+    "doc:default/doc-id",
     {
       uid: 123,
       name: "Guest",
@@ -24,7 +24,7 @@ Deno.test("Sign Access Token", async () => {
   data = data.replace(/\-/g, "+").replace(/_/g, "/");
 
   const [$gokvUID, $expires, scope, user, perm] = JSON.parse(atob(data));
-  assertEquals(scope, "document:default/doc-id");
+  assertEquals(scope, "doc:default/doc-id");
   assertEquals(user.uid, 123);
   assertEquals(user.name, "Guest");
   assertEquals(perm, "superuser");

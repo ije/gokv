@@ -62,15 +62,6 @@ export function signAccessToken<U extends AuthUser>(
 export default {
   config,
   signAccessToken,
-  Session<T extends Record<string, unknown> = Record<string, unknown>>(
-    request: Request | { cookies: Record<string, string> },
-    options?: SessionOptions & StorageOptions,
-  ): Promise<Session<T>> {
-    return SessionImpl.create<T>(request, { ...options });
-  },
-  Storage(options?: StorageOptions): Storage {
-    return new StorageImpl({ ...options });
-  },
   ChatRoom<U extends AuthUser>(roomId: string, options?: ChatRoomOptions): ChatRoom<U> {
     return new ChatRoomImpl(roomId, options);
   },
@@ -82,5 +73,14 @@ export default {
   },
   FileStorage(options?: FileStorageOptions): FileStorage {
     return new FileStorageImpl(options);
+  },
+  Session<T extends Record<string, unknown> = Record<string, unknown>>(
+    request: Request | { cookies: Record<string, string> },
+    options?: SessionOptions & StorageOptions,
+  ): Promise<Session<T>> {
+    return SessionImpl.create<T>(request, { ...options });
+  },
+  Storage(options?: StorageOptions): Storage {
+    return new StorageImpl({ ...options });
   },
 } as Module;
