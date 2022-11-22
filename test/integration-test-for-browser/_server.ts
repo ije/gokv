@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.165.0/http/server.ts";
 import html from "https://deno.land/x/htm@0.1.2/mod.ts";
-import { build } from "https://deno.land/x/esbuild@v0.15.13/mod.js";
+import { build } from "https://deno.land/x/esbuild@v0.15.15/mod.js";
 import gokv from "gokv";
 import "dotenv";
 
@@ -12,7 +12,7 @@ serve(async (req: Request) => {
   }
 
   if (/\.(jsx?|tsx?)$/.test(pathname)) {
-    let entryPoint = import.meta.resolve("." + pathname).slice("file://".length);
+    let entryPoint = import.meta.resolve("." + pathname).slice(7);
     try {
       await Deno.stat(entryPoint);
     } catch (err) {
