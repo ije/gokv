@@ -52,7 +52,7 @@ jobs:
           GOKV_WS_LOG: true
           GOKV_ENV: development
           GOKV_TOKEN: ${{ secrets.GOKV_TOKEN }}
-        run: deno test -A src/
+        run: deno test -A
 
       - name: Testing in Node.js
         env:

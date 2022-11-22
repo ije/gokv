@@ -1,8 +1,13 @@
 {
   "importMap": "import_map.json",
   "tasks": {
-    "test": "deno test -A src/",
+    "test": "deno test -A",
     "test:web": "deno run -A --watch test/integration-test-for-browser/_server.ts"
+  },
+  "test": {
+    "files": {
+      "include": ["src/"]
+    }
   },
   "fmt": {
     "options": {
