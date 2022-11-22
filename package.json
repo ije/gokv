@@ -27,10 +27,10 @@
   "scripts": {
     "build": "pnpm esbuild --bundle --minify --platform=node --format=esm --target=node14 --sourcemap --outfile=dist/index.mjs mod.ts",
     "build:react": "pnpm esbuild --bundle --minify --platform=node --format=esm --target=node14 --external:react --external:../../mod.ts --sourcemap --outfile=dist/react.mjs react.ts && sed -i '' 's/..\\/..\\/mod.ts/gokv/g' dist/react.mjs",
-    "build:web-polyfill": "pnpm esbuild --bundle --minify --platform=node --format=esm --target=node14 --sourcemap --inject:./web-polyfill-shim.mjs --outfile=dist/web-polyfill.mjs web-polyfill.mjs",
+    "build:web-polyfill": "pnpm esbuild --bundle --minify --platform=node --format=esm --target=node14 --inject:./web-polyfill-shim.mjs --outfile=dist/web-polyfill.mjs web-polyfill.mjs",
     "build:all": "pnpm build && pnpm build:react && pnpm build:web-polyfill",
     "test": "pnpm build:all && node test/integration-test-for-node/bootstrap.mjs",
-    "prepublishOnly": "rm -rf dist && pnpm build:all"
+    "prepublishOnly": "rm -rf dist && pnpm test"
   },
   "repository": {
     "type": "git",
@@ -45,8 +45,8 @@
   "devDependencies": {
     "@peculiar/webcrypto": "1.4.1",
     "dotenv": "16.0.3",
-    "esbuild": "0.15.13",
-    "node-fetch": "3.2.10",
+    "esbuild": "0.15.15",
+    "node-fetch": "3.3.0",
     "websocket": "1.0.34"
   },
   "engines": {
