@@ -6,7 +6,6 @@ serve(async (req: Request) => {
 
   try {
     const session = await gokv.Session<{ username: string }>(req, {
-      namespace: "gokv-example",
       cookieSameSite: "None", // allow cookie in iframe
     });
     switch (url.pathname) {
@@ -15,14 +14,14 @@ serve(async (req: Request) => {
         const username = form.get("username");
         const password = form.get("password");
         if (username === "admin" && password === "admin") {
-          // update store and redirect to "/dash"
-          return session.update({ username }, "/dash");
+          // update store and redirect to "/dashboard"
+          return session.update({ username }, "/dashboard");
         }
         return new Response("Invalid username or password", { status: 400 });
       }
       case "/logout":
-        // end session and redirect to "/home"
-        return session.end("/home");
+        // end session and redirect to "/" (home page)
+        return session.end("/");
       default:
         if (session.store) {
           return new Response(
