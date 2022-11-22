@@ -86,7 +86,7 @@ export class AccessTokenManager {
       if (!scope) {
         throw new Error("Missing scope");
       }
-      const value = globalThis.localStorage?.getItem(`gokv_token:${this.#signUrl}:${scope}`);
+      const value = globalThis.localStorage?.getItem(`gokv_token:${scope}`);
       try {
         const { token, expires } = JSON.parse(value!);
         if (typeof token === "string" && typeof expires === "number" && expires > Date.now()) {
