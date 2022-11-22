@@ -1,4 +1,4 @@
-import { serve } from "https://deno.land/std@0.160.0/http/server.ts";
+import { serve } from "https://deno.land/std@0.165.0/http/server.ts";
 import html from "https://deno.land/x/htm@0.1.2/mod.ts";
 import { build } from "https://deno.land/x/esbuild@v0.15.13/mod.js";
 import gokv from "gokv";
