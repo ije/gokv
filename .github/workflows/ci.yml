@@ -39,23 +39,9 @@ jobs:
         with:
           deno-version: v1.x
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v2
-        with:
-          node-version: 16.18
-
-      - name: Install pnpm
-        run: npm install -g pnpm
-
-      - name: Testing in Deno
+      - name: Testing (development)
         env:
+          GOKV_WS_LOG: true
+          GOKV_ENV: development
           GOKV_TOKEN: ${{ secrets.GOKV_TOKEN }}
         run: deno test -A src/
-
-      - name: Build dist
-        run: pnpm install
-
-      - name: Testing in Node.js
-        env:
-          GOKV_TOKEN: ${{ secrets.GOKV_TOKEN }}
-        run: pnpm test
