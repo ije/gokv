@@ -3,6 +3,9 @@
 import { createElement, useEffect, useState } from "react";
 import { render } from "react-dom";
 
+// use api.gokv.dev endpoint for integration test
+localStorage.setItem("GOKV_ENV", "development");
+
 const tests = [
   ["KV Storage", "./TestKVStorage.ts"],
   ["File Storage", "./TestFileStorage.ts"],
