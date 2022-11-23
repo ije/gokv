@@ -2,13 +2,12 @@ import { serve } from "https://deno.land/std@0.165.0/http/server.ts";
 import gokv from "https://deno.land/x/gokv@0.0.32/mod.ts";
 
 serve(async (req: Request) => {
-  const url = new URL(req.url);
-
   try {
     const session = await gokv.Session<{ username: string }>(req, {
       cookieSameSite: "None", // allow cookie in iframe
     });
-    switch (url.pathname) {
+    const { pathname } = new URL(req.url);
+    switch (pathname) {
       case "/login": {
         const form = await req.formData();
         const username = form.get("username");

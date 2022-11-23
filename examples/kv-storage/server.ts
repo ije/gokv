@@ -5,10 +5,13 @@ const kv = gokv.Storage();
 
 serve(async (_req) => {
   try {
-    await kv.put("msg", "Hello world!");
-    const value = await kv.get<string>("msg");
+    let value = await kv.get<string>("msg");
+    if (value === undefined) {
+      value = "Hello world!";
+      await kv.put("msg", value);
+    }
     return new Response(value);
-  } catch (e) {
-    return new Response(e.message, { status: 500 });
+  } catch (err) {
+    return new Response(err.message, { status: 500 });
   }
 });
