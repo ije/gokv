@@ -1,4 +1,4 @@
-export type Permissions = "readonly" | "readwrite" | "superuser";
+export type Permission = "readonly" | "readwrite" | "superuser";
 export type ServiceName = "chat" | "doc" | "fs" | "kv";
 export type ErrorEvent = Error & { code: string; message: string };
 

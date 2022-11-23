@@ -8,7 +8,7 @@ import type {
   FileStorage,
   FileStorageOptions,
   Module,
-  Permissions,
+  Permission,
   ServiceName,
   Session,
   SessionOptions,
@@ -44,19 +44,22 @@ export const config = ({ token, signUrl }: ConfigOptions) => {
 export function signAccessToken<U extends AuthUser>(
   scope: `${ServiceName}:${string}`,
   auth: U,
-  permissions?: Permissions,
+  perm: Permission,
+  maxAge?: number,
 ): Promise<string>;
 export function signAccessToken<U extends AuthUser>(
   request: Request,
   auth: U,
-  permissions?: Permissions,
+  perm: Permission,
+  maxAge?: number,
 ): Promise<Response>;
 export function signAccessToken<U extends AuthUser>(
   scopeOrReq: `${ServiceName}:${string}` | Request,
   auth: U,
-  permissions?: Permissions,
+  perm: Permission,
+  maxAge?: number,
 ): Promise<string | Response> {
-  return atm.signAccessToken(scopeOrReq as Request, auth, permissions);
+  return atm.signAccessToken(scopeOrReq as Request, auth, perm, maxAge);
 }
 
 export default {

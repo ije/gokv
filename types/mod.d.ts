@@ -1,4 +1,4 @@
-import { AuthUser, Permissions, ServiceName } from "./common.d.ts";
+import { AuthUser, Permission, ServiceName } from "./common.d.ts";
 import { ChatRoom, ChatRoomOptions } from "./ChatRoom.d.ts";
 import { Document, DocumentOptions } from "./Document.d.ts";
 import { Storage, StorageOptions } from "./Storage.d.ts";
@@ -25,12 +25,14 @@ export interface Module {
   signAccessToken<U extends AuthUser>(
     scope: `${ServiceName}:${string}`,
     user: U,
-    permissions?: Permissions,
+    perm: Permission,
+    maxAge?: number,
   ): Promise<string>;
   signAccessToken<U extends AuthUser>(
     request: Request,
     user: U,
-    permissions?: Permissions,
+    perm: Permission,
+    maxAge?: number,
   ): Promise<Response>;
   ChatRoom<U extends AuthUser>(roomId: string, options?: ChatRoomOptions): ChatRoom<U>;
   Document<T extends Record<string, unknown> | Array<unknown>>(

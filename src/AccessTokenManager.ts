@@ -1,4 +1,4 @@
-import type { AuthUser, Permissions, ServiceName } from "../types/mod.d.ts";
+import type { AuthUser, Permission, ServiceName } from "../types/mod.d.ts";
 import { getEnv } from "./common/utils.ts";
 
 export class AccessTokenManager {
@@ -37,22 +37,25 @@ export class AccessTokenManager {
   async signAccessToken<U extends AuthUser>(
     scope: `${ServiceName}:${string}`,
     user: U,
-    perm?: Permissions,
+    perm: Permission,
+    maxAge?: number,
   ): Promise<string>;
   async signAccessToken<U extends AuthUser>(
     request: Request,
     user: U,
-    perm?: Permissions,
+    perm: Permission,
+    maxAge?: number,
   ): Promise<Response>;
   async signAccessToken<U extends AuthUser>(
     scopeOrReq: `${ServiceName}:${string}` | Request,
     user: U,
-    perm?: Permissions,
+    perm: Permission,
+    maxAge?: number,
   ): Promise<string | Response> {
     const token = this.#token ?? (this.#token = getEnv("GOKV_TOKEN"));
     if (!token) {
       throw new Error(
-        "Please add `token` to the options or set `GOKV_TOKEN` env, check https://gokv.io/docs/access-token",
+        "Please config `token` or set `GOKV_TOKEN` env, check https://gokv.io/docs/access-token",
       );
     }
     const scope = typeof scopeOrReq === "string" ? scopeOrReq : new URL(scopeOrReq.url).searchParams.get("scope");
@@ -61,7 +64,7 @@ export class AccessTokenManager {
     }
     const promise = fetch(`https://${this.apiHost}/sign-access-token`, {
       method: "POST",
-      body: JSON.stringify({ scope, user, perm }),
+      body: JSON.stringify({ scope, user, perm, maxAge }),
       headers: {
         "Authorization": `Bearer ${token}`,
       },
@@ -115,7 +118,7 @@ export class AccessTokenManager {
     }
 
     throw new Error(
-      "Please add `token` to the options or set `GOKV_TOKEN` env, if you are using gokv in browser you need to implement the `signUrl` API, check https://gokv.io/docs/access-token",
+      "Please config `token` or set `GOKV_TOKEN` env, if you are using gokv in browser you need to implement the `signUrl` API, check https://gokv.io/docs/access-token",
     );
   }
 }
