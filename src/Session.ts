@@ -10,28 +10,35 @@ const storage = new StorageImpl({ namespace: "__session__" }) as Storage;
 export default class SessionImpl<StoreType extends Record<string, unknown>> implements Session<StoreType> {
   #id: string;
   #store: StoreType | null;
-  #upTimer: number | null = null;
-  #options: Omit<SessionOptions, "maxAge"> & { maxAge: number };
+  #options?: SessionOptions;
 
   static async create<T extends Record<string, unknown>>(
     request: Request | { cookies: Record<string, string> },
     options?: SessionOptions & StorageOptions,
   ): Promise<Session<T>> {
     const cookieName = options?.cookieName || "session";
-    const [_, token] = await atm.getAccessToken();
+    const [tokenType, token] = await atm.getAccessToken();
+    if (tokenType === "JWT") {
+      throw new Error("JWT token is not supported");
+    }
     let sid = request instanceof Request ? parseCookies(request).get(cookieName) : request.cookies[cookieName];
     let store: T | null = null;
     if (sid) {
       const [rid, signature] = splitByChar(sid, ".");
       if (signature && signature === await hmacSign(rid, token, "SHA-256")) {
-        const value = await storage.get<{ data: T; expires: number }>(sid);
-        if (value) {
-          const { expires, data } = value;
-          if (Date.now() < expires) {
+        const value = await storage.get<[data: T, expires: number]>(sid);
+        if (Array.isArray(value)) {
+          const now = Date.now();
+          const [data, expires] = value;
+          if (now < expires) {
             store = data;
+            if (expires - now < minMaxAge * 1000) {
+              // renew the session
+              storage.put(sid, [data, SessionImpl.expiresFromNow(options?.maxAge)]);
+            }
           } else {
             // delete expired session
-            await storage.delete(sid);
+            storage.delete(sid);
           }
         }
       }
@@ -44,16 +51,14 @@ export default class SessionImpl<StoreType extends Record<string, unknown>> impl
     return new SessionImpl<T>(sid, store, options);
   }
 
+  static expiresFromNow(maxAge = defaultMaxAge): number {
+    return Date.now() + 1000 * Math.max(maxAge, minMaxAge);
+  }
+
   constructor(sid: string, initStore: StoreType | null, options?: SessionOptions) {
     this.#id = sid;
     this.#store = initStore;
-    this.#options = { ...options, maxAge: Math.max(options?.maxAge || defaultMaxAge, minMaxAge) };
-    if (initStore !== null) {
-      // update expires if the session is already stored
-      this.#upTimer = setTimeout(() => {
-        storage.put(sid, { data: initStore, expires: Date.now() + 1000 * this.#options.maxAge });
-      }, 0);
-    }
+    this.#options = options;
   }
 
   get id(): string {
@@ -65,7 +70,7 @@ export default class SessionImpl<StoreType extends Record<string, unknown>> impl
   }
 
   #cookie(): string {
-    const { cookieName = "session", cookieDomain, cookiePath, cookieSameSite, cookieSecure } = this.#options;
+    const { cookieName = "session", cookieDomain, cookiePath, cookieSameSite, cookieSecure } = this.#options ?? {};
     const cookie = [];
     if (this.#store === null) {
       cookie.push(`${cookieName}=`, "Expires=Thu, 01 Jan 1970 00:00:01 GMT");
@@ -100,33 +105,24 @@ export default class SessionImpl<StoreType extends Record<string, unknown>> impl
       nextStore = store;
     }
 
-    if (this.#upTimer) {
-      clearTimeout(this.#upTimer);
-      this.#upTimer = null;
-    }
-
     if (nextStore === null) {
       await storage.delete(this.#id);
       this.#store = null;
     } else {
-      await storage.put(this.#id, { data: nextStore, expires: Date.now() + 1000 * this.#options.maxAge });
+      await storage.put(this.#id, [nextStore, SessionImpl.expiresFromNow(this.#options?.maxAge)]);
       this.#store = nextStore;
     }
   }
 
-  async end(redirectTo: string): Promise<Response> {
-    await this.#update(null);
-    return new Response("", {
-      status: 302,
-      headers: { "Set-Cookie": this.#cookie(), "Location": redirectTo },
-    });
+  async update(store: StoreType | ((prev: StoreType | null) => StoreType)): Promise<void> {
+    await this.#update(store);
   }
 
-  async update(store: StoreType | ((prev: StoreType | null) => StoreType), redirectTo: string): Promise<Response> {
-    await this.#update(store);
-    return new Response("", {
-      status: 302,
-      headers: { "Set-Cookie": this.#cookie(), "Location": redirectTo },
-    });
+  async clear(): Promise<void> {
+    await this.#update(null);
+  }
+
+  redirect(to: string, status = 302): Response {
+    return new Response(null, { status, headers: { "Set-Cookie": this.#cookie(), "Location": to } });
   }
 }

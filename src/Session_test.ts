@@ -8,8 +8,9 @@ Deno.test("Session Storage", { sanitizeOps: false, sanitizeResources: false }, a
   let session = await Session.create(new Request("https://gokv.io/"), config);
   assertEquals(session.store, null);
 
-  // login as "alice"
-  const res = await session.update({ username: "alice" }, "/dashboard");
+  // login as "saul"
+  await session.update({ username: "saul" });
+  const res = session.redirect("/dashboard");
   assertEquals(res.headers.get("Set-Cookie"), `sess=${session.id}; HttpOnly`);
   assertEquals(res.headers.get("Location"), "/dashboard");
   assertEquals(res.status, 302);
@@ -20,13 +21,14 @@ Deno.test("Session Storage", { sanitizeOps: false, sanitizeResources: false }, a
     }),
     config,
   );
-  assertEquals(session.store, { username: "alice" });
+  assertEquals(session.store, { username: "saul" });
 
   session = await Session.create({ cookies: { sess: session.id } }, config);
-  assertEquals(session.store, { username: "alice" });
+  assertEquals(session.store, { username: "saul" });
 
   // end session
-  const res2 = await session.end("/home");
+  await session.clear();
+  const res2 = session.redirect("/home");
   assertEquals(
     res2.headers.get("Set-Cookie"),
     `sess=; Expires=Thu, 01 Jan 1970 00:00:01 GMT; HttpOnly`,

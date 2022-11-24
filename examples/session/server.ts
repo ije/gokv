@@ -13,14 +13,16 @@ serve(async (req: Request) => {
         const username = form.get("username");
         const password = form.get("password");
         if (username === "admin" && password === "admin") {
-          // update store and redirect to "/dashboard"
-          return session.update({ username }, "/dashboard");
+          // update session store and redirect to "/dashboard"
+          await session.update({ username });
+          return session.redirect("/dashboard");
         }
         return new Response("Invalid username or password", { status: 400 });
       }
       case "/logout":
-        // end session and redirect to "/" (home page)
-        return session.end("/");
+        // clear the session and redirect to "/" (home page)
+        await session.clear();
+        return session.redirect("/");
       default:
         if (session.store) {
           return new Response(
