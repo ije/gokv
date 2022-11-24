@@ -1,9 +1,3 @@
-export enum SocketStatus {
-  PENDING = 0,
-  READY = 1,
-  CLOSE = 2,
-}
-
 export const enc = new TextEncoder();
 export const dec = new TextDecoder();
 export const dummyFn = () => {};
@@ -83,8 +77,14 @@ export function conactBytes(...bytes: Uint8Array[]) {
   return u8a;
 }
 
-export function typedJSON(type: number, data: Record<string, unknown> | unknown[]): Uint8Array {
-  return conactBytes(new Uint8Array([type]), enc.encode(JSON.stringify(data)));
+export function gzip(data: ArrayBufferLike): Promise<ArrayBuffer> {
+  return new Response(new Blob([data]).stream().pipeThrough(new CompressionStream("gzip")))
+    .arrayBuffer();
+}
+
+export function ungzip(data: ArrayBufferLike): Promise<ArrayBuffer> {
+  return new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream("gzip")))
+    .arrayBuffer();
 }
 
 export function toHex(buf: ArrayBuffer, radix = 36): string {

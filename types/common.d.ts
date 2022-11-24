@@ -7,8 +7,8 @@ export interface AuthUser {
   name: string;
 }
 
-export interface RPCSocket {
-  invoke<T = unknown>(method: number, ...args: unknown[]): Promise<T>;
+export interface Socket {
+  send(flag: number, data: Uint8Array | Record<string, unknown> | Array<unknown>): void;
   close(): void;
 }
 

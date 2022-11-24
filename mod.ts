@@ -70,9 +70,9 @@ export default {
   },
   Document<T extends Record<string, unknown> | Array<unknown>>(
     documentId: string,
-    options?: DocumentOptions<T>,
+    options?: DocumentOptions,
   ): Document<T> {
-    return new DocumentImpl(documentId, options);
+    return new DocumentImpl<T>(documentId, options);
   },
   FileStorage(options?: FileStorageOptions): FileStorage {
     return new FileStorageImpl(options);

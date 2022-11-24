@@ -1,15 +1,16 @@
-export type DocumentOptions<T> = {
+export type DocumentOptions = {
   namespace?: string;
 };
 
 export type DocumentSyncOptions = {
   signal?: AbortSignal;
   onError?: (code: string, message: string) => void;
+  onStatusChange?: (offline: boolean) => void;
 };
 
 /** `Document` syncs changes between sessions and saved automatically. */
 export class Document<T extends Record<string, unknown> | Array<unknown>> {
-  constructor(documentId: string, options?: DocumentOptions<T>);
+  constructor(documentId: string, options?: DocumentOptions);
   /** Resets the document with the given `data`. */
   reset(data?: T): Promise<{ version: number }>;
   /** Gets snapshot of the document. */

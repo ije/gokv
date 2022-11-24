@@ -1,5 +1,4 @@
 import type {
-  RPCSocket,
   Storage,
   StorageDeleteOptions,
   StorageGetOptions,
@@ -8,7 +7,7 @@ import type {
   StoragePutOptions,
 } from "../types/mod.d.ts";
 import { checkNamespace, isPlainObject } from "./common/utils.ts";
-import { connect } from "./common/rpc.ts";
+import { connectRPC, RPCSocket } from "./common/rpc.ts";
 
 const cacheMaxKeys = 100;
 
@@ -39,7 +38,7 @@ export default class StorageImpl implements Storage {
       }
       return this.#rpcSocket;
     }
-    return this.#rpcSocket = connect("kv", this.#namespace, {
+    return this.#rpcSocket = connectRPC("kv", this.#namespace, {
       onReconnect: (socket) => {
         const hotKeys = this.#cacheStore.keys();
         socket.invoke<Map<string, unknown>>(StorageMethod.GET, hotKeys, 1).then((entries) =>

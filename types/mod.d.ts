@@ -37,7 +37,7 @@ export interface Module {
   ChatRoom<U extends AuthUser>(roomId: string, options?: ChatRoomOptions): ChatRoom<U>;
   Document<T extends Record<string, unknown> | Array<unknown>>(
     documentId: string,
-    options?: DocumentOptions<T>,
+    options?: DocumentOptions,
   ): Document<T>;
   FileStorage(options?: FileStorageOptions): FileStorage;
   Session<T extends Record<string, unknown> = Record<string, unknown>>(

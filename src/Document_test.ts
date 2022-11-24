@@ -35,7 +35,7 @@ Deno.test("Document snapshot", async () => {
   assertEquals(snapshot, { foo: "bar", baz: "qux", arr: ["Hello", "world!"] });
 });
 
-Deno.test("Update document object", async () => {
+Deno.test("Update document object", { sanitizeOps: false, sanitizeResources: false }, async () => {
   assertEquals(obj.baz, "qux");
   assertEquals(jbo.baz, obj.baz);
   assertEquals(jbo.foo, obj.foo);
@@ -54,7 +54,7 @@ Deno.test("Update document object", async () => {
   assertEquals(jbo.foo, obj.foo);
 });
 
-Deno.test("Update document array", async () => {
+Deno.test("Update document array", { sanitizeOps: false, sanitizeResources: false }, async () => {
   assertEquals(snapshot(obj.arr), ["Hello", "world!"]);
   assertEquals(snapshot(obj.arr), snapshot(jbo.arr));
 
