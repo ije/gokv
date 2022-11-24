@@ -23,12 +23,8 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
     return this.#namespace + "/" + this.#docId;
   }
 
-  get #apiUrl() {
-    return `https://${atm.apiHost}/doc/${this.#scope}`;
-  }
-
   async getSnapshot(): Promise<T> {
-    const res = await fetch(`${this.#apiUrl}?snapshot`, {
+    const res = await fetch(`https://${atm.apiHost}/doc/${this.#scope}?snapshot`, {
       headers: {
         "Authorization": (await atm.getAccessToken(`doc:${this.#scope}`)).join(" "),
       },
@@ -40,7 +36,7 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
   }
 
   async reset(data: T): Promise<{ version: number }> {
-    const res = await fetch(this.#apiUrl, {
+    const res = await fetch(`https://${atm.apiHost}/doc/${this.#scope}`, {
       method: "PUT",
       headers: {
         "Authorization": (await atm.getAccessToken(`doc:${this.#scope}`)).join(" "),
@@ -127,7 +123,7 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
             const ids = JSON.parse(dec.decode(data));
             for (const id of ids) {
               if (!uncomfirmedPatches.has(id)) {
-                // illegal message
+                // ignore invalid id
                 return;
               }
               // re-apply the patch for new parent
@@ -183,7 +179,7 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
         socket.send(MessageFlag.PATCH, patches);
         patches.forEach(([id, ...patch]) => uncomfirmedPatches.set(id, patch));
       } catch (_) {
-        // Whoops, this connection is dead. put back those patches in the queue.
+        // Whoops, the connection is dead! Put back those patches in the queue.
         blockPatches.unshift(...patches);
       }
     };

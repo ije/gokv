@@ -39,6 +39,7 @@ export async function connectRPC(
       }
     },
     onReconnect: (socket) => {
+      awaits.clear();
       options.onReconnect({ invoke, close: socket.close });
     },
     // for debug
@@ -74,14 +75,8 @@ export async function connectRPC(
     new Promise((resolve, reject) => {
       const invokeId = invokeIndex++;
       try {
-        socket.send(
-          MessageFlag.INVOKE,
-          conactBytes(
-            toUInt32Bytes(invokeId),
-            new Uint8Array([method]),
-            enc.encode(JSON.stringify(args)),
-          ),
-        );
+        const data = conactBytes(toUInt32Bytes(invokeId), new Uint8Array([method]), enc.encode(JSON.stringify(args)));
+        socket.send(MessageFlag.INVOKE, data);
         const timer = setTimeout(() => {
           awaits.delete(invokeId);
           reject(new Error("Invoke PRC timeout"));

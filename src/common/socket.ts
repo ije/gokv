@@ -18,7 +18,7 @@ const pingTimeout = 5 * 1000; // wait for ping message for 5 seconds
 const pingInterval = 30 * 1000; // do heartbeat pre 30 seconds
 const flags = ["PING", "INIT", "ERROR"];
 
-/** Creating a `WebSocket` connection to handle RPC requests. */
+/** Creating a `WebSocket` connection that supports heartbeat checking, gzip compression, inspect, and automatic re-connection. */
 export async function connect(
   service: ServiceName,
   namespace: string,
@@ -43,7 +43,7 @@ export async function connect(
     let pingTimer: number | undefined;
     let hbTimer: number | undefined;
 
-    // send data & reset the heartbeat
+    // send data and compress it if possible
     const send = async (flag: number, data: Uint8Array | Record<string, unknown> | Array<unknown>) => {
       if (status === SocketStatus.PENDING) throw new Error("Pending socket");
       if (status === SocketStatus.CLOSE) throw new Error("Dead socket");
