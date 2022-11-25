@@ -51,6 +51,10 @@ export default class StorageImpl implements Storage {
     });
   }
 
+  #isHot(key: string): boolean {
+    return this.#cacheStore.has(key);
+  }
+
   #cache(entries: IterableIterator<[string, unknown]> | [string, unknown][]): void {
     const store = this.#cacheStore;
     for (const [key, value] of entries) {
@@ -72,7 +76,7 @@ export default class StorageImpl implements Storage {
     if (keys.length > cacheMaxKeys) {
       throw new Error("only support preload less than 100 keys");
     }
-    keys = keys.filter((key) => !this.#cacheStore.has(key));
+    keys = keys.filter((key) => !this.#isHot(key));
     if (keys.length === 0) {
       return;
     }
@@ -94,7 +98,7 @@ export default class StorageImpl implements Storage {
 
     // get single key-value pair
     if (typeof keyOrKeysOrOptions === "string" && keyOrKeysOrOptions.length > 0) {
-      if (this.#cacheStore.has(keyOrKeysOrOptions)) {
+      if (this.#isHot(keyOrKeysOrOptions)) {
         return this.#cacheStore.get(keyOrKeysOrOptions);
       }
       const rpc = await this.#rpc();
@@ -105,10 +109,13 @@ export default class StorageImpl implements Storage {
 
     // get multiple key-value pairs
     if (Array.isArray(keyOrKeysOrOptions)) {
+      if (keyOrKeysOrOptions.length > 100) {
+        throw new Error("only support get less than 100 keys");
+      }
       const hitKeys: string[] = [];
       const keys: string[] = [];
       for (const key of keyOrKeysOrOptions) {
-        if (this.#cacheStore.has(key)) {
+        if (this.#isHot(key)) {
           hitKeys.push(key);
         } else {
           keys.push(key);
@@ -138,15 +145,17 @@ export default class StorageImpl implements Storage {
     const hot = !options?.noCache ? 1 : 0;
     const rpc = await this.#rpc();
     if (typeof keyOrEntries === "string") {
-      if (value === undefined) {
-        await rpc.invoke(StorageMethod.DELETE, keyOrEntries, hot);
-      } else {
-        await rpc.invoke(StorageMethod.PUT, keyOrEntries, value, hot);
+      await rpc.invoke(StorageMethod.PUT, keyOrEntries, value ?? null, hot);
+      if (hot || this.#isHot(keyOrEntries)) {
+        this.#cache([[keyOrEntries, value ?? null]]);
       }
-      if (hot) this.#cache([[keyOrEntries, value]]);
-    } else if (typeof keyOrEntries === "object" && keyOrEntries !== null) {
+    } else if (isPlainObject(keyOrEntries)) {
       await rpc.invoke(StorageMethod.PUT, keyOrEntries, undefined, hot);
-      if (hot) this.#cache(Object.entries(keyOrEntries));
+      if (hot) {
+        this.#cache(Object.entries(keyOrEntries));
+      } else {
+        this.#cache(Object.entries(keyOrEntries).filter(([key]) => this.#isHot(key)));
+      }
     }
   }
 
@@ -158,11 +167,15 @@ export default class StorageImpl implements Storage {
     const hot = !options?.noCache ? 1 : 0;
     const rpc = await this.#rpc();
     const ret = await rpc.invoke(StorageMethod.DELETE, keyOrKeysOrOptions, hot);
-    if (hot) {
-      if (typeof keyOrKeysOrOptions === "string" && keyOrKeysOrOptions.length > 0 && ret === true) {
+    if (typeof keyOrKeysOrOptions === "string" && keyOrKeysOrOptions.length > 0 && ret === true) {
+      if (hot || this.#isHot(keyOrKeysOrOptions)) {
         this.#cache([[keyOrKeysOrOptions, undefined]]);
-      } else if (Array.isArray(keyOrKeysOrOptions) && typeof ret === "number" && ret > 0) {
+      }
+    } else if (Array.isArray(keyOrKeysOrOptions) && typeof ret === "number" && ret > 0) {
+      if (hot) {
         this.#cache(keyOrKeysOrOptions.map((key) => [key, undefined]));
+      } else {
+        this.#cache(keyOrKeysOrOptions.filter((key) => this.#isHot(key)).map((key) => [key, undefined]));
       }
     }
     return ret;
@@ -175,7 +188,9 @@ export default class StorageImpl implements Storage {
     const hot = !options?.noCache ? 1 : 0;
     const rpc = await this.#rpc();
     const ret = await rpc.invoke<number>(StorageMethod.UPDATE_NUMBER, key, delta, hot);
-    if (hot) this.#cache([[key, ret]]);
+    if (hot || this.#isHot(key)) {
+      this.#cache([[key, ret]]);
+    }
     return ret;
   }
 

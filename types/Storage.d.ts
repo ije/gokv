@@ -7,7 +7,6 @@ export type StorageGetOptions = {
 };
 
 export type StoragePutOptions = {
-  allowUnconfirmed?: boolean;
   noCache?: boolean;
 };
 
