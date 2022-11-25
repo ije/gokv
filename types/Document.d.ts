@@ -5,7 +5,7 @@ export type DocumentOptions = {
 export type DocumentSyncOptions = {
   signal?: AbortSignal;
   onError?: (code: string, message: string) => void;
-  onStatusChange?: (offline: boolean) => void;
+  onStatusChange?: (status: number) => void;
 };
 
 /** `Document` syncs changes between sessions and saved automatically. */

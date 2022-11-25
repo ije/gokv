@@ -2,12 +2,6 @@ import { ServiceName, Socket } from "../../types/common.d.ts";
 import atm from "../AccessTokenManager.ts";
 import { conactBytes, createWebSocket, dec, enc, getEnv, gzip, ungzip } from "./utils.ts";
 
-enum SocketStatus {
-  PENDING = 0,
-  READY = 1,
-  CLOSE = 2,
-}
-
 enum MessageFlag {
   PING = 100,
   INIT = 101,
@@ -18,19 +12,24 @@ const pingTimeout = 5 * 1000; // wait for ping message for 5 seconds
 const pingInterval = 30 * 1000; // do heartbeat pre 30 seconds
 const flags = ["PING", "INIT", "ERROR"];
 
+export enum SocketStatus {
+  CLOSE = 0,
+  PENDING = 1,
+  READY = 2,
+}
+
+export type SocketOptions = {
+  resolveFlag?: number;
+  initData?: () => Record<string, unknown>;
+  inspect?: (flag: number, gzFlag: number, message: ArrayBufferLike) => string;
+  onError?: (code: string, message: string) => void;
+  onMessage?: (flag: number, message: ArrayBufferLike) => void;
+  onReconnect?: (socket: Socket) => void;
+  onStatusChange?: (status: SocketStatus) => void;
+};
+
 /** Creating a `WebSocket` connection that supports heartbeat checking, gzip compression, inspect, and automatic re-connection. */
-export async function connect(
-  service: ServiceName,
-  namespace: string,
-  options: {
-    resolveFlag?: number;
-    initData?: () => Record<string, unknown>;
-    inspect?: (flag: number, gzFlag: number, message: ArrayBufferLike) => string;
-    onError?: (code: string, message: string) => void;
-    onMessage?: (flag: number, message: ArrayBufferLike) => void;
-    onReconnect?: (socket: Socket) => void;
-  },
-): Promise<Socket> {
+export async function connect(service: ServiceName, namespace: string, options: SocketOptions = {}): Promise<Socket> {
   const debug = getEnv("GOKV_WS_LOG") === "true";
   const socketUrl = new URL(`wss://${atm.apiHost}/${service}/${namespace}`);
   const token = await atm.getAccessToken(`${service}:${namespace}`);
@@ -45,8 +44,6 @@ export async function connect(
 
     // send data and compress it if possible
     const send = async (flag: number, data: Uint8Array | Record<string, unknown> | Array<unknown>) => {
-      if (status === SocketStatus.PENDING) throw new Error("Pending socket");
-      if (status === SocketStatus.CLOSE) throw new Error("Dead socket");
       let gzFlag = 0;
       if (!(data instanceof Uint8Array)) {
         data = enc.encode(JSON.stringify(data));
@@ -68,7 +65,7 @@ export async function connect(
     };
 
     const close = () => {
-      status = SocketStatus.CLOSE;
+      setStatus(SocketStatus.CLOSE);
       if (pingTimer) clearTimeout(pingTimer);
       if (hbTimer) clearTimeout(hbTimer);
       socket.removeEventListener("open", onOpen);
@@ -90,25 +87,36 @@ export async function connect(
         socket.send(new Uint8Array([MessageFlag.PING]));
         pingTimer = setTimeout(() => {
           pingTimer = undefined;
-          socket.close(1011, "ping timeout");
+          socket.close(3000, "ping timeout");
           options.onError?.("timeout", "ping timeout");
-          console.error(`[gokv] socket ${service}/${namespace}: <timeout> ping timeout`);
+          console.error(`[gokv] socket(${service}/${namespace}): <timeout> ping timeout`);
         }, pingTimeout);
       }, pingInterval);
     };
 
-    const onOpen = () => {
-      status = SocketStatus.READY;
-      send(MessageFlag.INIT, { ...options.initData?.(), acceptGzip: typeof DecompressionStream === "function" });
-      heartbeat();
-      if (!resolved && !options.resolveFlag) {
+    const setStatus = (newStatus: SocketStatus) => {
+      status = newStatus;
+      options.onStatusChange?.(status);
+    };
+
+    const onReady = () => {
+      setStatus(SocketStatus.READY);
+      if (!resolved) {
         resolve({ send, close });
         resolved = true;
       }
     };
 
+    const onOpen = () => {
+      send(MessageFlag.INIT, { ...options.initData?.(), acceptGzip: typeof DecompressionStream === "function" });
+      heartbeat();
+      if (!options.resolveFlag) {
+        onReady();
+      }
+    };
+
     const onMessage = async (e: MessageEvent) => {
-      if (!(status === SocketStatus.READY && e.data instanceof ArrayBuffer && e.data.byteLength > 0)) {
+      if (!(e.data instanceof ArrayBuffer && e.data.byteLength > 0)) {
         return;
       }
       const [flag, gzFlag] = new Uint8Array(e.data, 0, 2);
@@ -121,14 +129,13 @@ export async function connect(
         case MessageFlag.ERROR: {
           const { code, message } = JSON.parse(dec.decode(data));
           options.onError?.(code, message);
-          console.error(`[gokv] socket ${service}/${namespace}: <${code}> ${message}`);
+          console.error(`[gokv] socket(${service}/${namespace}): <${code}> ${message}`);
           break;
         }
         default: {
           options.onMessage?.(flag, data);
-          if (options.resolveFlag && options.resolveFlag === flag && !resolved) {
-            resolve({ send, close });
-            resolved = true;
+          if (options.resolveFlag && options.resolveFlag === flag) {
+            onReady();
           }
         }
       }
@@ -151,15 +158,12 @@ export async function connect(
         options.onError?.("clientError", (e as ErrorEvent)?.message ?? "Unknown websocket error");
       }
       console.error(
-        `[gokv] socket ${service}/${namespace}: ${(e as ErrorEvent)?.message ?? "Unknown websocket error"}`,
+        `[gokv] socket(${service}/${namespace}): ${(e as ErrorEvent)?.message ?? "Unknown websocket error"}`,
       );
     };
 
     const onClose = () => {
-      if (status === SocketStatus.CLOSE) {
-        // alreay closed
-        return;
-      }
+      setStatus(SocketStatus.CLOSE);
 
       // clear timers
       hbTimer && clearTimeout(hbTimer);
@@ -167,10 +171,9 @@ export async function connect(
       hbTimer = undefined;
       pingTimer = undefined;
 
-      status = SocketStatus.CLOSE;
-
       // reconnect
       if (resolved) {
+        setStatus(SocketStatus.PENDING);
         createWebSocket(socketUrl.href).then((ws) => {
           const { onReconnect } = options;
           if (onReconnect) {
@@ -182,11 +185,15 @@ export async function connect(
           }
           start(ws);
         });
+        console.warn(`[gokv] socket(${service}/${namespace}) closed, reconnecting...`);
       }
     };
 
     const start = (ws: WebSocket) => {
-      status = SocketStatus.PENDING;
+      if (socket?.readyState === WebSocket.OPEN) {
+        // close old socket
+        socket.close();
+      }
       socket = ws;
       socket.binaryType = "arraybuffer";
       socket.addEventListener("open", onOpen);

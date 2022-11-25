@@ -1,7 +1,7 @@
 import type { Document, DocumentOptions, DocumentSyncOptions } from "../types/Document.d.ts";
 import atm from "./AccessTokenManager.ts";
 import { applyPatch, disableNotify, Op, Patch, proxy, remix, restoreArray } from "./common/proxy.ts";
-import { connect } from "./common/socket.ts";
+import { connect, SocketStatus } from "./common/socket.ts";
 import { checkNamespace, dec } from "./common/utils.ts";
 
 enum MessageFlag {
@@ -54,6 +54,7 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
     let doc: T | null = null;
     let docVersion = -1;
     let patchIndex = 0;
+    let socketStatus: SocketStatus = SocketStatus.PENDING;
 
     const socket = await connect("doc", this.#scope, {
       resolveFlag: MessageFlag.DOC,
@@ -71,7 +72,7 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
                   arr.push((patch[3] as [string, unknown][]).map(([k]) => [k]));
                 }
                 const stripedPatch = arr as unknown as Patch;
-                push(id.toString(36), stripedPatch);
+                queue(id.toString(36), stripedPatch);
               });
             } else {
               // update the proxy object with the new snapshot
@@ -79,8 +80,8 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
               // the `reset` marks the document is reset by API
               if (!reset) {
                 uncomfirmedPatches.clear();
-                if (blockPatches.length > 0) {
-                  const patches = blockPatches.splice(0);
+                if (blockedPatches.length > 0) {
+                  const patches = blockedPatches.splice(0);
                   for (const [, ...patch] of patches) {
                     applyPatch(doc!, patch);
                   }
@@ -137,6 +138,11 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
           }
         }
       },
+      onStatusChange: (status) => {
+        socketStatus = status;
+        options?.onStatusChange?.(status);
+      },
+      onError: options?.onError,
       // for debug
       inspect: (flag, gzFlag, message) => {
         const print = (buf: ArrayBuffer) => {
@@ -159,34 +165,37 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
       },
     });
 
-    const blockPatches: [string, ...Patch][] = [];
+    const blockedPatches: [string, ...Patch][] = [];
     const uncomfirmedPatches = new Map<string, Patch>();
 
-    const push = (() => {
+    const queue = (() => {
       let promise: Promise<void> | undefined;
       return (id: string, patch: Patch) => {
         // TODO: remove repeat patches
-        blockPatches.push([id, ...patch]);
+        blockedPatches.push([id, ...patch]);
         promise = promise ?? Promise.resolve().then(() => {
           promise = undefined;
-          drain(blockPatches.splice(0));
+          drain(blockedPatches.splice(0));
         });
       };
     })();
 
     const drain = (patches: [string, ...Patch][]) => {
       try {
+        if (socketStatus !== SocketStatus.READY) {
+          throw new Error("Bad socket");
+        }
         socket.send(MessageFlag.PATCH, patches);
         patches.forEach(([id, ...patch]) => uncomfirmedPatches.set(id, patch));
       } catch (_) {
         // Whoops, the connection is dead! Put back those patches in the queue.
-        blockPatches.unshift(...patches);
+        blockedPatches.unshift(...patches);
       }
     };
 
     options?.signal?.addEventListener("abort", () => {
       socket.close();
-      blockPatches.length = 0;
+      blockedPatches.length = 0;
       uncomfirmedPatches.clear();
       if (doc) {
         disableNotify(doc);
