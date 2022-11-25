@@ -34,11 +34,11 @@ export default class SessionImpl<StoreType extends Record<string, unknown>> impl
             store = data;
             if (expires - now < minMaxAge * 1000) {
               // renew the session
-              storage.put(sid, [data, SessionImpl.expiresFromNow(options?.maxAge)]);
+              await storage.put(sid, [store, SessionImpl.expiresFromNow(options?.maxAge)]);
             }
           } else {
             // delete expired session
-            storage.delete(sid);
+            await storage.delete(sid, { noCache: true });
           }
         }
       }
@@ -106,7 +106,7 @@ export default class SessionImpl<StoreType extends Record<string, unknown>> impl
     }
 
     if (nextStore === null) {
-      await storage.delete(this.#id);
+      await storage.delete(this.#id, { noCache: true });
       this.#store = null;
     } else {
       await storage.put(this.#id, [nextStore, SessionImpl.expiresFromNow(this.#options?.maxAge)]);

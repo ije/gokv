@@ -21,9 +21,9 @@ enum StorageMethod {
 }
 
 export default class StorageImpl implements Storage {
-  #cacheStore: Map<string, unknown>;
   #namespace: string;
   #rpcSocket: RPCSocket | Promise<RPCSocket> | null;
+  #cacheStore: Map<string, unknown>;
 
   constructor(options?: StorageOptions) {
     this.#cacheStore = new Map();
@@ -168,14 +168,16 @@ export default class StorageImpl implements Storage {
     const rpc = await this.#rpc();
     const ret = await rpc.invoke(StorageMethod.DELETE, keyOrKeysOrOptions, hot);
     if (typeof keyOrKeysOrOptions === "string" && keyOrKeysOrOptions.length > 0 && ret === true) {
-      if (hot || this.#isHot(keyOrKeysOrOptions)) {
+      if (hot) {
         this.#cache([[keyOrKeysOrOptions, undefined]]);
+      } else {
+        this.#cacheStore.delete(keyOrKeysOrOptions);
       }
     } else if (Array.isArray(keyOrKeysOrOptions) && typeof ret === "number" && ret > 0) {
       if (hot) {
         this.#cache(keyOrKeysOrOptions.map((key) => [key, undefined]));
       } else {
-        this.#cache(keyOrKeysOrOptions.filter((key) => this.#isHot(key)).map((key) => [key, undefined]));
+        keyOrKeysOrOptions.forEach((key) => this.#cacheStore.delete(key));
       }
     }
     return ret;
