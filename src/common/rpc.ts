@@ -8,7 +8,7 @@ enum MessageFlag {
   SYNC = 3,
 }
 
-const invokeTimeout = 15 * 1000; // inovke timeout in 15 seconds
+const invokeTimeout = 15 * 1000; // invoke timeout in 15 seconds
 
 export type RPCSocket = {
   invoke<T>(method: number, ...args: unknown[]): Promise<T>;

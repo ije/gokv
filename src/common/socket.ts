@@ -173,6 +173,7 @@ export async function connect(service: ServiceName, namespace: string, options: 
 
       // reconnect
       if (resolved) {
+        console.warn(`[gokv] socket(${service}/${namespace}) closed, reconnecting...`);
         setStatus(SocketStatus.PENDING);
         createWebSocket(socketUrl.href).then((ws) => {
           const { onReconnect } = options;
@@ -185,7 +186,6 @@ export async function connect(service: ServiceName, namespace: string, options: 
           }
           start(ws);
         });
-        console.warn(`[gokv] socket(${service}/${namespace}) closed, reconnecting...`);
       }
     };
 
