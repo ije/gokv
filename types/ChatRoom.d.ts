@@ -1,4 +1,4 @@
-import { AuthUser, ErrorEvent } from "./common.d.ts";
+import { AuthUser } from "./common.d.ts";
 
 export type ChatMessage<U> = {
   id: string;
@@ -10,13 +10,14 @@ export type ChatMessage<U> = {
   by: U;
 };
 
-export type ChatEvent = "userjoin" | "userleave" | "usertype";
+export type ChatEvent = "userjoin" | "userquit" | "usertype";
 
 export type Chat<U> = {
   readonly channel: AsyncIterable<ChatMessage<U>>;
   readonly onlineUsers: U[];
   pullHistory(n?: number): Promise<ChatMessage<U>[]>;
-  on(type: ChatEvent, listener: (event: { type: ChatEvent; user: U } | ErrorEvent) => void): () => void;
+  on(type: ChatEvent, listener: (event: { type: ChatEvent; user: U }) => void): () => void;
+  on(type: "error", listener: (event: { type: "error"; code: string; message: string } & Error) => void): () => void;
   send(content: string, contentType?: string, marker?: string): void;
   close(): void;
 };
