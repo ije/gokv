@@ -2,15 +2,15 @@ import { ServiceName, Socket } from "../../types/common.d.ts";
 import atm from "../AccessTokenManager.ts";
 import { conactBytes, createWebSocket, dec, enc, getEnv, gzip, ungzip } from "./utils.ts";
 
-enum MessageFlag {
-  PING = 100,
-  INIT = 101,
-  ERROR = 102,
-}
+const MessageFlag = {
+  PING: 100,
+  INIT: 101,
+  ERROR: 102,
+};
 
 const pingTimeout = 5 * 1000; // wait for ping message for 5 seconds
-const pingInterval = 30 * 1000; // do heartbeat pre 30 seconds
-const flags = ["PING", "INIT", "ERROR"];
+const pingInterval = 30 * 1000; // send ping message pre 30 seconds
+const gzipMinLength = 1000; // gzip if message size is larger than 1KB
 
 export enum SocketStatus {
   CLOSE = 0,
@@ -22,7 +22,7 @@ export type SocketOptions = {
   resolveFlag?: number;
   initData?: () => Record<string, unknown>;
   inspect?: (flag: number, gzFlag: number, message: ArrayBufferLike) => string;
-  onError?: (code: string, message: string) => void;
+  onError?: (code: string, message: string, details?: Record<string, unknown>) => void;
   onMessage?: (flag: number, message: ArrayBufferLike) => void;
   onReconnect?: (socket: Socket) => void;
   onStatusChange?: (status: SocketStatus) => void;
@@ -48,7 +48,7 @@ export async function connect(service: ServiceName, namespace: string, options: 
       if (!(data instanceof Uint8Array)) {
         data = enc.encode(JSON.stringify(data));
       }
-      if (data.byteLength > 1024 && CompressionStream) {
+      if (typeof CompressionStream === "function" && data.byteLength > gzipMinLength) {
         data = new Uint8Array(await gzip(data));
         gzFlag = 1;
       }
@@ -58,8 +58,8 @@ export async function connect(service: ServiceName, namespace: string, options: 
         "%cgokv.io %c↑",
         "color:grey",
         "color:blue",
-        flag >= MessageFlag.PING && flags[flag - 100]
-          ? `${flags[flag - 100]} ${dec.decode(data)}`
+        flag >= MessageFlag.PING
+          ? `${Object.entries(MessageFlag).find(([, f]) => flag === f)?.[0] ?? flag} ${dec.decode(data)}`
           : options.inspect?.(flag, gzFlag, data.buffer) ?? `${flag} ${dec.decode(data)}`,
       );
     };
@@ -89,7 +89,7 @@ export async function connect(service: ServiceName, namespace: string, options: 
           pingTimer = undefined;
           socket.close(3000, "ping timeout");
           options.onError?.("timeout", "ping timeout");
-          console.error(`[gokv] socket(${service}/${namespace}): <timeout> ping timeout`);
+          console.error(`[gokv] socket(${service}/${namespace}): ping timeout`);
         }, pingTimeout);
       }, pingInterval);
     };
@@ -119,7 +119,7 @@ export async function connect(service: ServiceName, namespace: string, options: 
       if (!(e.data instanceof ArrayBuffer && e.data.byteLength > 0)) {
         return;
       }
-      const [flag, gzFlag] = new Uint8Array(e.data, 0, 2);
+      const [flag, gzFlag] = new Uint8Array(e.data, 0, Math.min(e.data.byteLength, 2));
       const data = gzFlag === 1 ? await ungzip(e.data.slice(2)) : e.data.slice(2);
       switch (flag) {
         case MessageFlag.PING: {
@@ -127,8 +127,8 @@ export async function connect(service: ServiceName, namespace: string, options: 
           break;
         }
         case MessageFlag.ERROR: {
-          const { code, message } = JSON.parse(dec.decode(data));
-          options.onError?.(code, message);
+          const { code, message, ...rest } = JSON.parse(dec.decode(data));
+          options.onError?.(code, message, rest);
           console.error(`[gokv] socket(${service}/${namespace}): <${code}> ${message}`);
           break;
         }
@@ -139,13 +139,13 @@ export async function connect(service: ServiceName, namespace: string, options: 
           }
         }
       }
-      debug && console.debug(
+      debug && flag !== MessageFlag.PING && console.debug(
         "%cgokv.io%c %c↓",
         "color:grey",
         "color:white",
         "color:green",
-        flag >= MessageFlag.PING && flags[flag - 100]
-          ? `${flags[flag - 100]} ${dec.decode(data)}`
+        flag > MessageFlag.PING
+          ? `${Object.entries(MessageFlag).find(([, f]) => flag === f)?.[0] ?? flag} ${dec.decode(data)}`
           : options.inspect?.(flag, gzFlag, data) ?? `${flag} ${dec.decode(data)}`,
       );
     };
@@ -155,11 +155,10 @@ export async function connect(service: ServiceName, namespace: string, options: 
         reject(e);
         rejected = true;
       } else {
-        options.onError?.("clientError", (e as ErrorEvent)?.message ?? "Unknown websocket error");
+        const message = (e as ErrorEvent)?.message ?? "Unknown websocket error";
+        options.onError?.("clientError", message);
+        console.error(`[gokv] socket(${service}/${namespace}): ${message}`);
       }
-      console.error(
-        `[gokv] socket(${service}/${namespace}): ${(e as ErrorEvent)?.message ?? "Unknown websocket error"}`,
-      );
     };
 
     const onClose = () => {
