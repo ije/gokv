@@ -26,7 +26,7 @@
   ],
   "scripts": {
     "build": "pnpm esbuild --bundle --minify --platform=node --format=esm --target=node14 --sourcemap --outfile=dist/index.mjs mod.ts",
-    "build:react": "pnpm esbuild --bundle --minify --platform=node --format=esm --target=node14 --external:react --external:../../mod.ts --sourcemap --outfile=dist/react.mjs react.ts && sed -i '' 's/..\\/..\\/mod.ts/gokv/g' dist/react.mjs",
+    "build:react": "pnpm esbuild --bundle --minify --platform=node --format=esm --target=node14 --external:react --external:../../mod.ts --sourcemap --outfile=dist/react.mjs react.ts && deno eval \"let f='dist/react.mjs';Deno.writeTextFileSync(f,Deno.readTextFileSync(f).replaceAll('../../mod.ts','gokv'))\"",
     "build:web-polyfill": "pnpm esbuild --bundle --minify --platform=node --format=esm --target=node14 --inject:./web-polyfill-shim.mjs --outfile=dist/web-polyfill.mjs web-polyfill.mjs",
     "build:all": "pnpm build && pnpm build:react && pnpm build:web-polyfill",
     "test": "pnpm build:all && node test/integration-test-for-node/bootstrap.mjs",
