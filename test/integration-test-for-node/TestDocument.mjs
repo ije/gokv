@@ -9,12 +9,12 @@ console.log("document has been reset, current version is", version);
 const obj = await doc.sync();
 const jbo = await doc.sync();
 
-const onChange = (obj, predicate) => {
+const watch = (obj, predicate) => {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       dispose();
       reject(new Error("timeout"));
-    }, 5 * 1000);
+    }, 6 * 1000);
     const dispose = subscribe(obj, () => {
       if (predicate(obj)) {
         clearTimeout(timer);
@@ -30,13 +30,14 @@ await test("Document snapshot", async () => {
 });
 
 await test("Update document object", async () => {
+  assertEquals(obj.foo, "bar");
   assertEquals(obj.baz, "qux");
-  assertEquals(jbo.baz, obj.baz);
   assertEquals(jbo.foo, obj.foo);
+  assertEquals(jbo.baz, obj.baz);
 
   const promise = Promise.all([
-    onChange(obj, () => obj.baz === undefined),
-    onChange(jbo, () => jbo.foo === obj.foo),
+    watch(obj, () => obj.baz === undefined),
+    watch(jbo, () => jbo.foo === obj.foo),
   ]);
 
   obj.foo = crypto.randomUUID();
@@ -53,8 +54,8 @@ await test("Update document array", async () => {
   assertEquals(snapshot(obj.arr), snapshot(jbo.arr));
 
   const promise = Promise.all([
-    onChange(obj.arr, (arr) => arr.length === 4),
-    onChange(jbo.arr, (arr) => arr.length === 4),
+    watch(obj.arr, (arr) => arr.length === 4),
+    watch(jbo.arr, (arr) => arr.length === 4),
   ]);
 
   obj.arr.push("wow");
