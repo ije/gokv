@@ -3,9 +3,9 @@ import atm from "../AccessTokenManager.ts";
 import { conactBytes, createWebSocket, dec, enc, getEnv, gzip, ungzip } from "./utils.ts";
 
 const MessageFlag = {
-  PING: 100,
-  INIT: 101,
-  ERROR: 102,
+  ERROR: 0xf0,
+  INIT: 0xf1,
+  PING: 0xf2,
 };
 
 const pingTimeout = 5 * 1000; // wait for ping message for 5 seconds
@@ -58,7 +58,7 @@ export async function connect(service: ServiceName, namespace: string, options: 
         "%cgokv.io %c↑",
         "color:grey",
         "color:blue",
-        flag >= MessageFlag.PING
+        flag >= 0xf0
           ? `${Object.entries(MessageFlag).find(([, f]) => flag === f)?.[0] ?? flag} ${dec.decode(data)}`
           : options.inspect?.(flag, gzFlag, data.buffer) ?? `${flag} ${dec.decode(data)}`,
       );
