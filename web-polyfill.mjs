@@ -3,8 +3,6 @@ import { Crypto } from "@peculiar/webcrypto";
 import nodeFetch, { Blob, File, FormData, Headers, Request, Response } from "node-fetch";
 import ws from "websocket/lib/W3CWebSocket.js";
 
-globalThis.btoa = globalThis.btoa || ((str) => new Buffer(str, "binary").toString("base64"));
-globalThis.atob = globalThis.atob || ((b64Encoded) => new Buffer(b64Encoded, "base64").toString("binary"));
 globalThis.fetch = globalThis.fetch || nodeFetch;
 globalThis.Blob = globalThis.Blob || Blob;
 globalThis.File = globalThis.File || File;
