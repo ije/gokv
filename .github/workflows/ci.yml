@@ -50,10 +50,6 @@ jobs:
     name: Testing (Node.js)
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        version: [14, 16, 18]
-
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -66,7 +62,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: ${{ matrix.version }}
+          node-version: 16
 
       - name: Install dependencies
         run: npm install -g pnpm && pnpm install
