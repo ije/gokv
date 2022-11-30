@@ -118,7 +118,7 @@ export default class SessionImpl<StoreType extends Record<string, unknown>> impl
     await this.#update(store);
   }
 
-  async clear(): Promise<void> {
+  async end(): Promise<void> {
     await this.#update(null);
   }
 

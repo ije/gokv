@@ -25,7 +25,7 @@ await test("Session Storage", async () => {
   assertEquals(session.store, { username: "saul" });
 
   // end session
-  await session.clear();
+  await session.end();
   const res2 = session.redirect("/home");
   assertEquals(res2.headers.get("Location"), "/home");
   assertEquals(res2.status, 302);
