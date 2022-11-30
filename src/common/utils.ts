@@ -2,15 +2,6 @@ export const enc = new TextEncoder();
 export const dec = new TextDecoder();
 export const dummyFn = () => {};
 
-export const toPInt = (v: unknown): number | undefined => {
-  if (typeof v === "number" && !Number.isNaN(v) && Number.isFinite(v)) {
-    const n = Math.round(v);
-    if (n > 0) {
-      return n;
-    }
-  }
-};
-
 export const isPlainObject = (v: unknown): v is Record<string, unknown> => {
   return typeof v === "object" && v !== null && Object.getPrototypeOf(v) === Object.prototype;
 };
@@ -24,6 +15,15 @@ export function checkNamespace(namespace: string) {
   }
   return namespace.toLowerCase();
 }
+
+export const toPInt = (v: unknown): number | undefined => {
+  if (typeof v === "number" && !Number.isNaN(v) && Number.isFinite(v)) {
+    const n = Math.round(v);
+    if (n > 0) {
+      return n;
+    }
+  }
+};
 
 // deno-lint-ignore ban-types
 export const pick = <T extends object, K extends keyof T>(obj: T, ...keys: K[]): Pick<T, K> => {
