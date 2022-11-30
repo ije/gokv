@@ -39,22 +39,35 @@ jobs:
         with:
           deno-version: v1.x
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v2
-        with:
-          node-version: 16.18
-
-      - name: Install dependencies
-        run: npm install -g pnpm && pnpm install
-
-      - name: Testing in Deno
+      - name: Testing
         env:
           GOKV_WS_LOG: true
           GOKV_ENV: development
           GOKV_TOKEN: ${{ secrets.GOKV_TOKEN }}
         run: deno test -A
 
-      - name: Testing in Node.js
+  test2:
+    name: Testing (Node.js)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@main
+        with:
+          deno-version: v1.x
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: 16.x
+
+      - name: Install dependencies
+        run: npm install -g pnpm && pnpm install
+
+      - name: Testing
         env:
           GOKV_WS_LOG: true
           GOKV_ENV: development
