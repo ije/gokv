@@ -58,7 +58,7 @@ export default class FileStorageImpl implements FileStorage {
 
     // Upload the file
     const onProgress = options?.onProgress;
-    const finalStream = typeof onProgress === "function" && typeof ReadableStream === "function"
+    const finalBody = typeof onProgress === "function" && typeof ReadableStream === "function"
       ? new ReadableStream({
         async start(controller) {
           const reader = file.slice().stream().getReader();
@@ -73,10 +73,10 @@ export default class FileStorageImpl implements FileStorage {
           controller.close();
         },
       })
-      : file.slice().stream();
+      : file.slice();
     res = await fetch(this.#apiUrl, {
       method: "POST",
-      body: finalStream,
+      body: finalBody,
       // to fix error "The `duplex` member must be specified for a request with a streaming body"
       // deno-lint-ignore ban-ts-comment
       // @ts-ignore
