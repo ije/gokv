@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.165.0/http/server.ts";
-import gokv from "https://deno.land/x/gokv@0.0.32/mod.ts";
+import gokv from "https://deno.land/x/gokv@0.0.33/mod.ts";
 
 const kv = gokv.Storage();
 

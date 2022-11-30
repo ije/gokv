@@ -1,6 +1,6 @@
 {
   "name": "gokv",
-  "version": "0.0.32",
+  "version": "0.0.33",
   "description": "Sync your data at edge.",
   "type": "module",
   "main": "./dist/index.mjs",
