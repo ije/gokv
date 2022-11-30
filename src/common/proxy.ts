@@ -318,7 +318,7 @@ function lookupValue(obj: Record<string, unknown> | Array<unknown>, path: Path):
   let value = obj;
   for (let i = 0; i < dep; i++) {
     const key = path[i];
-    if (isPlainObject(value) && Object.hasOwn(value, key)) {
+    if (isPlainObject(value)) {
       value = Reflect.get(value, key);
     } else if (Array.isArray(value) && key === "$$values") {
       let array: { values: Record<string, unknown> } | undefined;
@@ -381,12 +381,9 @@ export function restoreArray(obj: Record<string, unknown>) {
   if (Array.isArray($$indexs) && isPlainObject($$values)) {
     return $$indexs.map((index) => $$values[index]);
   }
-  for (const key in obj) {
-    if (Object.hasOwn(obj, key)) {
-      const value = obj[key];
-      if (isPlainObject(value)) {
-        obj[key] = restoreArray(value);
-      }
+  for (const [key, value] of Object.entries(obj)) {
+    if (isPlainObject(value)) {
+      obj[key] = restoreArray(value);
     }
   }
   return obj;
