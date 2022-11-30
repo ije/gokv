@@ -49,6 +49,7 @@ jobs:
   test2:
     name: Testing (Node.js)
     runs-on: ubuntu-latest
+    needs: test
 
     steps:
       - name: Checkout
