@@ -7,13 +7,24 @@ export const isPlainObject = (v: unknown): v is Record<string, unknown> => {
 };
 
 export function checkNamespace(namespace: string) {
+  if (namespace === "default" || namespace === "default/session") {
+    return namespace;
+  }
+  const sessionSuffix = "/session";
+  const forSession = namespace.endsWith(sessionSuffix);
+  if (forSession) {
+    namespace = namespace.slice(0, -sessionSuffix.length);
+  }
+  if (namespace === "") {
+    throw new Error("namespace cannot be empty");
+  }
   if (namespace.length > 100) {
     throw new Error("Namespace is too long");
   }
-  if (!/^[a-zA-Z0-9_\-\.]+$/.test(namespace)) {
-    throw new Error("Namespace must only contain alphanumeric characters, underscores, dots, and dashes");
+  if (!/^[a-zA-Z0-9_\-]+$/.test(namespace)) {
+    throw new Error("Namespace must only contain alphanumeric characters, underscores, and dashes");
   }
-  return namespace.toLowerCase();
+  return namespace.toLowerCase() + (forSession ? sessionSuffix : "");
 }
 
 export const toPInt = (v: unknown): number | undefined => {

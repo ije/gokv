@@ -42,7 +42,7 @@ export interface Module {
   FileStorage(options?: FileStorageOptions): FileStorage;
   Session<T extends Record<string, unknown> = Record<string, unknown>>(
     request: Request | { cookies: Record<string, string> },
-    options?: SessionOptions,
+    options?: SessionOptions & StorageOptions,
   ): Promise<Session<T>>;
   Storage(options?: StorageOptions): Storage;
 }

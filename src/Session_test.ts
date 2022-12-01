@@ -5,7 +5,7 @@ import "dotenv";
 const config = { cookieName: "sess" };
 
 Deno.test("Session Storage", { sanitizeOps: false, sanitizeResources: false }, async () => {
-  let session = await Session.create(new Request("https://gokv.io/"), config);
+  let session = await new Session(config).init(new Request("https://gokv.io/"));
   assertEquals(session.store, null);
 
   // login as "saul"
@@ -15,15 +15,14 @@ Deno.test("Session Storage", { sanitizeOps: false, sanitizeResources: false }, a
   assertEquals(res.headers.get("Location"), "/dashboard");
   assertEquals(res.status, 302);
 
-  session = await Session.create(
+  session = await new Session(config).init(
     new Request("https://gokv.io/", {
       headers: { "cookie": `sess=${session.id}` },
     }),
-    config,
   );
   assertEquals(session.store, { username: "saul" });
 
-  session = await Session.create({ cookies: { sess: session.id } }, config);
+  session = await new Session(config).init({ cookies: { sess: session.id } });
   assertEquals(session.store, { username: "saul" });
 
   // end session
@@ -36,6 +35,6 @@ Deno.test("Session Storage", { sanitizeOps: false, sanitizeResources: false }, a
   assertEquals(res2.headers.get("Location"), "/home");
   assertEquals(res2.status, 302);
 
-  session = await Session.create({ cookies: { sess: session.id } }, config);
+  session = await new Session(config).init({ cookies: { sess: session.id } });
   assertEquals(session.store, null);
 });

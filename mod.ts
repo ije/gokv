@@ -78,10 +78,10 @@ export default {
     return new FileStorageImpl(options);
   },
   Session<T extends Record<string, unknown> = Record<string, unknown>>(
-    request: Request | { cookies: Record<string, string> },
+    req: Request | { cookies: Record<string, string> },
     options?: SessionOptions & StorageOptions,
   ): Promise<Session<T>> {
-    return SessionImpl.create<T>(request, { ...options });
+    return new SessionImpl<T>(options).init(req);
   },
   Storage(options?: StorageOptions): Storage {
     return new StorageImpl({ ...options });

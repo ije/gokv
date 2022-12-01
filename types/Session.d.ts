@@ -1,17 +1,20 @@
+import { StorageOptions } from "./Storage.d.ts";
+
 export type SessionOptions = {
-  maxAge?: number;
   cookieName?: string;
   cookieDomain?: string;
   cookiePath?: string;
   cookieSameSite?: "Strict" | "Lax" | "None";
   cookieSecure?: boolean;
+  maxAge?: number;
 };
 
-export class Session<StoreType extends Record<string, unknown>> {
+export class Session<T extends Record<string, unknown>> {
   readonly id: string;
-  readonly store: StoreType | null;
-  constructor(sid: string, kv: Storage, initStore: StoreType | null, options: SessionOptions);
-  update(store: StoreType | ((store: StoreType | null) => StoreType)): Promise<void>;
+  readonly store: T | null;
+  constructor(options?: SessionOptions & StorageOptions);
+  init(from: Request | { cookies: Record<string, string> }): Promise<this>;
+  update(store: T | ((store: T | null) => T)): Promise<void>;
   end(): Promise<void>;
   redirect(url: string, status?: number): Response;
 }
