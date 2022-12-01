@@ -4,14 +4,10 @@ import gokv from "https://deno.land/x/gokv@0.0.33/mod.ts";
 const kv = gokv.Storage();
 
 serve(async (_req) => {
-  try {
-    let value = await kv.get<string>("msg");
-    if (value === undefined) {
-      value = "Hello world!";
-      await kv.put("msg", value);
-    }
-    return new Response(value);
-  } catch (err) {
-    return new Response(err.message, { status: 500 });
+  let value = await kv.get<string>("msg");
+  if (value === undefined) {
+    value = "Hello world!";
+    await kv.put("msg", value);
   }
+  return new Response(value);
 });
