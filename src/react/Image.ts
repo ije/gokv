@@ -10,8 +10,8 @@ import {
 } from "react";
 import { ImageProps } from "../../types/react.d.ts";
 import { FileStorage } from "../../mod.ts";
-import { $context } from "./provider.ts";
-import { atobUrl, btoaUrl, getAverageRGBFromBlob, getThumbImageFromBlob, rgbToHex, toPInt } from "./utils.ts";
+import { $context } from "./Context.ts";
+import { atobUrl, btoaUrl, getThumbImageFromBlob, toPInt } from "./utils.ts";
 
 export const useImageSrc = (
   props: Pick<ImageProps, "src" | "width" | "height" | "quality" | "fit">,
@@ -39,7 +39,7 @@ export const useImageSrc = (
       if (w) resizing.push(`w=${w}`);
       if (h) resizing.push(`h=${h}`);
       if (q) resizing.push(`q=${q}`);
-      if (w && h && fit && ["cover", "contain"].includes(fit)) resizing.push(`fit=${fit}`);
+      if (w && h) resizing.push(`fit=${fit ?? "cover"}`);
       if (w || h) {
         const pathname = "/" + imageId.slice(0, 40);
         ret.srcSet = [1, 2, 3]
@@ -53,18 +53,19 @@ export const useImageSrc = (
         }
         if (rest.length > 0) {
           const placeholder = rest.join("x");
-          const flag = placeholder.charAt(0);
-          if (flag === "c") {
-            ret.placeholder = `#${placeholder.slice(1)}`;
-          } else if (flag === "i") {
-            ret.placeholder = `data:image/png;base64,${atobUrl(placeholder.slice(1))}`;
-          }
+          ret.placeholder = `data:image/jpeg;base64,${atobUrl(placeholder)}`;
         }
       }
       ret.src = `https://${imagesHost}/${imageId.slice(0, 40)}${parts[2] ? `/${parts[2]}` : ""}`;
     }
     return ret;
   }, [src, width, height, quality, fit]);
+};
+
+// the blur effect is copied from next.js/image
+const blurSvg = (previewUrl: string, aspectRatio: number): string => {
+  const h = 16 / aspectRatio;
+  return `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 ${h}'><filter id='b' color-interpolation-filters='sRGB'><feGaussianBlur stdDeviation='1'/><feComponentTransfer><feFuncA type='discrete' tableValues='1 1'/></feComponentTransfer></filter><image preserveAspectRatio='none' filter='url(#b)' x='0' y='0' height='100%' width='100%' href='${previewUrl}'/></svg>`;
 };
 
 export function Image(props: ImageProps) {
@@ -74,28 +75,30 @@ export function Image(props: ImageProps) {
   const [isLoading, setIsLoading] = useState(() => Boolean(src));
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const style = useMemo(() => ({
-    ...props.style,
-    ...(isLoading && placeholder?.startsWith("#") ? { backgroundColor: placeholder } : null),
-    ...(isLoading && placeholder?.startsWith("data:image/") ? { backgroundImage: `url(${placeholder})` } : null),
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const Imagestyle = useMemo(() => ({
+    ...(placeholder && aspectRatio
+      ? {
+        backgroundImage: `url("data:image/svg+xml;charset=utf-8,${
+          encodeURIComponent(blurSvg(placeholder, aspectRatio))
+        }")`,
+        backgroundSize: props.fit ?? "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+      }
+      : null),
+    objectFit: props.fit ?? "cover",
     aspectRatio: props.style?.aspectRatio ?? aspectRatio,
-  }), [props.style, aspectRatio, placeholder, isLoading]);
+  }), [aspectRatio, placeholder, isLoading, props.style?.aspectRatio, props.fit]);
 
   const img = createElement("img", {
     ...props,
-    src: imagePreview ?? src,
-    srcSet: props.srcSet ?? srcSet,
-    style,
+    src: previewUrl ?? src,
+    srcSet: !previewUrl ? props.srcSet ?? srcSet : undefined,
+    style: { ...props.style, ...Imagestyle },
     loading: props.loading ?? "lazy",
     onLoad: (e: SyntheticEvent<HTMLImageElement>) => {
       setIsLoading(false);
-      !e.currentTarget.src.startsWith("blob:") && setImagePreview((previewUrl) => {
-        if (previewUrl) {
-          URL.revokeObjectURL(previewUrl);
-        }
-        return null;
-      });
       props.onLoad?.(e);
     },
   });
@@ -137,34 +140,26 @@ export function Image(props: ImageProps) {
       onChange: async (e) => {
         const file = e.target.files?.item(0);
         if (file) {
-          const gp = props.generatePlaceholder;
           const previewUrl = URL.createObjectURL(file.slice());
           let placeholder: string | undefined;
-          setImagePreview(previewUrl);
+          setPreviewUrl(previewUrl);
           setIsUploading(true);
           setUploadProgress(0);
-          if (gp !== false) {
-            if (gp === "color" || gp === true || gp === undefined) {
-              const color = await getAverageRGBFromBlob(file.slice());
-              placeholder = `c${rgbToHex(color)}`;
-            } else if (gp.startsWith("blur")) {
-              const sizes = {
-                "blur": 16,
-                "blur-sm": 8,
-                "blur-md": 32,
-                "blur-lg": 64,
-              };
-              const thumb = await getThumbImageFromBlob(file.slice(), sizes[gp]);
-              placeholder = `i${btoaUrl(thumb)}`;
-            }
+          const gen = props.generateBlurPreview;
+          if (gen) {
+            const sizes = { "xs": 4, "sm": 8, "base": 16, "md": 32, "lg": 64 };
+            const thumb = await getThumbImageFromBlob(file.slice(), sizes[gen === true ? "base" : gen] ?? 16);
+            placeholder = btoaUrl(thumb.split(",")[1]);
           }
-          console.log(placeholder);
           const { url } = await fs.put(file, {
             onProgress: (loaded: number, total: number) => setUploadProgress(loaded / total),
           });
           setIsUploading(false);
-          console.log(url + (placeholder ? `x${placeholder}` : ""));
           props.onChange?.({ src: url + (placeholder ? `x${placeholder}` : ""), alt: file.name });
+          setTimeout(() => {
+            setPreviewUrl(null);
+            URL.revokeObjectURL(previewUrl);
+          }, 0);
         }
       },
     }),

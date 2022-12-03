@@ -40,56 +40,6 @@ export function btoaUrl(s: string) {
   return btoa(s).replace(/=+$/, "").replace(/\+/g, "-").replace(/\//g, "_");
 }
 
-// Origin implement: https://stackoverflow.com/questions/2541481/get-average-color-of-image-via-javascript
-export function getAverageRGB(imgEl: HTMLImageElement): { r: number; g: number; b: number } {
-  const canvas = document.createElement("canvas");
-  const context = canvas.getContext && canvas.getContext("2d");
-
-  if (!context) {
-    throw new Error("getAverageRGB: context is null");
-  }
-
-  const height = canvas.height = imgEl.naturalHeight || imgEl.offsetHeight || imgEl.height;
-  const width = canvas.width = imgEl.naturalWidth || imgEl.offsetWidth || imgEl.width;
-  context.drawImage(imgEl, 0, 0);
-
-  let i = -4;
-  let n = 0;
-  const blockSize = 5; // only visit every 5 pixels
-  const rgb = { r: 0, g: 0, b: 0 };
-  const data = context.getImageData(0, 0, width, height);
-  const length = data.data.length;
-  while ((i += blockSize * 4) < length) {
-    ++n;
-    rgb.r += data.data[i];
-    rgb.g += data.data[i + 1];
-    rgb.b += data.data[i + 2];
-  }
-
-  // `~~` used to floor values
-  rgb.r = ~~(rgb.r / n);
-  rgb.g = ~~(rgb.g / n);
-  rgb.b = ~~(rgb.b / n);
-
-  return rgb;
-}
-
-export function getAverageRGBFromBlob(blob: Blob): Promise<{ r: number; g: number; b: number }> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      try {
-        const rgb = getAverageRGB(img);
-        resolve(rgb);
-      } catch (error) {
-        reject(error);
-      }
-    };
-    img.onerror = reject;
-    img.src = URL.createObjectURL(blob);
-  });
-}
-
 export function getThumbImage(imgEl: HTMLImageElement, size: number): string {
   const canvas = document.createElement("canvas");
   const context = canvas.getContext && canvas.getContext("2d");
@@ -98,12 +48,15 @@ export function getThumbImage(imgEl: HTMLImageElement, size: number): string {
     throw new Error("getThumbImage: context is null");
   }
 
-  const height = canvas.height = imgEl.naturalHeight || imgEl.offsetHeight || imgEl.height;
-  const width = canvas.width = imgEl.naturalWidth || imgEl.offsetWidth || imgEl.width;
-  const ratio = Math.min(size / width, size / height);
-  const newWidth = width * ratio;
-  const newHeight = height * ratio;
-  context.drawImage(imgEl, 0, 0, width, height, 0, 0, newWidth, newHeight);
+  const width = imgEl.naturalWidth || imgEl.offsetWidth || imgEl.width;
+  const height = imgEl.naturalHeight || imgEl.offsetHeight || imgEl.height;
+  const ratio = width / height;
+  const canvasWidth = ratio > 1 ? size : size * ratio;
+  const canvasHeight = ratio > 1 ? size / ratio : size;
+  console.log(width, height, canvasWidth, canvasHeight);
+  canvas.width = canvasWidth;
+  canvas.height = canvasHeight;
+  context.drawImage(imgEl, 0, 0, width, height, 0, 0, canvasWidth, canvasHeight);
   return canvas.toDataURL("image/jpeg", 0.6);
 }
 

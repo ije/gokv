@@ -15,14 +15,19 @@ export const GokvProvider: FC<PropsWithChildren<GokvProviderProps>>;
 
 export interface ImageProps extends Omit<ImgHTMLAttributes<HTMLImageElement>, "onChange"> {
   readonly?: boolean;
-  fit?: "cover" | "contain" | "fill";
+  fit?: "cover" | "contain";
   quality?: number;
-  generatePlaceholder?: boolean | "color" | "blur" | "blur-sm" | "blur-md" | "blur-lg";
+  generateBlurPreview?: true | "xs" | "sm" | "base" | "md" | "lg";
   onChange?: (e: { src: string; alt: string }) => void;
 }
 
-export const useImageSrcSet: (
-  props: Pick<ImageProps, "src" | "srcSet" | "width" | "height" | "quality" | "fit">,
-) => string | undefined;
+export const useImageSrc: (
+  props: Pick<ImageProps, "src" | "width" | "height" | "quality" | "fit">,
+) => {
+  src?: string;
+  srcSet?: string;
+  aspectRatio?: number;
+  placeholder?: string;
+};
 
 export const Image: FC<ImageProps>;
