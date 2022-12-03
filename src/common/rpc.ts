@@ -1,6 +1,6 @@
 import { ServiceName } from "../../types/common.d.ts";
 import { connect } from "./socket.ts";
-import { conactBytes, dec, enc, toUInt32Bytes } from "./utils.ts";
+import { conactBytes, dec, enc, u32ToBytes } from "./utils.ts";
 
 enum MessageFlag {
   INVOKE = 1,
@@ -75,7 +75,7 @@ export async function connectRPC(
     new Promise((resolve, reject) => {
       const invokeId = invokeIndex++;
       try {
-        const data = conactBytes(toUInt32Bytes(invokeId), new Uint8Array([method]), enc.encode(JSON.stringify(args)));
+        const data = conactBytes(u32ToBytes(invokeId), new Uint8Array([method]), enc.encode(JSON.stringify(args)));
         socket.send(MessageFlag.INVOKE, data);
         const timer = setTimeout(() => {
           awaits.delete(invokeId);
