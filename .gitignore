@@ -1,5 +1,6 @@
 .DS_Store
 *.log
 .env
+deno.lock
 node_modules/
 dist/
