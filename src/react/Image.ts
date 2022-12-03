@@ -11,7 +11,7 @@ import {
 import { ImageProps } from "../../types/react.d.ts";
 import { FileStorage } from "../../mod.ts";
 import { $context } from "./Context.ts";
-import { atobUrl, btoaUrl, getThumbImageFromBlob, toPInt } from "./utils.ts";
+import { atobUrl, btoaUrl, resizeImageFromBlob, toPInt } from "./utils.ts";
 
 export const useImageSrc = (
   props: Pick<ImageProps, "src" | "width" | "height" | "quality" | "fit">,
@@ -148,7 +148,7 @@ export function Image(props: ImageProps) {
           const gen = props.generateBlurPreview;
           if (gen) {
             const sizes = { "xs": 4, "sm": 8, "base": 16, "md": 32, "lg": 64 };
-            const thumb = await getThumbImageFromBlob(file.slice(), sizes[gen === true ? "base" : gen] ?? 16);
+            const thumb = await resizeImageFromBlob(file.slice(), sizes[gen === true ? "base" : gen] ?? 16);
             placeholder = btoaUrl(thumb.split(",")[1]);
           }
           const { url } = await fs.put(file, {

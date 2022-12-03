@@ -40,12 +40,12 @@ export function btoaUrl(s: string) {
   return btoa(s).replace(/=+$/, "").replace(/\+/g, "-").replace(/\//g, "_");
 }
 
-export function getThumbImage(imgEl: HTMLImageElement, size: number): string {
+export function resizeImage(imgEl: HTMLImageElement, size: number): string {
   const canvas = document.createElement("canvas");
   const context = canvas.getContext && canvas.getContext("2d");
 
   if (!context) {
-    throw new Error("getThumbImage: context is null");
+    throw new Error("resize: context is null");
   }
 
   const width = imgEl.naturalWidth || imgEl.offsetWidth || imgEl.width;
@@ -60,12 +60,12 @@ export function getThumbImage(imgEl: HTMLImageElement, size: number): string {
   return canvas.toDataURL("image/jpeg", 0.6);
 }
 
-export function getThumbImageFromBlob(blob: Blob, size: number): Promise<string> {
+export function resizeImageFromBlob(blob: Blob, size: number): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
       try {
-        const thumb = getThumbImage(img, size);
+        const thumb = resizeImage(img, size);
         resolve(thumb);
       } catch (error) {
         reject(error);
