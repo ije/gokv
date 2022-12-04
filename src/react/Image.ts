@@ -13,13 +13,12 @@ import { FileStorage } from "../../mod.ts";
 import { $context } from "./Context.ts";
 import { atobUrl, btoaUrl, getImageThumbFromBlob, toPInt } from "./utils.ts";
 
-export const useImageSrc = (
-  props: Pick<ImageProps, "src" | "width" | "height" | "quality" | "fit">,
-): {
+export const useImageSrc = (props: Pick<ImageProps, "src" | "width" | "height" | "quality" | "fit">): {
   src?: string;
   srcSet?: string;
   aspectRatio?: number;
   placeholder?: string;
+  fit?: "contain" | "cover";
 } => {
   const { src, width, height, quality, fit } = props;
   return useMemo(() => {
@@ -39,7 +38,10 @@ export const useImageSrc = (
       if (w) resizing.push(`w=${w}`);
       if (h) resizing.push(`h=${h}`);
       if (q) resizing.push(`q=${q}`);
-      if (w && h) resizing.push(`fit=${fit ?? "cover"}`);
+      if (w && h) {
+        ret.fit = fit ?? "cover";
+        resizing.push(`fit=${ret.fit}`);
+      }
       if (w || h) {
         const pathname = "/" + imageId.slice(0, 40);
         ret.srcSet = [1, 2, 3]
@@ -53,7 +55,7 @@ export const useImageSrc = (
         }
         if (rest.length > 0) {
           const placeholder = rest.join("x");
-          ret.placeholder = `data:image/png;base64,${atobUrl(placeholder)}`;
+          ret.placeholder = `data:image/jpeg;base64,${atobUrl(placeholder)}`;
         }
       }
       ret.src = `https://${imagesHost}/${imageId.slice(0, 40)}${parts[2] ? `/${parts[2]}` : ""}`;
@@ -73,31 +75,31 @@ const blurSvg = (previewUrl: string, aspectRatio: number): string => {
 export function Image(props: ImageProps) {
   const { namespace } = useContext($context);
   const fs = useMemo(() => new FileStorage({ namespace }), [namespace]);
-  const { src, srcSet, aspectRatio, placeholder } = useImageSrc(props);
+  const { src, srcSet, aspectRatio, fit, placeholder } = useImageSrc(props);
   const [isLoading, setIsLoading] = useState(() => Boolean(src));
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [error, setError] = useState<Error | null>(null);
-  const Imagestyle = useMemo(() => ({
+  const imgStyle = useMemo(() => ({
     ...(placeholder && aspectRatio && isLoading
       ? {
         backgroundImage: `url("data:image/svg+xml;charset=utf-8,${blurSvg(placeholder, aspectRatio)}")`,
-        backgroundSize: props.fit ?? "cover",
+        backgroundSize: fit,
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
       }
       : null),
-    objectFit: props.fit ?? "cover",
-    aspectRatio: props.style?.aspectRatio ?? aspectRatio,
-  }), [aspectRatio, placeholder, isLoading, props.style?.aspectRatio, props.fit]);
+    objectFit: fit,
+    aspectRatio,
+  }), [aspectRatio, placeholder, isLoading, fit]);
 
   const img = createElement("img", {
     ...props,
     src: previewUrl ?? src,
     key: previewUrl ?? src,
     srcSet: !previewUrl ? (props.srcSet ?? srcSet) : undefined,
-    style: { ...props.style, ...Imagestyle },
+    style: { ...props.style, ...imgStyle },
     loading: props.loading ?? "lazy",
     onLoad: (e: SyntheticEvent<HTMLImageElement>) => {
       setIsLoading(false);
@@ -113,7 +115,7 @@ export function Image(props: ImageProps) {
     try {
       let placeholder: string | undefined;
       const gen = props.generateBlurPreview;
-      if (gen) {
+      if (gen && file.type === "image/jpeg") {
         const sizes = { "sm": 8, "base": 16, "md": 32, "lg": 64 };
         const thumb = await getImageThumbFromBlob(file.slice(), sizes[gen === true ? "base" : gen] ?? 16);
         placeholder = btoaUrl(thumb.split(",")[1]);
@@ -124,6 +126,7 @@ export function Image(props: ImageProps) {
       props.onChange?.({ src: url + (placeholder ? `x${placeholder}` : ""), alt: file.name });
     } catch (error) {
       setError(error);
+      console.error(error);
     } finally {
       setIsUploading(false);
       setTimeout(() => {
@@ -145,7 +148,7 @@ export function Image(props: ImageProps) {
 
   return createElement(
     "div",
-    { style: { position: "relative", display: "inline-block" } },
+    { style: { position: "relative", display: "inline-flex" } },
     img,
     isUploading && uploadProgress === 0 && (
       createElement(Box, null, "Reading...")
@@ -154,7 +157,11 @@ export function Image(props: ImageProps) {
       createElement(Box, null, `${(uploadProgress * 100).toFixed(2)}%`)
     ),
     error && (
-      createElement(Box, { style: { color: "red" } }, createElement("strong", null, "Error"), " ", error.message)
+      createElement(
+        Box,
+        { style: { color: "red", backgroundColor: "rgba(255,0,0,0.1)" } },
+        createElement("span", null, createElement("strong", null, "Error"), ": ", error.message),
+      )
     ),
     !isUploading && createElement("input", {
       type: "file",
@@ -186,6 +193,7 @@ export function Box(props: PropsWithChildren<{ style?: CSSProperties }>) {
       display: "inline-flex",
       alignItems: "center",
       justifyContent: "center",
+      textAlign: "center",
       position: "absolute",
       top: 0,
       left: 0,
