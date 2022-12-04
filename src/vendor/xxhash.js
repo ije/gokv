@@ -27,7 +27,7 @@ const XXH64_STATE_SIZE_BYTES = u64_BYTES + // total_len
   u32_BYTES + // reserved32
   u64_BYTES; // reserved64
 
-const defaultBigSeed = 0n;
+const defaultSeed = 0n;
 const encoder = new TextEncoder();
 
 // BigInts are arbitrary precision and signed, so to get the "correct" u64
@@ -42,7 +42,7 @@ const initPromise = new Promise((resolve) => {
   WebAssembly.instantiate(wasmBytes).then((i) => resolve(i.instance.exports));
 });
 
-export async function create64(seed = defaultBigSeed) {
+export async function create64(seed = defaultSeed) {
   const {
     mem,
     init64,
@@ -122,4 +122,21 @@ export async function create64(seed = defaultBigSeed) {
     digest64,
     forceUnsigned64,
   );
+}
+
+/**
+ * Returns the 64-bit hash of the given input.
+ * @param {ReadableStream} input
+ * @param {bigint} seed
+ * @return {Promise<bigint>}
+ */
+export default async function xxhash(input, seed = defaultSeed) {
+  const h = await create64(seed);
+  const reader = input.getReader();
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    h.update(value);
+  }
+  return h.digest();
 }

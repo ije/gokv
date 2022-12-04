@@ -6,7 +6,7 @@ import type {
 } from "../types/FileStorage.d.ts";
 import atm from "./AccessTokenManager.ts";
 import { checkNamespace, pick } from "./common/utils.ts";
-import { create64 } from "./vendor/xxhash.js";
+import xxhash from "./vendor/xxhash.js";
 
 const KB = 1 << 10;
 const MB = 1 << 20;
@@ -25,19 +25,12 @@ export default class FileStorageImpl implements FileStorage {
   async put(file: File, options?: FileStoragePutOptions): Promise<FileStorageObject> {
     if (file.size > 100 * MB) throw new Error("File size is too large");
 
-    // compute file hash using xxhash64
-    const h1 = await create64(1n);
-    const h2 = await create64(2n);
-    const reader = file.slice().stream().getReader();
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      h1.update(value);
-      h2.update(value);
-    }
+    // calculate file hash using xxhash64
+    const h1 = await xxhash(file.slice().stream(), 1n);
+    const h2 = await xxhash(file.slice().stream(), 2n);
     const fileMeta = {
       ...pick(file, "name", "type", "size", "lastModified"),
-      hash: h1.digest().toString(16) + h2.digest().toString(16),
+      hash: h1.toString(16) + h2.toString(16),
     };
 
     // Check if the file already exists
