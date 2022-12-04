@@ -7,6 +7,7 @@ import type {
 import atm from "./AccessTokenManager.ts";
 import { checkNamespace, pick, toHex } from "./common/utils.ts";
 
+const KB = 1 << 10;
 const MB = 1 << 20;
 
 export default class FileStorageImpl implements FileStorage {
@@ -25,13 +26,15 @@ export default class FileStorageImpl implements FileStorage {
 
     // compute file hash
     const hash = new Uint8Array(20);
-    const reader = file.slice().stream().getReader();
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      const h = new Uint8Array(await crypto.subtle.digest("SHA-1", value));
-      for (let i = 0; i < 20; i++) {
-        hash[i] ^= h[i];
+    {
+      const reader = file.slice().stream().getReader();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const h = new Uint8Array(await crypto.subtle.digest("SHA-1", value));
+        for (let i = 0; i < 20; i++) {
+          hash[i] ^= h[i];
+        }
       }
     }
     const fileMeta = {
@@ -40,7 +43,7 @@ export default class FileStorageImpl implements FileStorage {
     };
 
     // Check if the file already exists
-    let res = await fetch(this.#apiUrl, {
+    const headRes = await fetch(this.#apiUrl, {
       method: "HEAD",
       mode: "cors",
       headers: {
@@ -48,49 +51,61 @@ export default class FileStorageImpl implements FileStorage {
         "X-File-Meta": JSON.stringify(fileMeta),
       },
     });
-    if (res.status >= 400 && res.status !== 404) {
-      throw new Error(await res.text());
+    if (headRes.status >= 400 && headRes.status !== 404) {
+      throw new Error(await headRes.text());
     }
-    if (res.ok && res.headers.has("X-File-Meta")) {
-      const ret = JSON.parse(res.headers.get("X-File-Meta")!);
+    if (headRes.ok && headRes.headers.has("X-File-Meta")) {
+      const ret = JSON.parse(headRes.headers.get("X-File-Meta")!);
       return { ...ret, exists: true };
     }
 
-    // Upload the file
-    const onProgress = options?.onProgress;
-    const finalBody = typeof onProgress === "function" && typeof ReadableStream === "function"
-      ? new ReadableStream({
-        async start(controller) {
-          const reader = file.slice().stream().getReader();
-          let bytesUploaded = 0;
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            controller.enqueue(value);
-            bytesUploaded += value.byteLength;
-            onProgress(bytesUploaded, file.size);
-          }
-          controller.close();
+    let finalBody: BodyInit;
+    if (typeof options?.onProgress === "function" && typeof ReadableStream === "function") {
+      let bytesUploaded = 0;
+      let buf = new Uint8Array(0);
+      let reader: ReadableStreamDefaultReader | null = null;
+      finalBody = new ReadableStream({
+        start() {
+          reader = file.stream().getReader();
         },
-      })
-      : file.slice();
-    res = await fetch(this.#apiUrl, {
+        async pull(controller) {
+          if (buf.byteLength === 0) {
+            const { done, value } = await reader!.read();
+            if (done) {
+              controller.close();
+              return;
+            }
+            buf = value;
+          }
+          const chunk = buf.slice(0, 64 * KB);
+          buf = buf.slice(chunk.byteLength);
+          controller.enqueue(chunk);
+          bytesUploaded += chunk.byteLength;
+          options?.onProgress?.(bytesUploaded, file.size);
+        },
+      });
+    } else {
+      finalBody = file;
+    }
+
+    // Upload the file
+    const upRes = await fetch(this.#apiUrl, {
       method: "POST",
       body: finalBody,
-      // to fix error "The `duplex` member must be specified for a request with a streaming body"
-      // deno-lint-ignore ban-ts-comment
-      // @ts-ignore
-      duplex: "half",
       mode: "cors",
       headers: {
         Authorization: (await atm.getAccessToken(`fs:${this.#namespace}`)).join(" "),
         "X-File-Meta": JSON.stringify(fileMeta),
       },
+      // to fix "The `duplex` member must be specified for a request with a streaming body" in browser
+      // deno-lint-ignore ban-ts-comment
+      // @ts-ignore
+      duplex: "half",
     });
-    if (!res.ok) {
-      throw new Error(await res.text());
+    if (!upRes.ok) {
+      throw new Error(await upRes.text());
     }
-    return await res.json();
+    return await upRes.json();
   }
 
   async delete(id: string): Promise<void> {
