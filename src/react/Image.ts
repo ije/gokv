@@ -11,7 +11,7 @@ import {
 import { ImageProps } from "../../types/react.d.ts";
 import { FileStorage } from "../../mod.ts";
 import { $context } from "./Context.ts";
-import { atobUrl, btoaUrl, resizeImageFromBlob, toPInt } from "./utils.ts";
+import { atobUrl, btoaUrl, getImageThumbFromBlob, toPInt } from "./utils.ts";
 
 export const useImageSrc = (
   props: Pick<ImageProps, "src" | "width" | "height" | "quality" | "fit">,
@@ -53,7 +53,7 @@ export const useImageSrc = (
         }
         if (rest.length > 0) {
           const placeholder = rest.join("x");
-          ret.placeholder = `data:image/jpeg;base64,${atobUrl(placeholder)}`;
+          ret.placeholder = `data:image/png;base64,${atobUrl(placeholder)}`;
         }
       }
       ret.src = `https://${imagesHost}/${imageId.slice(0, 40)}${parts[2] ? `/${parts[2]}` : ""}`;
@@ -65,7 +65,9 @@ export const useImageSrc = (
 // the blur effect is copied from next.js/image
 const blurSvg = (previewUrl: string, aspectRatio: number): string => {
   const h = 16 / aspectRatio;
-  return `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 ${h}'><filter id='b' color-interpolation-filters='sRGB'><feGaussianBlur stdDeviation='1'/><feComponentTransfer><feFuncA type='discrete' tableValues='1 1'/></feComponentTransfer></filter><image preserveAspectRatio='none' filter='url(#b)' x='0' y='0' height='100%' width='100%' href='${previewUrl}'/></svg>`;
+  return encodeURIComponent(
+    `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 ${h}'><filter id='b' color-interpolation-filters='sRGB'><feGaussianBlur stdDeviation='1'/><feComponentTransfer><feFuncA type='discrete' tableValues='1 1'/></feComponentTransfer></filter><image preserveAspectRatio='none' filter='url(#b)' x='0' y='0' height='100%' width='100%' href='${previewUrl}'/></svg>`,
+  );
 };
 
 export function Image(props: ImageProps) {
@@ -76,12 +78,11 @@ export function Image(props: ImageProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [error, setError] = useState<Error | null>(null);
   const Imagestyle = useMemo(() => ({
-    ...(placeholder && aspectRatio
+    ...(placeholder && aspectRatio && isLoading
       ? {
-        backgroundImage: `url("data:image/svg+xml;charset=utf-8,${
-          encodeURIComponent(blurSvg(placeholder, aspectRatio))
-        }")`,
+        backgroundImage: `url("data:image/svg+xml;charset=utf-8,${blurSvg(placeholder, aspectRatio)}")`,
         backgroundSize: props.fit ?? "cover",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
@@ -103,6 +104,34 @@ export function Image(props: ImageProps) {
     },
   });
 
+  const upload = async (file: File) => {
+    const previewUrl = URL.createObjectURL(file.slice());
+    setPreviewUrl(previewUrl);
+    setIsUploading(true);
+    setUploadProgress(0);
+    try {
+      let placeholder: string | undefined;
+      const gen = props.generateBlurPreview;
+      if (gen) {
+        const sizes = { "sm": 8, "base": 16, "md": 32, "lg": 64 };
+        const thumb = await getImageThumbFromBlob(file.slice(), sizes[gen === true ? "base" : gen] ?? 16);
+        placeholder = btoaUrl(thumb.split(",")[1]);
+      }
+      const { url } = await fs.put(file, {
+        onProgress: (loaded: number, total: number) => setUploadProgress(loaded / total),
+      });
+      props.onChange?.({ src: url + (placeholder ? `x${placeholder}` : ""), alt: file.name });
+    } catch (error) {
+      setError(error);
+    } finally {
+      setIsUploading(false);
+      setTimeout(() => {
+        setPreviewUrl(null);
+        URL.revokeObjectURL(previewUrl);
+      }, 0);
+    }
+  };
+
   useEffect(() => {
     if (src) {
       setIsLoading(true);
@@ -123,6 +152,9 @@ export function Image(props: ImageProps) {
     isUploading && uploadProgress > 0 && (
       createElement(Box, null, `${(uploadProgress * 100).toFixed(2)}%`)
     ),
+    error && (
+      createElement(Box, { style: { color: "red" } }, createElement("strong", null, "Error"), " ", error.message)
+    ),
     !isUploading && createElement("input", {
       type: "file",
       accept: "image/*",
@@ -137,29 +169,10 @@ export function Image(props: ImageProps) {
         cursor: "pointer",
       },
       title: props.alt ? `${props.alt} (Replace the image)` : "Select an image",
-      onChange: async (e) => {
+      onChange: (e) => {
         const file = e.target.files?.item(0);
         if (file) {
-          const previewUrl = URL.createObjectURL(file.slice());
-          let placeholder: string | undefined;
-          setPreviewUrl(previewUrl);
-          setIsUploading(true);
-          setUploadProgress(0);
-          const gen = props.generateBlurPreview;
-          if (gen) {
-            const sizes = { "xs": 4, "sm": 8, "base": 16, "md": 32, "lg": 64 };
-            const thumb = await resizeImageFromBlob(file.slice(), sizes[gen === true ? "base" : gen] ?? 16);
-            placeholder = btoaUrl(thumb.split(",")[1]);
-          }
-          const { url } = await fs.put(file, {
-            onProgress: (loaded: number, total: number) => setUploadProgress(loaded / total),
-          });
-          setIsUploading(false);
-          props.onChange?.({ src: url + (placeholder ? `x${placeholder}` : ""), alt: file.name });
-          setTimeout(() => {
-            setPreviewUrl(null);
-            URL.revokeObjectURL(previewUrl);
-          }, 0);
+          upload(file);
         }
       },
     }),

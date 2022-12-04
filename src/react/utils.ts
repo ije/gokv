@@ -40,7 +40,7 @@ export function btoaUrl(s: string) {
   return btoa(s).replace(/=+$/, "").replace(/\+/g, "-").replace(/\//g, "_");
 }
 
-export function resizeImage(imgEl: HTMLImageElement, size: number): string {
+export function getImageThumb(imgEl: HTMLImageElement, size: number): string {
   const canvas = document.createElement("canvas");
   const context = canvas.getContext && canvas.getContext("2d");
 
@@ -53,19 +53,18 @@ export function resizeImage(imgEl: HTMLImageElement, size: number): string {
   const ratio = width / height;
   const canvasWidth = ratio > 1 ? size : size * ratio;
   const canvasHeight = ratio > 1 ? size / ratio : size;
-  console.log(width, height, canvasWidth, canvasHeight);
   canvas.width = canvasWidth;
   canvas.height = canvasHeight;
   context.drawImage(imgEl, 0, 0, width, height, 0, 0, canvasWidth, canvasHeight);
-  return canvas.toDataURL("image/jpeg", 0.6);
+  return canvas.toDataURL();
 }
 
-export function resizeImageFromBlob(blob: Blob, size: number): Promise<string> {
+export function getImageThumbFromBlob(blob: Blob, size: number): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
       try {
-        const thumb = resizeImage(img, size);
+        const thumb = getImageThumb(img, size);
         resolve(thumb);
       } catch (error) {
         reject(error);

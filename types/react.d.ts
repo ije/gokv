@@ -17,7 +17,7 @@ export interface ImageProps extends Omit<ImgHTMLAttributes<HTMLImageElement>, "o
   readonly?: boolean;
   fit?: "cover" | "contain";
   quality?: number;
-  generateBlurPreview?: true | "xs" | "sm" | "base" | "md" | "lg";
+  generateBlurPreview?: true | "sm" | "base" | "md" | "lg";
   onChange?: (e: { src: string; alt: string }) => void;
 }
 
