@@ -95,7 +95,8 @@ export function Image(props: ImageProps) {
   const img = createElement("img", {
     ...props,
     src: previewUrl ?? src,
-    srcSet: !previewUrl ? props.srcSet ?? srcSet : undefined,
+    key: previewUrl ?? src,
+    srcSet: !previewUrl ? (props.srcSet ?? srcSet) : undefined,
     style: { ...props.style, ...Imagestyle },
     loading: props.loading ?? "lazy",
     onLoad: (e: SyntheticEvent<HTMLImageElement>) => {
