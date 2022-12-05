@@ -14,10 +14,9 @@ export type GokvProviderProps = {
 export const GokvProvider: FC<PropsWithChildren<GokvProviderProps>>;
 
 export interface ImageProps extends Omit<ImgHTMLAttributes<HTMLImageElement>, "onChange"> {
-  readonly?: boolean;
   fit?: "cover" | "contain";
   quality?: number;
-  generateBlurPreview?: true | "sm" | "base" | "md" | "lg";
+  blurPreview?: "sm" | "base" | "md" | "lg";
   onChange?: (e: { src: string; alt: string }) => void;
 }
 

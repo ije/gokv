@@ -1,13 +1,4 @@
-import {
-  createElement,
-  CSSProperties,
-  PropsWithChildren,
-  SyntheticEvent,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { createElement, CSSProperties, PropsWithChildren, useContext, useMemo, useState } from "react";
 import { ImageProps } from "../../types/react.d.ts";
 import { FileStorage } from "../../mod.ts";
 import { $context } from "./Context.ts";
@@ -17,7 +8,8 @@ export const useImageSrc = (props: Pick<ImageProps, "src" | "width" | "height" |
   src?: string;
   srcSet?: string;
   aspectRatio?: number;
-  placeholder?: string;
+  blurPreview?: string;
+  blurPreviewSize?: number;
   fit?: "contain" | "cover";
 } => {
   const { src, width, height, quality, fit } = props;
@@ -54,57 +46,57 @@ export const useImageSrc = (props: Pick<ImageProps, "src" | "width" | "height" |
           ret.aspectRatio = parseInt(w, 32) / parseInt(h, 32);
         }
         if (rest.length > 0) {
-          const placeholder = rest.join("x");
-          ret.placeholder = `data:image/jpeg;base64,${atobUrl(placeholder)}`;
+          const v = rest.join("x");
+          ret.blurPreviewSize = parseInt(v, 32);
+          ret.blurPreview = `data:image/jpeg;base64,${atobUrl(v.slice(2))}`;
         }
       }
-      ret.src = `https://${imagesHost}/${imageId.slice(0, 40)}${parts[2] ? `/${parts[2]}` : ""}`;
+      ret.src = `https://${imagesHost}/${imageId.slice(0, 40)}/${resizing.join(",")}`;
     }
     return ret;
   }, [src, width, height, quality, fit]);
 };
 
-// the blur effect is copied from next.js/image
-const blurSvg = (previewUrl: string, aspectRatio: number): string => {
-  const h = 16 / aspectRatio;
+// The blur effect is copied from next.js/image
+const blurSvg = (previewUrl: string, w: number, h: number): string => {
   return encodeURIComponent(
-    `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 ${h}'><filter id='b' color-interpolation-filters='sRGB'><feGaussianBlur stdDeviation='1'/><feComponentTransfer><feFuncA type='discrete' tableValues='1 1'/></feComponentTransfer></filter><image preserveAspectRatio='none' filter='url(#b)' x='0' y='0' height='100%' width='100%' href='${previewUrl}'/></svg>`,
+    `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 ${w} ${h}'><filter id='b' color-interpolation-filters='sRGB'><feGaussianBlur stdDeviation='1'/><feComponentTransfer><feFuncA type='discrete' tableValues='1 1'/></feComponentTransfer></filter><image preserveAspectRatio='none' filter='url(#b)' x='0' y='0' height='100%' width='100%' href='${previewUrl}'/></svg>`,
   );
 };
 
 export function Image(props: ImageProps) {
+  const { alt, contentEditable, style } = props;
   const { namespace } = useContext($context);
   const fs = useMemo(() => new FileStorage({ namespace }), [namespace]);
-  const { src, srcSet, aspectRatio, fit, placeholder } = useImageSrc(props);
-  const [isLoading, setIsLoading] = useState(() => Boolean(src));
+  const { src, srcSet, aspectRatio, fit, blurPreview, blurPreviewSize } = useImageSrc(props);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [error, setError] = useState<Error | null>(null);
   const imgStyle = useMemo(() => ({
-    ...(placeholder && aspectRatio && isLoading
+    ...(blurPreview && blurPreviewSize && aspectRatio
       ? {
-        backgroundImage: `url("data:image/svg+xml;charset=utf-8,${blurSvg(placeholder, aspectRatio)}")`,
+        backgroundImage: `url("data:image/svg+xml;charset=utf-8,${
+          blurSvg(blurPreview, blurPreviewSize, blurPreviewSize / aspectRatio)
+        }")`,
         backgroundSize: fit,
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
       }
       : null),
     objectFit: fit,
-    aspectRatio,
-  }), [aspectRatio, placeholder, isLoading, fit]);
+  }), [aspectRatio, blurPreview, blurPreviewSize, fit]);
+  const $aspectRatio = useMemo(() => {
+    return aspectRatio ?? style?.aspectRatio ?? (contentEditable && !previewUrl ? 1 : undefined);
+  }, [aspectRatio, contentEditable, style?.aspectRatio, previewUrl]);
 
   const img = createElement("img", {
     ...props,
     src: previewUrl ?? src,
     key: previewUrl ?? src,
     srcSet: !previewUrl ? (props.srcSet ?? srcSet) : undefined,
-    style: { ...props.style, ...imgStyle },
+    style: { ...style, ...imgStyle, aspectRatio: $aspectRatio },
     loading: props.loading ?? "lazy",
-    onLoad: (e: SyntheticEvent<HTMLImageElement>) => {
-      setIsLoading(false);
-      props.onLoad?.(e);
-    },
   });
 
   const upload = async (file: File) => {
@@ -114,11 +106,12 @@ export function Image(props: ImageProps) {
     setUploadProgress(0);
     try {
       let placeholder: string | undefined;
-      const gen = props.generateBlurPreview;
-      if (gen && file.type === "image/jpeg") {
+      const bp = props.blurPreview ?? "base";
+      if (file.type === "image/jpeg") {
         const sizes = { "sm": 8, "base": 16, "md": 32, "lg": 64 };
-        const thumb = await getImageThumbFromBlob(file.slice(), sizes[gen === true ? "base" : gen] ?? 16);
-        placeholder = btoaUrl(thumb.split(",")[1]);
+        const size = sizes[bp] ?? 16;
+        const thumb = await getImageThumbFromBlob(file.slice(), sizes[bp] ?? 16);
+        placeholder = size.toString(32).padStart(2, "0") + btoaUrl(thumb.split(",")[1]);
       }
       const { url } = await fs.put(file, {
         onProgress: (loaded: number, total: number) => setUploadProgress(loaded / total),
@@ -136,13 +129,7 @@ export function Image(props: ImageProps) {
     }
   };
 
-  useEffect(() => {
-    if (src) {
-      setIsLoading(true);
-    }
-  }, [src]);
-
-  if (props.readonly) {
+  if (!contentEditable) {
     return img;
   }
 
@@ -176,7 +163,7 @@ export function Image(props: ImageProps) {
         opacity: 0,
         cursor: "pointer",
       },
-      title: props.alt ? `${props.alt} (Replace the image)` : "Select an image",
+      title: alt ? `${alt} (Replace the image)` : "Select an image",
       onChange: (e) => {
         const file = e.target.files?.item(0);
         if (file) {
