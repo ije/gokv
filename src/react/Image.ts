@@ -138,14 +138,14 @@ export function Image(props: ImageProps) {
     { style: { position: "relative", display: "inline-flex" } },
     img,
     isUploading && uploadProgress === 0 && (
-      createElement(Box, null, "Reading...")
+      createElement(Overlay, null, "Reading...")
     ),
     isUploading && uploadProgress > 0 && (
-      createElement(Box, null, `${(uploadProgress * 100).toFixed(2)}%`)
+      createElement(Overlay, null, `${(uploadProgress * 100).toFixed(2)}%`)
     ),
     error && (
       createElement(
-        Box,
+        Overlay,
         { style: { color: "red", backgroundColor: "rgba(255,0,0,0.1)" } },
         createElement("span", null, createElement("strong", null, "Error"), ": ", error.message),
       )
@@ -174,7 +174,7 @@ export function Image(props: ImageProps) {
   );
 }
 
-export function Box(props: PropsWithChildren<{ style?: CSSProperties }>) {
+export function Overlay(props: PropsWithChildren<{ style?: CSSProperties }>) {
   return createElement("div", {
     style: {
       display: "inline-flex",

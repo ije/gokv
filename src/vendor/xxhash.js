@@ -133,10 +133,14 @@ export async function create64(seed = defaultSeed) {
 export default async function xxhash(input, seed = defaultSeed) {
   const h = await create64(seed);
   const reader = input.getReader();
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    h.update(value);
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      h.update(value);
+    }
+  } finally {
+    reader.releaseLock();
   }
   return h.digest();
 }
