@@ -1,0 +1,106 @@
+/* rest style */
+
+* {
+  margin: 0;
+  padding: 0;
+  border: none;
+  outline: none;
+  font: inherit;
+  font-size: 100%;
+  vertical-align: baseline;
+  background: transparent;
+}
+
+html {
+  font-size: 15px;
+}
+
+body {
+  font-family: Inter, Helvetica, sans-serif;
+  color: #232323;
+  text-rendering: optimizeLegibility;
+}
+
+strong,
+b {
+  font-weight: 600;
+}
+
+em,
+i {
+  font-style: italic;
+}
+
+code {
+  font-family: "Dank Mono", monospace;
+}
+
+pre {
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+ul {
+  list-style: disc;
+  padding-left: 16px;
+}
+
+/* common */
+
+.flex {
+  display: flex;
+  flex-direction: row;
+}
+
+.w-half {
+  width: 50%;
+  overflow-x: hidden;
+}
+
+/* app style */
+
+body {
+  padding: 32px;
+}
+
+h2 {
+  font-size: 20px;
+  margin-bottom: 20px;
+  font-weight: 700;
+}
+
+h3 {
+  font-size: 18px;
+  margin-bottom: 16px;
+  font-weight: 600;
+}
+
+li>p {
+  margin-bottom: 8px;
+}
+
+li+li {
+  padding-top: 16px;
+}
+
+.json-viewer {
+  padding: 16px;
+  border-radius: 8px;
+  background-color: #f6f6f6;
+}
+
+.json-viewer .comma,
+.json-viewer .colon {
+  color: #999;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.card + .card {
+  margin-top: 16px;
+}

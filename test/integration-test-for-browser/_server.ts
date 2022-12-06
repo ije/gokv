@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.165.0/http/server.ts";
-import html from "https://deno.land/x/htm@0.1.2/mod.ts";
-import { build } from "https://deno.land/x/esbuild@v0.15.15/mod.js";
+import html from "https://deno.land/x/htm@0.1.3/mod.ts";
+import { build } from "https://deno.land/x/esbuild@v0.15.16/mod.js";
 import gokv from "gokv";
 import "dotenv";
 
@@ -18,7 +18,9 @@ serve(async (req: Request) => {
     } catch (err) {
       if (err instanceof Deno.errors.NotFound) {
         entryPoint = Deno.cwd() + pathname;
-      } else throw err;
+      } else {
+        return new Response(err.message, { status: 500 });
+      }
     }
     const ret = await build({
       entryPoints: [entryPoint],
@@ -37,10 +39,30 @@ serve(async (req: Request) => {
     });
   }
 
+  if (/\.(css)$/.test(pathname)) {
+    try {
+      const fp = import.meta.resolve("." + pathname).slice(7);
+      return new Response(await Deno.readTextFile(fp), {
+        headers: {
+          "Content-Type": "text/css; charset=utf-8",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+        },
+      });
+    } catch (err) {
+      if (err instanceof Deno.errors.NotFound) {
+        return new Response("File not found", { status: 404 });
+      }
+      return new Response(err.message, { status: 500 });
+    }
+  }
+
   return html({
     scripts: [
       { type: "importmap", text: await Deno.readTextFile("./import_map.json") },
       { type: "module", src: "/_bootstrap.tsx" },
+    ],
+    styles: [
+      { href: "/_style.css" },
     ],
     body: `<div id="root"></div>`,
     headers: {

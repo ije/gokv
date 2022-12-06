@@ -1,7 +1,9 @@
 /// <reference lib="dom" />
 /** @jsx createElement */
-import { createElement, useEffect, useState } from "react";
+/** @jsxFrag Fragment */
+import { createElement, Fragment, useEffect, useState } from "react";
 import { render } from "react-dom";
+import { TestReactImage } from "./TestReactImage.tsx";
 
 // use api.gokv.dev endpoint for integration test
 localStorage.setItem("GOKV_ENV", "development");
@@ -20,7 +22,22 @@ interface Task {
   hidden?: boolean;
 }
 
-function TestApp() {
+function Index() {
+  return (
+    <ul>
+      <li>
+        <a href="/integration">Integration Testings</a>
+      </li>
+      <li>
+        <a href="/test-react-image">
+          Test react <code>`Image`</code> component
+        </a>
+      </li>
+    </ul>
+  );
+}
+
+function IntegrationTest() {
   const [tasks, setTasks] = useState<Task[]>([]);
 
   async function test(name: string, src: string | CallableFunction, desc?: string) {
@@ -69,8 +86,8 @@ function TestApp() {
   }, []);
 
   return (
-    <div>
-      <h1>Gokv Testing</h1>
+    <>
+      <h2>Integration Testing</h2>
       <ul>
         {tasks.filter((t) => !t.hidden).map((task) => (
           <li id={task.name}>
@@ -89,8 +106,15 @@ function TestApp() {
           </li>
         ))}
       </ul>
-    </div>
+    </>
   );
 }
 
-render(<TestApp />, document.getElementById("root"));
+render(
+  <>
+    {location.pathname === "/" && <Index />}
+    {location.pathname === "/integration" && <IntegrationTest />}
+    {location.pathname === "/test-react-image" && <TestReactImage />}
+  </>,
+  document.getElementById("root"),
+);
