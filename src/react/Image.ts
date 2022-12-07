@@ -47,7 +47,7 @@ export const useImageSrc = (props: Pick<ImageProps, "src" | "width" | "height" |
         }
         if (rest.length > 0) {
           const v = rest.join("x");
-          ret.blurPreviewSize = parseInt(v, 32);
+          ret.blurPreviewSize = parseInt(v.slice(0, 2), 32);
           ret.blurPreview = `data:image/jpeg;base64,${atobUrl(v.slice(2))}`;
         }
       }
@@ -70,6 +70,7 @@ export function Image(props: ImageProps) {
   const fs = useMemo(() => new FileStorage({ namespace }), [namespace]);
   const { src, srcSet, aspectRatio, fit, blurPreview, blurPreviewSize } = useImageSrc(props);
   const [isUploading, setIsUploading] = useState(false);
+  const [isHover, setIsHover] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [error, setError] = useState<Error | null>(null);
@@ -86,16 +87,25 @@ export function Image(props: ImageProps) {
       : null),
     objectFit: fit,
   }), [aspectRatio, blurPreview, blurPreviewSize, fit]);
-  const $aspectRatio = useMemo(() => {
-    return aspectRatio ?? style?.aspectRatio ?? (contentEditable && !previewUrl ? 1 : undefined);
-  }, [aspectRatio, contentEditable, style?.aspectRatio, previewUrl]);
+  const $aspectRatio = useMemo(
+    () => aspectRatio ?? style?.aspectRatio ?? (contentEditable && !previewUrl ? 1 : undefined),
+    [aspectRatio, style?.aspectRatio, contentEditable, previewUrl],
+  );
+  const $style = useMemo(
+    () => ({ ...style, ...imgStyle, aspectRatio: $aspectRatio }),
+    [style, imgStyle, $aspectRatio],
+  );
+  const $src = useMemo(
+    () => previewUrl ?? src,
+    [previewUrl, src],
+  );
 
   const img = createElement("img", {
     ...props,
-    src: previewUrl ?? src,
-    key: previewUrl ?? src,
+    key: $src,
+    src: $src,
     srcSet: !previewUrl ? (props.srcSet ?? srcSet) : undefined,
-    style: { ...style, ...imgStyle, aspectRatio: $aspectRatio },
+    style: $style,
     loading: props.loading ?? "lazy",
   });
 
@@ -110,7 +120,7 @@ export function Image(props: ImageProps) {
       if (file.type === "image/jpeg") {
         const sizes = { "sm": 8, "base": 16, "md": 32, "lg": 64 };
         const size = sizes[bp] ?? 16;
-        const thumb = await getImageThumbFromBlob(file.slice(), sizes[bp] ?? 16);
+        const thumb = await getImageThumbFromBlob(file.slice(), size);
         placeholder = size.toString(32).padStart(2, "0") + btoaUrl(thumb.split(",")[1]);
       }
       const { url } = await fs.put(file, {
