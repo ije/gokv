@@ -71,8 +71,19 @@ h2 {
 
 h3 {
   font-size: 18px;
+  margin-top: 32px;
   margin-bottom: 16px;
   font-weight: 600;
+}
+h3:first-child {
+  margin-top: 0px;
+}
+
+label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
 }
 
 li>p {
@@ -83,7 +94,7 @@ li+li {
   padding-top: 16px;
 }
 
-.json-viewer {
+.info {
   padding: 16px;
   border-radius: 8px;
   background-color: #f6f6f6;
@@ -92,15 +103,4 @@ li+li {
 .json-viewer .comma,
 .json-viewer .colon {
   color: #999;
-}
-
-.card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-}
-
-.card + .card {
-  margin-top: 16px;
 }
