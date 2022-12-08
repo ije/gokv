@@ -1,8 +1,31 @@
-import { createElement, CSSProperties, PropsWithChildren, useContext, useMemo, useState } from "react";
+/** @jsx createElement */
+import { createElement, CSSProperties, PropsWithChildren, useContext, useEffect, useMemo, useState } from "react";
 import { ImageProps } from "../../types/react.d.ts";
 import { FileStorage } from "../../mod.ts";
 import { $context } from "./Context.ts";
 import { atobUrl, btoaUrl, getImageThumbFromBlob, toPInt } from "./utils.ts";
+
+const iconImageAdd = (
+  <svg
+    width="32"
+    height="24"
+    viewBox="0 0 32 24"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      d="M26 20.6563L22 14L17.4688 17.7813L14 12L2 22V6H20V4H0V24H28V12H26V20.6563ZM28 4V0H26V4H22V6H26V10H28V6H32V4H28Z"
+      fill="currentColor"
+    />
+    <circle cx="7" cy="10" r="3" fill="currentColor" />
+  </svg>
+);
+
+// The blur effect is copied from next.js/image
+const blurSvg = (previewUrl: string, w: number, h: number): string => {
+  return encodeURIComponent(
+    `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 ${w} ${h}'><filter id='b' color-interpolation-filters='sRGB'><feGaussianBlur stdDeviation='1'/><feComponentTransfer><feFuncA type='discrete' tableValues='1 1'/></feComponentTransfer></filter><image preserveAspectRatio='none' filter='url(#b)' x='0' y='0' height='100%' width='100%' href='${previewUrl}'/></svg>`,
+  );
+};
 
 export const useImageSrc = (props: Pick<ImageProps, "src" | "width" | "height" | "quality" | "fit">): {
   src?: string;
@@ -57,15 +80,8 @@ export const useImageSrc = (props: Pick<ImageProps, "src" | "width" | "height" |
   }, [src, width, height, quality, fit]);
 };
 
-// The blur effect is copied from next.js/image
-const blurSvg = (previewUrl: string, w: number, h: number): string => {
-  return encodeURIComponent(
-    `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 ${w} ${h}'><filter id='b' color-interpolation-filters='sRGB'><feGaussianBlur stdDeviation='1'/><feComponentTransfer><feFuncA type='discrete' tableValues='1 1'/></feComponentTransfer></filter><image preserveAspectRatio='none' filter='url(#b)' x='0' y='0' height='100%' width='100%' href='${previewUrl}'/></svg>`,
-  );
-};
-
 export function Image(props: ImageProps) {
-  const { alt, contentEditable, style } = props;
+  const { contentEditable, style } = props;
   const { namespace } = useContext($context);
   const fs = useMemo(() => new FileStorage({ namespace }), [namespace]);
   const { src, srcSet, aspectRatio, fit, blurPreview, blurPreviewSize } = useImageSrc(props);
@@ -73,9 +89,12 @@ export function Image(props: ImageProps) {
   const [isHover, setIsHover] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [error, setError] = useState<Error | null>(null);
-  const imgStyle = useMemo(() => ({
-    ...(blurPreview && blurPreviewSize && aspectRatio
+  const $src = useMemo(
+    () => previewUrl ?? src,
+    [previewUrl, src],
+  );
+  const $imgStyle = useMemo(() => ({
+    ...(blurPreview && blurPreviewSize && aspectRatio && !previewUrl
       ? {
         backgroundImage: `url("data:image/svg+xml;charset=utf-8,${
           blurSvg(blurPreview, blurPreviewSize, blurPreviewSize / aspectRatio)
@@ -86,18 +105,18 @@ export function Image(props: ImageProps) {
       }
       : null),
     objectFit: fit,
-  }), [aspectRatio, blurPreview, blurPreviewSize, fit]);
+  }), [aspectRatio, blurPreview, blurPreviewSize, fit, previewUrl]);
   const $aspectRatio = useMemo(
     () => aspectRatio ?? style?.aspectRatio ?? (contentEditable && !previewUrl ? 1 : undefined),
     [aspectRatio, style?.aspectRatio, contentEditable, previewUrl],
   );
   const $style = useMemo(
-    () => ({ ...style, ...imgStyle, aspectRatio: $aspectRatio }),
-    [style, imgStyle, $aspectRatio],
-  );
-  const $src = useMemo(
-    () => previewUrl ?? src,
-    [previewUrl, src],
+    () => ({
+      ...style,
+      ...$imgStyle,
+      aspectRatio: $aspectRatio,
+    }),
+    [style, $imgStyle, $aspectRatio],
   );
 
   const img = createElement("img", {
@@ -128,8 +147,8 @@ export function Image(props: ImageProps) {
       });
       props.onChange?.({ src: url + (placeholder ? `x${placeholder}` : ""), alt: file.name });
     } catch (error) {
-      setError(error);
-      console.error(error);
+      props.onError?.(error);
+      console.error("[gokv]", error);
     } finally {
       setIsUploading(false);
       setTimeout(() => {
@@ -139,68 +158,103 @@ export function Image(props: ImageProps) {
     }
   };
 
+  function Overlay(props: PropsWithChildren<{ style?: CSSProperties; transitionStyle?: CSSProperties }>) {
+    const [dynStyle, setDynStyle] = useState(props.style);
+
+    useEffect(() => {
+      setDynStyle({ ...props.style, ...props.transitionStyle });
+    }, [props.transitionStyle]);
+
+    return (
+      <div
+        style={{
+          boxSizing: "border-box",
+          display: "inline-flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 6,
+          textAlign: "center",
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: "100%",
+          backgroundColor: "rgba(0,0,0,0.45)",
+          fontSize: 12.8,
+          color: "white",
+          borderRadius: style?.borderRadius,
+          ...dynStyle,
+        }}
+      >
+        {props.children}
+      </div>
+    );
+  }
+
   if (!contentEditable) {
     return img;
   }
 
-  return createElement(
-    "div",
-    { style: { position: "relative", display: "inline-flex" } },
-    img,
-    isUploading && uploadProgress === 0 && (
-      createElement(Overlay, null, "Reading...")
-    ),
-    isUploading && uploadProgress > 0 && (
-      createElement(Overlay, null, `${(uploadProgress * 100).toFixed(2)}%`)
-    ),
-    error && (
-      createElement(
-        Overlay,
-        { style: { color: "red", backgroundColor: "rgba(255,0,0,0.1)" } },
-        createElement("span", null, createElement("strong", null, "Error"), ": ", error.message),
-      )
-    ),
-    !isUploading && createElement("input", {
-      type: "file",
-      accept: "image/*",
-      style: {
-        display: "inline-block",
-        position: "absolute",
-        top: 0,
-        left: 0,
-        width: "100%",
-        height: "100%",
-        opacity: 0,
-        cursor: "pointer",
-      },
-      title: alt ? `${alt} (Replace the image)` : "Select an image",
-      onChange: (e) => {
-        const file = e.target.files?.item(0);
-        if (file) {
-          upload(file);
-        }
-      },
-    }),
+  return (
+    <div
+      style={{ position: "relative", display: "inline-flex" }}
+      onMouseEnter={() => setIsHover(true)}
+      onMouseLeave={() => setIsHover(false)}
+    >
+      {img}
+      {isUploading && uploadProgress === 0 && <Overlay>Reading...</Overlay>}
+      {isUploading && uploadProgress > 0 && <Overlay>{(uploadProgress * 100).toFixed(2)}%</Overlay>}
+      {!$src && (
+        <Overlay
+          style={{
+            color: "#868686",
+            border: "1px solid #ddd",
+            backgroundColor: "transparent",
+            transition: "all 0.3s ease-out",
+          }}
+          transitionStyle={isHover ? { color: "#333", borderColor: "#bbb" } : undefined}
+        >
+          {iconImageAdd}
+          {props.placeholder && <span>{props.placeholder}</span>}
+        </Overlay>
+      )}
+      {isHover && !isUploading && !!$src && (
+        <Overlay
+          style={{ opacity: 0, transition: "opacity 0.3s ease-in" }}
+          transitionStyle={{ opacity: 1 }}
+        >
+          {iconImageAdd}
+          {props.placeholder && <span>{props.placeholder}</span>}
+        </Overlay>
+      )}
+      {!isUploading && (
+        <input
+          type="file"
+          accept="image/*"
+          style={{
+            display: "inline-block",
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            opacity: 0,
+            cursor: "pointer",
+          }}
+          title={!props.placeholder
+            ? ($src ? "Choose or drag an image to replace" : "Choose or drag an image to upload")
+            : ""}
+          onChange={(e) => {
+            const file = e.target.files?.item(0);
+            if (file) {
+              upload(file);
+            }
+          }}
+        />
+      )}
+    </div>
   );
-}
-
-export function Overlay(props: PropsWithChildren<{ style?: CSSProperties }>) {
-  return createElement("div", {
-    style: {
-      display: "inline-flex",
-      alignItems: "center",
-      justifyContent: "center",
-      textAlign: "center",
-      position: "absolute",
-      top: 0,
-      left: 0,
-      width: "100%",
-      height: "100%",
-      backgroundColor: "rgba(0,0,0,0.5)",
-      color: "white",
-      ...props.style,
-    },
-  }, props.children);
 }
 
 export type { ImageProps };
