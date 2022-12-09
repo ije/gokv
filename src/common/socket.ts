@@ -2,15 +2,15 @@ import { ServiceName, Socket } from "../../types/common.d.ts";
 import atm from "../AccessTokenManager.ts";
 import { conactBytes, createWebSocket, dec, enc, getEnv, gzip, ungzip } from "./utils.ts";
 
+const pingTimeout = 5 * 1000; // wait for ping message for 5 seconds
+const pingInterval = 30 * 1000; // send ping message pre 30 seconds
+const gzipMinLength = 1000; // gzip if message size is larger than 1KB
+
 const MessageFlag = {
   ERROR: 0xf0,
   INIT: 0xf1,
   PING: 0xf2,
 };
-
-const pingTimeout = 5 * 1000; // wait for ping message for 5 seconds
-const pingInterval = 30 * 1000; // send ping message pre 30 seconds
-const gzipMinLength = 1000; // gzip if message size is larger than 1KB
 
 export enum SocketStatus {
   CLOSE = 0,

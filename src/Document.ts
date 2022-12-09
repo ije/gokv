@@ -7,7 +7,7 @@ import { checkNamespace, dec } from "./common/utils.ts";
 enum MessageFlag {
   DOC = 1,
   PATCH = 2,
-  CB = 3,
+  ACK = 3,
 }
 
 export default class DocumentImpl<T extends Record<string, unknown> | Array<unknown>> implements Document<T> {
@@ -120,7 +120,7 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
             }
             break;
           }
-          case MessageFlag.CB: {
+          case MessageFlag.ACK: {
             const ids = JSON.parse(dec.decode(data));
             for (const id of ids) {
               if (!uncomfirmedPatches.has(id)) {
@@ -157,8 +157,8 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
             return `DOC${gzTip} ${print(message)}`;
           case MessageFlag.PATCH:
             return `PATCH${gzTip} ${print(message)}`;
-          case MessageFlag.CB:
-            return `CB${gzTip} ${print(message)}`;
+          case MessageFlag.ACK:
+            return `ACK${gzTip} ${print(message)}`;
           default:
             return `UNKNOWN ${print(message)}`;
         }
