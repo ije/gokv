@@ -366,7 +366,11 @@ export function remix(proxyObject: Record<string, unknown> | Array<unknown>, upd
   const traverseSet = (value: unknown, path: Path = []) => {
     if (isPlainObject(value)) {
       for (const key in value) {
-        traverseSet(value[key], [...path, key]);
+        const val = value[key];
+        if (isPlainObject(val) && (Array.isArray(val.$$indexs) && isPlainObject(val.$$values))) {
+          applyPatch(proxyObject, [Op.SET, [...path, key], { $$indexs: [], $$values: {} }]);
+        }
+        traverseSet(val, [...path, key]);
       }
     } else if (path.length > 0) {
       applyPatch(proxyObject, [Op.SET, path, value]);

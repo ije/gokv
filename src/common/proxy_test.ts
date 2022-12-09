@@ -87,20 +87,25 @@ Deno.test("Remix proxy object", () => {
   }, (patch) => {
     patches.push(patch);
   });
+  // array initial patch
+  assertEquals(patches, [
+    [Op.SET, ["arr"], { $$indexs: ["a0"], $$values: { a0: "hello" } }],
+  ]);
   const newState = {
     obj: { baz: "qux" },
     arr: {
       $$indexs: ["a0", "a1"],
       $$values: { a0: "Hello", a1: "world!" },
     },
+    arr2: {
+      $$indexs: ["a0", "a1"],
+      $$values: { a0: "foo", a1: "bar" },
+    },
     num: 1,
   };
   remix(state, newState);
-  assertEquals(patches, [
-    [Op.SET, ["arr"], { $$indexs: ["a0"], $$values: { a0: "hello" } }],
-  ]);
   assertEquals(
     snapshot(state),
-    { obj: { baz: "qux" }, arr: ["Hello", "world!"], num: 1 } as unknown,
+    { obj: { baz: "qux" }, arr: ["Hello", "world!"], arr2: ["foo", "bar"], num: 1 } as unknown,
   );
 });
