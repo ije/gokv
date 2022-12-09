@@ -10,17 +10,25 @@ enum MessageFlag {
   ACK = 3,
 }
 
-export default class DocumentImpl<T extends Record<string, unknown> | Array<unknown>> implements Document<T> {
+export default class DocumentImpl<T extends Record<string, unknown>> implements Document<T> {
   #namespace: string;
   #docId: string;
+  #doc: T;
+  #notify?: (patch: Patch) => void;
+  #synced = false;
 
   constructor(docId: string, options?: DocumentOptions) {
     this.#namespace = checkNamespace(options?.namespace ?? "default");
     this.#docId = checkNamespace(docId);
+    this.#doc = proxy({} as T, (patch) => this.#notify?.(patch));
   }
 
   get #scope() {
     return this.#namespace + "/" + this.#docId;
+  }
+
+  get docObject() {
+    return this.#doc;
   }
 
   async getSnapshot(): Promise<T> {
@@ -51,10 +59,17 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
   }
 
   async sync(options?: DocumentSyncOptions): Promise<T> {
-    let doc: T | null = null;
     let docVersion = -1;
     let patchIndex = 0;
-    let socketStatus: SocketStatus = SocketStatus.PENDING;
+    let socketStatus = SocketStatus.PENDING;
+
+    if (this.#synced) {
+      return this.#doc;
+    }
+    this.#synced = true;
+
+    const blockedPatches: [string, ...Patch][] = [];
+    const uncomfirmedPatches = new Map<string, Patch>();
 
     const socket = await connect("doc", this.#scope, {
       resolveFlag: MessageFlag.DOC,
@@ -63,8 +78,10 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
         switch (flag) {
           case MessageFlag.DOC: {
             const [version, snapshot, reset] = JSON.parse(dec.decode(data));
-            if (!doc) {
-              doc = proxy(snapshot, (patch) => {
+            // update the proxy object with the new snapshot
+            remix(this.#doc, snapshot);
+            if (!this.#notify) {
+              this.#notify = (patch) => {
                 // todo: merge patches
                 const id = patchIndex++;
                 const arr = patch.slice(0, patch[0] === Op.DELETE ? 2 : 3);
@@ -73,20 +90,17 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
                 }
                 const stripedPatch = arr as unknown as Patch;
                 queue(id.toString(36), stripedPatch);
-              });
-            } else {
-              // update the proxy object with the new snapshot
-              remix(doc!, snapshot);
-              // the `reset` marks the document is reset by API
-              if (!reset) {
-                uncomfirmedPatches.clear();
-                if (blockedPatches.length > 0) {
-                  const patches = blockedPatches.splice(0);
-                  for (const [, ...patch] of patches) {
-                    applyPatch(doc!, patch);
-                  }
-                  drain(patches);
+              };
+            }
+            // the `reset` marks the document is reset by API
+            if (!reset) {
+              uncomfirmedPatches.clear();
+              if (blockedPatches.length > 0) {
+                const patches = blockedPatches.splice(0);
+                for (const [, ...patch] of patches) {
+                  applyPatch(this.#doc, patch);
                 }
+                drain(patches);
               }
             }
             docVersion = version;
@@ -113,7 +127,7 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
                   uncomfirmedPatches.set(`${id}-recycle`, true as unknown as Patch);
                 }
               }
-              shouldApply && applyPatch(doc!, patch);
+              shouldApply && applyPatch(this.#doc, patch);
             }
             if (typeof version === "number" && version > docVersion) {
               docVersion = version;
@@ -129,7 +143,7 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
               }
               // re-apply the patch for new parent
               if (uncomfirmedPatches.has(`${id}-recycle`)) {
-                applyPatch(doc!, uncomfirmedPatches.get(id)!);
+                applyPatch(this.#doc, uncomfirmedPatches.get(id)!);
                 uncomfirmedPatches.delete(`${id}-recycle`);
               }
               uncomfirmedPatches.delete(id);
@@ -165,9 +179,6 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
       },
     });
 
-    const blockedPatches: [string, ...Patch][] = [];
-    const uncomfirmedPatches = new Map<string, Patch>();
-
     const queue = (() => {
       let promise: Promise<void> | undefined;
       return (id: string, patch: Patch) => {
@@ -194,14 +205,16 @@ export default class DocumentImpl<T extends Record<string, unknown> | Array<unkn
     };
 
     options?.signal?.addEventListener("abort", () => {
-      socket.close();
-      blockedPatches.length = 0;
-      uncomfirmedPatches.clear();
-      if (doc) {
-        disableNotify(doc);
+      try {
+        socket.close();
+      } finally {
+        disableNotify(this.#doc);
+        blockedPatches.length = 0;
+        uncomfirmedPatches.clear();
+        this.#synced = false;
       }
     });
 
-    return doc!;
+    return this.#doc;
   }
 }

@@ -35,10 +35,7 @@ export interface Module {
     maxAge?: number,
   ): Promise<Response>;
   ChatRoom<U extends AuthUser>(roomId: string, options?: ChatRoomOptions): ChatRoom<U>;
-  Document<T extends Record<string, unknown> | Array<unknown>>(
-    documentId: string,
-    options?: DocumentOptions,
-  ): Document<T>;
+  Document<T extends Record<string, unknown>>(documentId: string, options?: DocumentOptions): Document<T>;
   FileStorage(options?: FileStorageOptions): FileStorage;
   Session<T extends Record<string, unknown> = Record<string, unknown>>(
     request: Request | { cookies: Record<string, string> },

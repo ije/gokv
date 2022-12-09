@@ -3,15 +3,17 @@ import Document from "./Document.ts";
 import { snapshot, subscribe } from "./common/proxy.ts";
 import "dotenv";
 
-const doc = new Document<typeof initData>("dev-doc");
-
+// reset document with `initData`
 const initData = { foo: "bar", baz: "qux", arr: ["Hello", "world!"] };
+const doc = new Document<typeof initData>("dev-doc");
 const { version } = await doc.reset(initData);
 console.log("document has been reset, current version is", version);
 
-const obj = await doc.sync();
-const jbo = await doc.sync();
+// crate two sessions
+const obj = await new Document<typeof initData>("dev-doc").sync();
+const jbo = await new Document<typeof initData>("dev-doc").sync();
 
+// watch changes
 const watch = <T extends Record<string, unknown> | Array<unknown>>(
   obj: T,
   predicate: (obj: T) => boolean,
@@ -20,7 +22,7 @@ const watch = <T extends Record<string, unknown> | Array<unknown>>(
     const timer = setTimeout(() => {
       dispose();
       reject(new Error("timeout"));
-    }, 5 * 1000);
+    }, 10 * 1000);
     const dispose = subscribe(obj, () => {
       if (predicate(obj)) {
         clearTimeout(timer);

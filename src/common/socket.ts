@@ -151,11 +151,11 @@ export async function connect(service: ServiceName, namespace: string, options: 
     };
 
     const onError = (e: Event | ErrorEvent) => {
+      const message = (e as ErrorEvent)?.message ?? "Websocket connection failed";
       if (!rejected) {
-        reject(e);
+        reject(new Error(message));
         rejected = true;
       } else {
-        const message = (e as ErrorEvent)?.message ?? "Unknown websocket error";
         options.onError?.("clientError", message);
         console.error(`[gokv] socket(${service}/${namespace}): ${message}`);
       }

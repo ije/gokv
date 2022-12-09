@@ -9,7 +9,7 @@ export type DocumentSyncOptions = {
 };
 
 /** `Document` syncs changes between sessions and saved automatically. */
-export class Document<T extends Record<string, unknown> | Array<unknown>> {
+export class Document<T extends Record<string, unknown>> {
   constructor(documentId: string, options?: DocumentOptions);
   /** Resets the document with the given `data`. */
   reset(data?: T): Promise<{ version: number }>;

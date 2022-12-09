@@ -1,5 +1,5 @@
 // Proxy an object or array to create patches when changes occur.
-// Use **Fractional Indexing** to ensure the order of array objects.
+// Use **Fractional Indexing** to ensure the order of array objects between different clients.
 // The snapshot & subscribe feature is inspired by https://github.com/pmndrs/valtio
 
 import { generateNKeysBetween } from "../vendor/fractional-indexing.js";
