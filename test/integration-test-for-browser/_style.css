@@ -82,8 +82,19 @@ h3:first-child {
 label {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   cursor: pointer;
+}
+
+label input {
+  min-width: 300px;
+  padding: 6px 8px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+
+label input:focus {
+  border-color: #999;
 }
 
 li>p {
@@ -98,6 +109,11 @@ li+li {
   padding: 16px;
   border-radius: 8px;
   background-color: #f6f6f6;
+}
+
+.info-error {
+  background-color: #fee;
+  color: #e00;
 }
 
 .json-viewer .comma,

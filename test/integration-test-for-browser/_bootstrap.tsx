@@ -1,9 +1,10 @@
 /// <reference lib="dom" />
 /** @jsx createElement */
 /** @jsxFrag Fragment */
-import { createElement, Fragment, useEffect, useState } from "react";
-import { render } from "react-dom";
+import { createElement, type FC, Fragment, useEffect, useState } from "react";
+import { createRoot } from "react-dom/client";
 import { TestReactImage } from "./TestReactImage.tsx";
+import { TestReactDocument } from "./TestReactDocument.tsx";
 
 // use api.gokv.dev endpoint for integration test
 localStorage.setItem("GOKV_ENV", "development");
@@ -27,6 +28,11 @@ function Index() {
     <ul>
       <li>
         <a href="/integration">Integration Testings</a>
+      </li>
+      <li>
+        <a href="/test-react-document">
+          Test react <code>`useDocument`</code> hook
+        </a>
       </li>
       <li>
         <a href="/test-react-image">
@@ -110,11 +116,13 @@ function IntegrationTest() {
   );
 }
 
-render(
-  <>
-    {location.pathname === "/" && <Index />}
-    {location.pathname === "/integration" && <IntegrationTest />}
-    {location.pathname === "/test-react-image" && <TestReactImage />}
-  </>,
-  document.getElementById("root"),
+const routes: Record<string, FC> = {
+  "/": Index,
+  "/integration": IntegrationTest,
+  "/test-react-document": TestReactDocument,
+  "/test-react-image": TestReactImage,
+};
+
+createRoot(document.getElementById("root")!).render(
+  createElement(routes[location.pathname] ?? <p>Page not found</p>),
 );
