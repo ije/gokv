@@ -61,7 +61,7 @@ export default class DocumentImpl<T extends Record<string, unknown>> implements 
   async sync(options?: DocumentSyncOptions): Promise<T> {
     let docVersion = -1;
     let patchIndex = 0;
-    let socketStatus = SocketStatus.PENDING;
+    let online = false;
 
     if (this.#synced) {
       return this.#doc;
@@ -72,6 +72,7 @@ export default class DocumentImpl<T extends Record<string, unknown>> implements 
     const uncomfirmedPatches = new Map<string, Patch>();
 
     const socket = await connect("doc", this.#scope, {
+      signal: options?.signal,
       resolveFlag: MessageFlag.DOC,
       initData: () => ({ version: docVersion }),
       onMessage: (flag, data) => {
@@ -153,10 +154,20 @@ export default class DocumentImpl<T extends Record<string, unknown>> implements 
         }
       },
       onStatusChange: (status) => {
-        socketStatus = status;
-        options?.onStatusChange?.(status);
+        online = status === SocketStatus.READY;
+        if (online) {
+          options?.onOnline?.();
+        } else {
+          options?.onOffline?.();
+        }
       },
       onError: options?.onError,
+      onClose: () => {
+        disableNotify(this.#doc);
+        blockedPatches.length = 0;
+        uncomfirmedPatches.clear();
+        this.#synced = false;
+      },
       // for debug
       inspect: (flag, gzFlag, message) => {
         const print = (buf: ArrayBuffer) => {
@@ -193,7 +204,7 @@ export default class DocumentImpl<T extends Record<string, unknown>> implements 
 
     const drain = (patches: [string, ...Patch][]) => {
       try {
-        if (socketStatus !== SocketStatus.READY) {
+        if (!online) {
           throw new Error("Bad socket");
         }
         socket.send(MessageFlag.PATCH, patches);
@@ -203,17 +214,6 @@ export default class DocumentImpl<T extends Record<string, unknown>> implements 
         blockedPatches.unshift(...patches);
       }
     };
-
-    options?.signal?.addEventListener("abort", () => {
-      try {
-        socket.close();
-      } finally {
-        disableNotify(this.#doc);
-        blockedPatches.length = 0;
-        uncomfirmedPatches.clear();
-        this.#synced = false;
-      }
-    });
 
     return this.#doc;
   }

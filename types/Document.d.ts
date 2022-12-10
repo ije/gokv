@@ -5,7 +5,8 @@ export type DocumentOptions = {
 export type DocumentSyncOptions = {
   signal?: AbortSignal;
   onError?: (code: string, message: string) => void;
-  onStatusChange?: (status: number) => void;
+  onOnline?: () => void;
+  onOffline?: () => void;
 };
 
 /** `Document` syncs changes between sessions and saved automatically. */
@@ -28,4 +29,6 @@ export class Document<T extends Record<string, unknown>> {
    * obj.foo = "baz";
    */
   sync(options?: DocumentSyncOptions): Promise<T>;
+  // todo: delete the document
+  // delete(): Promise<void>;
 }
