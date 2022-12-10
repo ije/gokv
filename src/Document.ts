@@ -12,22 +12,26 @@ enum MessageFlag {
 
 export default class DocumentImpl<T extends Record<string, unknown>> implements Document<T> {
   #namespace: string;
-  #docId: string;
+  #id: string;
   #doc: T;
   #notify?: (patch: Patch) => void;
   #synced = false;
 
   constructor(docId: string, options?: DocumentOptions) {
     this.#namespace = checkNamespace(options?.namespace ?? "default");
-    this.#docId = checkNamespace(docId);
+    this.#id = checkNamespace(docId);
     this.#doc = proxy({} as T, (patch) => this.#notify?.(patch));
   }
 
   get #scope() {
-    return this.#namespace + "/" + this.#docId;
+    return this.#namespace + "/" + this.#id;
   }
 
-  get docObject() {
+  get id() {
+    return this.#id;
+  }
+
+  get DOC() {
     return this.#doc;
   }
 

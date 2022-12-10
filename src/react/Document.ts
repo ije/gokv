@@ -21,23 +21,23 @@ export const useDocument = <T extends Record<string, unknown>>(docId: string) =>
           onOnline: () => setOnline(true),
           onOffline: () => setOnline(false),
         });
+        setLoading(false);
       } catch (err) {
         if (err.message !== "aborted" && retryTimes < 3) {
-          // retry after 0.1s, 0.2s, 0.3s
-          setTimeout(() => sync(retryTimes + 1), (retryTimes + 1) * 100);
-          return;
+          const delay = (retryTimes + 1) * 100;
+          setTimeout(() => sync(retryTimes + 1), delay);
+          console.warn(`[gokv] fail to sync document(${doc.id}), retry after ${delay}ms ...`);
+        } else {
+          setError(err);
+          setLoading(false);
         }
-        setError(err);
-      } finally {
-        setLoading(false);
       }
     };
-    setLoading(true);
     sync();
-    return ac.abort();
+    return () => ac.abort();
   }, [doc]);
 
-  return { doc: doc.docObject, error, loading, online };
+  return { doc: doc.DOC, error, loading, online };
 };
 
 export const useSnapshot = <T extends Record<string, unknown> | Array<unknown>>(obj: T): T => {
