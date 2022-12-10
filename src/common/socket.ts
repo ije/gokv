@@ -31,11 +31,14 @@ export type SocketOptions = {
 };
 
 /** Creating a `WebSocket` connection that supports heartbeat checking, gzip compression, inspect, and automatic re-connection. */
-export async function connect(service: ServiceName, namespace: string, options: SocketOptions = {}): Promise<Socket> {
+export function connect(service: ServiceName, namespace: string, options: SocketOptions = {}): Promise<Socket> {
   const debug = getEnv("GOKV_WS_LOG") === "true";
-  const socketUrl = new URL(`wss://${atm.apiHost}/${service}/${namespace}`);
-  const token = await atm.getAccessToken(`${service}:${namespace}`);
-  socketUrl.searchParams.set("authToken", token.join("-"));
+  const newWebSocket = async () => {
+    const socketUrl = new URL(`wss://${atm.apiHost}/${service}/${namespace}`);
+    const token = await atm.getAccessToken(`${service}:${namespace}`);
+    socketUrl.searchParams.set("authToken", token.join("-"));
+    return await createWebSocket(socketUrl.href);
+  };
   return new Promise<Socket>((resolve, reject) => {
     let status: SocketStatus = SocketStatus.PENDING;
     let ws: WebSocket | null = null;
@@ -172,7 +175,7 @@ export async function connect(service: ServiceName, namespace: string, options: 
         rejected = true;
       } else {
         options.onError?.("clientError", message);
-        console.error(`[gokv] socket(${service}/${namespace}): ${message}`);
+        console.error(`[gokv] socket(${service}/${namespace}): ${message}`, e);
       }
     };
 
@@ -189,7 +192,7 @@ export async function connect(service: ServiceName, namespace: string, options: 
       if (fulfilled) {
         console.warn(`[gokv] socket(${service}/${namespace}) closed, reconnecting...`);
         setStatus(SocketStatus.PENDING);
-        createWebSocket(socketUrl.href).then(start);
+        newWebSocket().then(start);
       }
     };
 
@@ -214,6 +217,6 @@ export async function connect(service: ServiceName, namespace: string, options: 
       }
     });
 
-    createWebSocket(socketUrl.href).then(start);
+    newWebSocket().then(start);
   });
 }
