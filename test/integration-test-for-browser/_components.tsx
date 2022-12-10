@@ -1,7 +1,24 @@
 /** @jsx createElement */
 /** @jsxFrag Fragment */
-import { createElement, Fragment } from "react";
+import { createElement, Fragment, useCallback, useEffect, useState } from "react";
 import { useSnapshot } from "gokv/react";
+
+export function TextInput(props: { value: string; onChange: (value: string) => void }) {
+  const [value, setValue] = useState(props.value);
+
+  // deno-lint-ignore no-explicit-any
+  const onChange = useCallback((e: any) => {
+    const value = e.currentTarget.value;
+    setValue(value);
+    props.onChange(value);
+  }, []);
+
+  useEffect(() => {
+    setValue(props.value);
+  }, [props.value]);
+
+  return <input type="text" value={value} onChange={onChange} />;
+}
 
 export function JSONViewer({ data, indent = 2 }: { data: Record<string, unknown> | unknown[]; indent?: number }) {
   const snap = useSnapshot(data);

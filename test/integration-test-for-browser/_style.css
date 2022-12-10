@@ -70,6 +70,9 @@ h2 {
 }
 
 h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 18px;
   margin-top: 32px;
   margin-bottom: 16px;
@@ -77,6 +80,13 @@ h3 {
 }
 h3:first-child {
   margin-top: 0px;
+}
+
+h3 em {
+  font-size: 14px;
+  font-weight: 500;
+  font-style: normal;
+  color: #999;
 }
 
 label {

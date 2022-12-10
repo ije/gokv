@@ -2,14 +2,18 @@
 /** @jsxFrag Fragment */
 import { createElement, Fragment, useState } from "react";
 import { useDocument, useSnapshot } from "gokv/react";
-import { JSONViewer } from "./_components.tsx";
+import { JSONViewer, TextInput } from "./_components.tsx";
 
 export function TestReactDocument() {
   return (
     <>
-      <DocumentApp />
+      <div style={{ minHeight: 300 }}>
+        <DocumentApp idx={1} />
+      </div>
       <Hr />
-      <DocumentApp />
+      <div style={{ minHeight: 300 }}>
+        <DocumentApp idx={1} />
+      </div>
     </>
   );
 }
@@ -42,8 +46,10 @@ function TagInput({ tags }: { tags: string[] }) {
   const [tag, setTag] = useState("");
 
   const addTag = () => {
-    tags.push(tag);
-    setTag("");
+    if (tag) {
+      tags.push(tag);
+      setTag("");
+    }
   };
 
   const removeTag = (index: number) => {
@@ -53,28 +59,27 @@ function TagInput({ tags }: { tags: string[] }) {
   return (
     <div className="tag-input">
       {snap.map((tag, i) => (
-        <section key={Math.random()}>
-          <input type="text" value={tag} onChange={(e) => tags[i] = e.currentTarget.value} />
+        <section>
+          <TextInput value={tag} onChange={(v) => tags[i] = v} />
           <button onClick={() => removeTag(i)}>{iconRemove}</button>
         </section>
       ))}
       <section>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            addTag();
-          }}
-        >
-          <input type="text" name="tag" value={tag} onChange={(e) => setTag(e.currentTarget.value)} />
-        </form>
+        <input
+          type="text"
+          name="tag"
+          value={tag}
+          onChange={(e) => setTag(e.currentTarget.value)}
+          onKeyDown={(e) => e.key === "Enter" && addTag()}
+        />
         <button onClick={addTag}>{iconAdd}</button>
       </section>
     </div>
   );
 }
 
-function DocumentApp() {
-  const { doc, loading, error } = useDocument<{ foo: string; arr: string[] }>("dev-doc");
+function DocumentApp({ idx }: { idx: number }) {
+  const { doc, loading, error, online } = useDocument<{ foo: string; arr: string[] }>("dev-doc");
   const snap = useSnapshot(doc);
 
   if (loading) {
@@ -88,11 +93,13 @@ function DocumentApp() {
   return (
     <div className="flex">
       <div className="w-half">
-        <h3>Editor</h3>
+        <h3>
+          Document Editor <em>Session #{idx}, {online ? "Online" : "Offline"}</em>
+        </h3>
         <p>
           <label>
             <code>foo:</code>
-            <input type="text" value={snap.foo} onChange={(e) => doc.foo = e.currentTarget.value} />
+            <TextInput value={snap.foo} onChange={(v) => doc.foo = v} key="foo" />
           </label>
         </p>
         <p>
