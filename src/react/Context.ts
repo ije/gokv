@@ -10,10 +10,8 @@ const defaultContext: GokvContextProps = {
 
 export const $context = createContext<GokvContextProps>(defaultContext);
 
-export function GokvProvider({ children, signUrl, ...rest }: PropsWithChildren<GokvProviderProps>) {
-  if (signUrl) {
-    config({ signUrl });
-  }
+export function GokvProvider({ children, tokenSignUrl, tokenMaxAge, ...rest }: PropsWithChildren<GokvProviderProps>) {
+  config({ tokenSignUrl, tokenMaxAge });
   const value: GokvContextProps = { ...defaultContext, ...rest };
   return createElement($context.Provider, { value }, children);
 }

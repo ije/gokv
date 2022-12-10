@@ -8,7 +8,8 @@ export type GokvContextProps = {
 };
 
 export type GokvProviderProps = {
-  signUrl?: string;
+  tokenSignUrl?: string;
+  tokenMaxAge?: number;
 } & Partial<GokvContextProps>;
 
 export const GokvProvider: FC<PropsWithChildren<GokvProviderProps>>;

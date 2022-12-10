@@ -14,7 +14,8 @@ export * from "./FileStorage.d.ts";
 
 export type ConfigOptions = {
   token?: string;
-  signUrl?: string;
+  tokenSignUrl?: string;
+  tokenMaxAge?: number;
 };
 
 export const config: Module["config"];
@@ -32,7 +33,6 @@ export interface Module {
     request: Request,
     user: U,
     perm: Permission,
-    maxAge?: number,
   ): Promise<Response>;
   ChatRoom<U extends AuthUser>(roomId: string, options?: ChatRoomOptions): ChatRoom<U>;
   Document<T extends Record<string, unknown>>(documentId: string, options?: DocumentOptions): Document<T>;

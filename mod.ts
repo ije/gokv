@@ -23,21 +23,15 @@ import DocumentImpl from "./src/Document.ts";
 import FileStorageImpl from "./src/FileStorage.ts";
 import { snapshot, subscribe } from "./src/common/proxy.ts";
 
-export {
-  DocumentImpl as Document,
-  FileStorageImpl as FileStorage,
-  SessionImpl as Session,
-  snapshot,
-  StorageImpl as Storage,
-  subscribe,
-};
-
-export const config = ({ token, signUrl }: ConfigOptions) => {
+export const config = ({ token, tokenSignUrl, tokenMaxAge }: ConfigOptions) => {
   if (token) {
     atm.setToken(token);
   }
-  if (signUrl) {
-    atm.setSignUrl(signUrl);
+  if (tokenSignUrl) {
+    atm.setTokenSignUrl(tokenSignUrl);
+  }
+  if (tokenMaxAge) {
+    atm.setTokenMaxAge(tokenMaxAge);
   }
 };
 
@@ -45,21 +39,18 @@ export function signAccessToken<U extends AuthUser>(
   scope: `${ServiceName}:${string}`,
   auth: U,
   perm: Permission,
-  maxAge?: number,
 ): Promise<string>;
 export function signAccessToken<U extends AuthUser>(
   request: Request,
   auth: U,
   perm: Permission,
-  maxAge?: number,
 ): Promise<Response>;
 export function signAccessToken<U extends AuthUser>(
   scopeOrReq: `${ServiceName}:${string}` | Request,
   auth: U,
   perm: Permission,
-  maxAge?: number,
 ): Promise<string | Response> {
-  return atm.signAccessToken(scopeOrReq as Request, auth, perm, maxAge);
+  return atm.signAccessToken(scopeOrReq as Request, auth, perm);
 }
 
 export default {
@@ -68,10 +59,7 @@ export default {
   ChatRoom<U extends AuthUser>(roomId: string, options?: ChatRoomOptions): ChatRoom<U> {
     return new ChatRoomImpl(roomId, options);
   },
-  Document<T extends Record<string, unknown> | Array<unknown>>(
-    documentId: string,
-    options?: DocumentOptions,
-  ): Document<T> {
+  Document<T extends Record<string, unknown>>(documentId: string, options?: DocumentOptions): Document<T> {
     return new DocumentImpl<T>(documentId, options);
   },
   FileStorage(options?: FileStorageOptions): FileStorage {
@@ -87,3 +75,12 @@ export default {
     return new StorageImpl({ ...options });
   },
 } as Module;
+
+export {
+  DocumentImpl as Document,
+  FileStorageImpl as FileStorage,
+  SessionImpl as Session,
+  snapshot,
+  StorageImpl as Storage,
+  subscribe,
+};

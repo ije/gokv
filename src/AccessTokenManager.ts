@@ -1,27 +1,40 @@
 import type { AuthUser, Permission, ServiceName } from "../types/mod.d.ts";
 import { getEnv } from "./common/utils.ts";
 
+export type ATMConfig = {
+  apiHost?: string;
+  token?: string;
+  tokenSignUrl?: string;
+  tokenMaxAge?: number;
+};
+
 export class AccessTokenManager {
   #apiHost?: string;
   #token?: string;
-  #signUrl?: string;
+  #tokenSignUrl?: string;
+  #tokenMaxAge?: number;
 
-  constructor(options?: { token?: string; signUrl?: string; apiHost?: string }) {
-    this.#apiHost = options?.apiHost;
-    this.#token = options?.token;
-    this.#signUrl = options?.signUrl ?? (Reflect.has(globalThis, "document") ? "/sign-gokv-token" : undefined);
+  constructor(config?: ATMConfig) {
+    this.#apiHost = config?.apiHost;
+    this.#token = config?.token;
+    this.#tokenSignUrl = config?.tokenSignUrl ?? (Reflect.has(globalThis, "document") ? "/sign-gokv-token" : undefined);
+    this.#tokenMaxAge = config?.tokenMaxAge;
+  }
+
+  setAPIHost(host: string) {
+    this.#apiHost = host;
   }
 
   setToken(token: string): void {
     this.#token = token;
   }
 
-  setSignUrl(url: string): void {
-    this.#signUrl = url;
+  setTokenSignUrl(url: string): void {
+    this.#tokenSignUrl = url;
   }
 
-  setAPIHost(host: string) {
-    this.#apiHost = host;
+  setTokenMaxAge(maxAge: number): void {
+    this.#tokenMaxAge = maxAge;
   }
 
   get apiHost(): string {
@@ -38,19 +51,16 @@ export class AccessTokenManager {
     scope: `${ServiceName}:${string}`,
     user: U,
     perm: Permission,
-    maxAge?: number,
   ): Promise<string>;
   async signAccessToken<U extends AuthUser>(
     request: Request,
     user: U,
     perm: Permission,
-    maxAge?: number,
   ): Promise<Response>;
   async signAccessToken<U extends AuthUser>(
     scopeOrReq: `${ServiceName}:${string}` | Request,
     user: U,
     perm: Permission,
-    maxAge?: number,
   ): Promise<string | Response> {
     const token = this.#token ?? (this.#token = getEnv("GOKV_TOKEN"));
     if (!token) {
@@ -64,7 +74,7 @@ export class AccessTokenManager {
     }
     const promise = fetch(`https://${this.apiHost}/sign-access-token`, {
       method: "POST",
-      body: JSON.stringify({ scope, user, perm, maxAge }),
+      body: JSON.stringify({ scope, user, perm, maxAge: this.#tokenMaxAge }),
       headers: {
         "Authorization": `Bearer ${token}`,
       },
@@ -85,7 +95,7 @@ export class AccessTokenManager {
       return ["Bearer", token];
     }
 
-    if (this.#signUrl) {
+    if (this.#tokenSignUrl) {
       if (!scope) {
         throw new Error("Missing scope");
       }
@@ -99,7 +109,7 @@ export class AccessTokenManager {
         // ignore
       }
       const now = Date.now();
-      const url = new URL(this.#signUrl, location?.href);
+      const url = new URL(this.#tokenSignUrl, location?.href);
       url.searchParams.append("scope", scope);
       const res = await fetch(url, { headers: { scope } });
       if (res.status >= 400 && res.status !== 404) {
@@ -108,9 +118,10 @@ export class AccessTokenManager {
       if (res.ok) {
         const token = await res.text();
         if (/\.[a-z0-9]{64}$/.test(token)) {
+          const maxAge = this.#tokenMaxAge ?? 10 * 60;
           globalThis.localStorage?.setItem(
             `gokv_token:${scope}`,
-            JSON.stringify({ token, expires: now + (9.5 * 60 * 1000) }),
+            JSON.stringify({ token, expires: now + (maxAge - 30) * 1000 }),
           );
           return ["JWT", token];
         }
@@ -118,7 +129,7 @@ export class AccessTokenManager {
     }
 
     throw new Error(
-      "Please config `token` or set `GOKV_TOKEN` env, if you are using gokv in browser you need to implement the `signUrl` API, check https://gokv.io/docs/access-token",
+      "Please config `token` or set `GOKV_TOKEN` env, if you are using gokv in browser you need to implement the `tokenSignUrl` API, check https://gokv.io/docs/access-token",
     );
   }
 }
