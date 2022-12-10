@@ -368,9 +368,10 @@ export function remix(proxyObject: Record<string, unknown> | Array<unknown>, upd
       for (const key in value) {
         const val = value[key];
         if (isPlainObject(val) && (Array.isArray(val.$$indexs) && isPlainObject(val.$$values))) {
-          applyPatch(proxyObject, [Op.SET, [...path, key], { $$indexs: [], $$values: {} }]);
+          applyPatch(proxyObject, [Op.SET, [...path, key], val]);
+        } else {
+          traverseSet(val, [...path, key]);
         }
-        traverseSet(val, [...path, key]);
       }
     } else if (path.length > 0) {
       applyPatch(proxyObject, [Op.SET, path, value]);
@@ -410,12 +411,9 @@ export function applyPatch(proxyObject: Record<string, unknown> | Array<unknown>
   switch (op) {
     case Op.SET: {
       const value = patch[2];
-      // allow to update the internal `indexs` of proxy array, added for the `remix` function
+      // allow to update the internal `$$indexs` of proxy array, added for the `remix` function
       if (Array.isArray(target) && key === "$$indexs" && Array.isArray(value)) {
-        const proxyArray: { indexs: string[]; sideEffect: () => void } | undefined = Reflect.get(
-          target,
-          INTERNAL,
-        );
+        const proxyArray: { indexs: string[]; sideEffect: () => void } | undefined = Reflect.get(target, INTERNAL);
         if (proxyArray) {
           const { indexs, sideEffect } = proxyArray;
           indexs.splice(0, indexs.length, ...value);
@@ -425,6 +423,16 @@ export function applyPatch(proxyObject: Record<string, unknown> | Array<unknown>
         }
       }
       applied = Reflect.set(target, key, value);
+      // apply proxy array side effect for the item change
+      if (applied && path[dep - 2] === "$$values") {
+        const a = lookupValue(proxyObject, path.slice(0, -2));
+        if (Array.isArray(a)) {
+          const proxyArray: { sideEffect: () => void } | undefined = Reflect.get(a, INTERNAL);
+          if (proxyArray) {
+            proxyArray.sideEffect();
+          }
+        }
+      }
       break;
     }
     case Op.DELETE:
@@ -481,7 +489,8 @@ export function subscribe(proxyObject: Record<string, unknown> | Array<unknown>,
   }
   const internal = Reflect.get(proxyObject, INTERNAL) as { listeners: Set<() => void> } | undefined;
   if (internal === undefined) {
-    throw new Error("can't subscribe a non-proxy object");
+    console.warn("[gokv] subscribe a non-proxy object", proxyObject);
+    return dummyFn;
   }
   const { listeners } = internal;
   let promise: Promise<void> | undefined;
