@@ -86,7 +86,7 @@ label {
   cursor: pointer;
 }
 
-label input {
+label input[type="text"] {
   min-width: 300px;
   padding: 6px 8px;
   border: 1px solid #ccc;
@@ -105,6 +105,10 @@ li+li {
   padding-top: 16px;
 }
 
+p + p {
+  padding-top: 12px;
+}
+
 .info {
   padding: 16px;
   border-radius: 8px;
@@ -114,6 +118,31 @@ li+li {
 .info-error {
   background-color: #fee;
   color: #e00;
+}
+
+.tag-input section {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.tag-input section + section {
+  margin-top: 4px;
+}
+
+.tag-input section button {
+  display: inline-flex;
+  color: #888;
+  cursor: pointer;
+}
+
+.tag-input section button:hover {
+  color: #232323;
+}
+
+.tag-input section button svg{
+  width: 20px;
+  height: 20px;
 }
 
 .json-viewer .comma,

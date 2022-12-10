@@ -1,13 +1,13 @@
 /** @jsx createElement */
 /** @jsxFrag Fragment */
 import { createElement, Fragment } from "react";
+import { useSnapshot } from "gokv/react";
 
-export function JSONViewer(
-  { data, indent = 2 }: { data: Record<string, unknown> | unknown[]; indent?: number },
-) {
-  const isArray = Array.isArray(data);
+export function JSONViewer({ data, indent = 2 }: { data: Record<string, unknown> | unknown[]; indent?: number }) {
+  const snap = useSnapshot(data);
+  const isArray = Array.isArray(snap);
   const sym = isArray ? "[]" : "{}";
-  const len = isArray ? data.length : Object.keys(data).length;
+  const len = isArray ? snap.length : Object.keys(snap).length;
   if (len === 0) {
     return <code>{sym}</code>;
   }
@@ -15,7 +15,7 @@ export function JSONViewer(
     <>
       <code>{sym[0]}</code>
       <br />
-      {Object.entries(data).map(([key, value], i) => {
+      {Object.entries(snap).map(([key, value], i) => {
         if (typeof value === "object" && value !== null) {
           return (
             <Fragment key={key}>
@@ -24,7 +24,7 @@ export function JSONViewer(
                 <span className="key">{key}</span>
                 <span className="colon">{": "}</span>
               </code>
-              <JSONViewer data={value as typeof data} indent={indent + 2} />
+              <JSONViewer data={(data as Record<string, unknown>)[key] as typeof data} indent={indent + 2} />
               {i < len - 1 && <code className="comma">,</code>}
               <br />
             </Fragment>
