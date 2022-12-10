@@ -20,9 +20,11 @@ export enum SocketStatus {
 
 export type SocketOptions = {
   resolveFlag?: number;
+  signal?: AbortSignal;
   initData?: () => Record<string, unknown>;
   inspect?: (flag: number, gzFlag: number, message: ArrayBufferLike) => string;
   onError?: (code: string, message: string, details?: Record<string, unknown>) => void;
+  onClose?: () => void;
   onMessage?: (flag: number, message: ArrayBufferLike) => void;
   onReconnect?: (socket: Socket) => void;
   onStatusChange?: (status: SocketStatus) => void;
@@ -35,9 +37,9 @@ export async function connect(service: ServiceName, namespace: string, options: 
   const token = await atm.getAccessToken(`${service}:${namespace}`);
   socketUrl.searchParams.set("authToken", token.join("-"));
   return new Promise<Socket>((resolve, reject) => {
-    let socket: WebSocket;
     let status: SocketStatus = SocketStatus.PENDING;
-    let resolved = false;
+    let ws: WebSocket | null = null;
+    let fulfilled = false;
     let rejected = false;
     let pingTimer: number | undefined;
     let hbTimer: number | undefined;
@@ -52,7 +54,7 @@ export async function connect(service: ServiceName, namespace: string, options: 
         data = new Uint8Array(await gzip(data));
         gzFlag = 1;
       }
-      socket.send(conactBytes(new Uint8Array([flag, gzFlag]), data));
+      ws?.send(conactBytes(new Uint8Array([flag, gzFlag]), data));
       heartbeat();
       debug && console.debug(
         "%cgokv.io %c↑",
@@ -64,15 +66,21 @@ export async function connect(service: ServiceName, namespace: string, options: 
       );
     };
 
-    const close = () => {
-      setStatus(SocketStatus.CLOSE);
+    const close = (code?: number, reason?: string) => {
       if (pingTimer) clearTimeout(pingTimer);
       if (hbTimer) clearTimeout(hbTimer);
-      socket.removeEventListener("open", onOpen);
-      socket.removeEventListener("error", onError);
-      socket.removeEventListener("message", onMessage);
-      socket.removeEventListener("close", onClose);
-      socket.close();
+      if (ws) {
+        ws.removeEventListener("open", onOpen);
+        ws.removeEventListener("error", onError);
+        ws.removeEventListener("message", onMessage);
+        ws.removeEventListener("close", onClose);
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.close(code, reason);
+        }
+        ws = null;
+      }
+      setStatus(SocketStatus.CLOSE);
+      options.onClose?.();
     };
 
     const heartbeat = () => {
@@ -84,10 +92,12 @@ export async function connect(service: ServiceName, namespace: string, options: 
         clearTimeout(hbTimer);
       }
       hbTimer = setTimeout(() => {
-        socket.send(new Uint8Array([MessageFlag.PING]));
+        ws?.send(new Uint8Array([MessageFlag.PING]));
         pingTimer = setTimeout(() => {
           pingTimer = undefined;
-          socket.close(3000, "ping timeout");
+          if (ws?.readyState === WebSocket.OPEN) {
+            ws.close(3000, "ping timeout");
+          }
           options.onError?.("timeout", "ping timeout");
           console.error(`[gokv] socket(${service}/${namespace}): ping timeout`);
         }, pingTimeout);
@@ -95,15 +105,20 @@ export async function connect(service: ServiceName, namespace: string, options: 
     };
 
     const setStatus = (newStatus: SocketStatus) => {
-      status = newStatus;
-      options.onStatusChange?.(status);
+      if (status !== newStatus) {
+        status = newStatus;
+        options.onStatusChange?.(status);
+      }
     };
 
     const onReady = () => {
       setStatus(SocketStatus.READY);
-      if (!resolved) {
+      if (fulfilled) {
+        options.onReconnect?.({ send, close });
+      }
+      if (!fulfilled && !rejected) {
         resolve({ send, close });
-        resolved = true;
+        fulfilled = true;
       }
     };
 
@@ -152,8 +167,8 @@ export async function connect(service: ServiceName, namespace: string, options: 
 
     const onError = (e: Event | ErrorEvent) => {
       const message = (e as ErrorEvent)?.message ?? "Websocket connection failed";
-      if (!rejected) {
-        reject(new Error(message));
+      if (!rejected && !fulfilled) {
+        reject(new Error(message, { cause: e }));
         rejected = true;
       } else {
         options.onError?.("clientError", message);
@@ -171,35 +186,33 @@ export async function connect(service: ServiceName, namespace: string, options: 
       pingTimer = undefined;
 
       // reconnect
-      if (resolved) {
+      if (fulfilled) {
         console.warn(`[gokv] socket(${service}/${namespace}) closed, reconnecting...`);
         setStatus(SocketStatus.PENDING);
-        createWebSocket(socketUrl.href).then((ws) => {
-          const { onReconnect } = options;
-          if (onReconnect) {
-            const _onOpen = () => {
-              ws.removeEventListener("open", _onOpen);
-              onReconnect({ send, close });
-            };
-            ws.addEventListener("open", _onOpen);
-          }
-          start(ws);
-        });
+        createWebSocket(socketUrl.href).then(start);
       }
     };
 
-    const start = (ws: WebSocket) => {
-      if (socket?.readyState === WebSocket.OPEN) {
-        // close old socket
-        socket.close();
-      }
-      socket = ws;
-      socket.binaryType = "arraybuffer";
-      socket.addEventListener("open", onOpen);
-      socket.addEventListener("message", onMessage);
-      socket.addEventListener("error", onError);
-      socket.addEventListener("close", onClose);
+    const start = (_ws: WebSocket) => {
+      _ws.binaryType = "arraybuffer";
+      _ws.addEventListener("open", onOpen);
+      _ws.addEventListener("message", onMessage);
+      _ws.addEventListener("error", onError);
+      _ws.addEventListener("close", onClose);
+      ws = _ws;
     };
+
+    options?.signal?.addEventListener("abort", (e) => {
+      if (!rejected && !fulfilled) {
+        if (ws?.readyState === WebSocket.OPEN) {
+          ws.close(3001, "aborted");
+        }
+        reject(new Error("aborted", { cause: e }));
+        rejected = true;
+      } else {
+        close(3001, "aborted");
+      }
+    });
 
     createWebSocket(socketUrl.href).then(start);
   });
