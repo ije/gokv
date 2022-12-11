@@ -1,6 +1,6 @@
 /// <reference lib="dom" />
 
-import type { FC, ImgHTMLAttributes, PropsWithChildren } from "react";
+import type { FC, ImgHTMLAttributes, PropsWithChildren, ReactElement } from "react";
 
 export type GokvContextProps = {
   namespace: string;
@@ -30,12 +30,19 @@ export const useImageSrc: (props: Pick<ImageProps, "src" | "width" | "height" | 
 
 export const Image: FC<ImageProps>;
 
-export const useDocument: <T extends Record<string, unknown>>(docId: string) => {
-  doc: T;
-  error: Error | null;
-  loading: boolean;
-  online: boolean;
+export type DocumentProviderProps = {
+  // the namespace of the document, default to "default"
+  namespace?: string;
+  // the document id
+  id: string;
+  // fallback UI for when the document is not available, blank by default
+  fallback?: ReactElement;
 };
+
+export const : FC<PropsWithChildren<DocumentProviderProps>>;
+
+export const useDocument: <T extends Record<string, unknown>>() => T;
+export const useDocumentStatus: () => { online: boolean };
 
 export const useSnapshot: <T extends Record<string, unknown> | Array<unknown>>(obj: T) => T;
 

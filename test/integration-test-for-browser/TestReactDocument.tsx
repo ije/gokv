@@ -1,19 +1,18 @@
 /** @jsx createElement */
 /** @jsxFrag Fragment */
 import { createElement, Fragment, useState } from "react";
-import { useDocument, useSnapshot } from "gokv/react";
-import { JSONViewer, TextInput } from "./_components.tsx";
-import { useValue } from "../../src/react/Document.ts";
+import { DocumentProvider, useDocument, useDocumentStatus, useSnapshot, useValue } from "gokv/react";
+import { ErrorBoundary, JSONViewer, TextInput } from "./_components.tsx";
 
 export function TestReactDocument() {
   return (
     <>
       <div style={{ minHeight: 300 }}>
-        <DocumentApp idx={1} />
+        <DocumentApp name={1} />
       </div>
       <Hr />
       <div style={{ minHeight: 300 }}>
-        <DocumentApp idx={2} />
+        <DocumentApp name={2} />
       </div>
     </>
   );
@@ -79,23 +78,26 @@ function TagInput({ tags }: { tags: string[] }) {
   );
 }
 
-function DocumentApp({ idx }: { idx: number }) {
-  const { doc, loading, error, online } = useDocument<{ foo: string; arr: string[] }>("dev-doc");
+function DocumentApp({ name }: { name: number }) {
+  return (
+    <ErrorBoundary>
+      <DocumentProvider id="dev-doc" fallback={<div>Loading...</div>}>
+        <DocumentAppInner name={name} />
+      </DocumentProvider>
+    </ErrorBoundary>
+  );
+}
+
+function DocumentAppInner({ name }: { name: number }) {
+  const doc = useDocument<{ foo: string; arr: string[] }>();
+  const { online } = useDocumentStatus();
   const foo = useValue(doc, "foo");
-
-  if (loading) {
-    return <div>Loading...</div>;
-  }
-
-  if (error) {
-    return <div className="info info-error">Error: {error.message}</div>;
-  }
 
   return (
     <div className="flex">
       <div className="w-half">
         <h3>
-          Document Editor <em>Session #{idx}, {online ? "Online" : "Offline"}</em>
+          Document Editor <em>Session #{name}, {online ? "Online" : "Offline"}</em>
         </h3>
         <p>
           <label>

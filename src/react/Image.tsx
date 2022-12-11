@@ -2,7 +2,7 @@
 import { createElement, CSSProperties, PropsWithChildren, useContext, useEffect, useMemo, useState } from "react";
 import { ImageProps } from "../../types/react.d.ts";
 import { FileStorage } from "../../mod.ts";
-import { $context } from "./Context.ts";
+import { Context } from "./Context.ts";
 import { atobUrl, btoaUrl, getImageThumbFromBlob, toPInt } from "./utils.ts";
 
 const iconImageAdd = (
@@ -37,7 +37,7 @@ export const useImageSrc = (props: Pick<ImageProps, "src" | "width" | "height" |
 } => {
   const { src, width, height, quality, fit } = props;
   return useMemo(() => {
-    const { imagesHost } = useContext($context);
+    const { imagesHost } = useContext(Context);
     if (!src?.startsWith(`https://${imagesHost}/`)) {
       return { src };
     }
@@ -82,7 +82,7 @@ export const useImageSrc = (props: Pick<ImageProps, "src" | "width" | "height" |
 
 export function Image(props: ImageProps) {
   const { contentEditable, style } = props;
-  const { namespace } = useContext($context);
+  const { namespace } = useContext(Context);
   const fs = useMemo(() => new FileStorage({ namespace }), [namespace]);
   const { src, srcSet, aspectRatio, fit, blurPreview, blurPreviewSize } = useImageSrc(props);
   const [isUploading, setIsUploading] = useState(false);

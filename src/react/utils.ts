@@ -1,19 +1,3 @@
-export function getEnv(key: string): string | undefined {
-  const denoNs = Reflect.get(globalThis, "Deno");
-  if (denoNs) {
-    return denoNs.env.get(key);
-  }
-  const np = Reflect.get(globalThis, "process");
-  if (np) {
-    return np.env[key];
-  }
-  const storage = Reflect.get(globalThis, "localStorage");
-  if (storage) {
-    return storage.getItem(key) ?? undefined;
-  }
-  return void 0;
-}
-
 export function toPInt(v: unknown): number | undefined {
   if (typeof v === "string") {
     v = parseFloat(v);
@@ -75,6 +59,18 @@ export function getImageThumbFromBlob(blob: Blob, size: number): Promise<string>
   });
 }
 
-export function rgbToHex(rgb: { r: number; g: number; b: number }) {
-  return ((1 << 24) + (rgb.r << 16) + (rgb.g << 8) + rgb.b).toString(16).slice(1);
+export function getEnv(key: string): string | undefined {
+  const denoNs = Reflect.get(globalThis, "Deno");
+  if (denoNs) {
+    return denoNs.env.get(key);
+  }
+  const np = Reflect.get(globalThis, "process");
+  if (np) {
+    return np.env[key];
+  }
+  const storage = Reflect.get(globalThis, "localStorage");
+  if (storage) {
+    return storage.getItem(key) ?? undefined;
+  }
+  return void 0;
 }

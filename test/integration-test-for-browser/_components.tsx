@@ -1,7 +1,23 @@
 /** @jsx createElement */
 /** @jsxFrag Fragment */
-import { createElement, Fragment, useCallback, useEffect, useState } from "react";
+import { Component, createElement, Fragment, PropsWithChildren, useCallback, useEffect, useState } from "react";
 import { useSnapshot } from "gokv/react";
+
+export class ErrorBoundary extends Component<PropsWithChildren> {
+  state: { error: Error | null } = { error: null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  render() {
+    if (this.state.error) {
+      return <div className="info info-error">Error: {this.state.error.message}</div>;
+    }
+
+    return this.props.children;
+  }
+}
 
 export function TextInput(props: { value: string; onChange: (value: string) => void }) {
   const [value, setValue] = useState(props.value);

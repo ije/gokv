@@ -1,16 +1,26 @@
-import { useContext, useEffect, useMemo, useState } from "react";
+import type { FC, PropsWithChildren } from "react";
+import { createContext, createElement, useContext, useEffect, useMemo, useState } from "react";
 import type { RecordOrArray } from "../../types/common.d.ts";
+import type { DocumentProviderProps } from "../../types/react.d.ts";
 import { Document, snapshot, subscribe } from "../../mod.ts";
-import { $context } from "./Context.ts";
+import { Context } from "./Context.ts";
 
-export const useDocument = <T extends Record<string, unknown>>(docId: string) => {
-  const { namespace } = useContext($context);
+export type DocumentContextProps = {
+  doc?: Document<Record<string, unknown>>;
+  online: boolean;
+};
+
+export const DocumentContext = createContext<DocumentContextProps>({
+  online: false,
+});
+
+export const DocumentProvider: FC<PropsWithChildren<DocumentProviderProps>> = (props) => {
+  const { namespace: parentNamespace } = useContext(Context);
+  const namespace = props.namespace || parentNamespace;
+  const doc = useMemo(() => new Document(props.id, { namespace }), [props.id, namespace]);
+  const [error, setError] = useState<Error | null>(null);
   const [loading, setLoading] = useState(true);
   const [online, setOnline] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
-  const doc = useMemo(() => new Document<T>(docId, { namespace }), [docId, namespace]);
-
-  // should support `suspense` mode?
 
   useEffect(() => {
     const ac = new AbortController();
@@ -38,7 +48,36 @@ export const useDocument = <T extends Record<string, unknown>>(docId: string) =>
     return () => ac.abort();
   }, [doc]);
 
-  return { doc: doc.DOC, error, loading, online };
+  if (loading) {
+    return props.fallback ?? null;
+  }
+  if (error) {
+    throw error;
+  }
+  return createElement(DocumentContext.Provider, { value: { doc, online } }, props.children);
+};
+
+export const useDocumentStatus = (): { online: boolean } => {
+  const { online } = useContext(DocumentContext);
+  return { online };
+};
+
+export const useDocument = <T extends Record<string, unknown>>(initialData?: T): T => {
+  const { doc } = useContext(DocumentContext);
+
+  if (!doc) {
+    throw new Error("No document found, please wrap your component with <DocumentProvider />.");
+  }
+
+  if (initialData !== undefined) {
+    for (const [key, value] of Object.entries(initialData)) {
+      if (!Reflect.has(doc.DOC, key)) {
+        Reflect.set(doc.DOC, key, value);
+      }
+    }
+  }
+
+  return doc.DOC as T;
 };
 
 export const useSnapshot = <T extends RecordOrArray>(obj: T): T => {
