@@ -39,7 +39,7 @@ export type DocumentProviderProps = {
   fallback?: ReactElement;
 };
 
-export const : FC<PropsWithChildren<DocumentProviderProps>>;
+export const DocumentProvider: FC<PropsWithChildren<DocumentProviderProps>>;
 
 export const useDocument: <T extends Record<string, unknown>>() => T;
 export const useDocumentStatus: () => { online: boolean };
