@@ -82,23 +82,21 @@ export default class DocumentImpl<T extends Record<string, unknown>> implements 
       onMessage: (flag, data) => {
         switch (flag) {
           case MessageFlag.DOC: {
-            const [version, snapshot, reset] = JSON.parse(dec.decode(data));
+            const [version, snapshot, resetByApi] = JSON.parse(dec.decode(data));
             // update the proxy object with the new snapshot
             remix(this.#doc, snapshot);
-            if (!this.#notify) {
-              this.#notify = (patch) => {
-                // todo: merge patches
-                const id = patchIndex++;
-                const arr = patch.slice(0, patch[0] === Op.DELETE ? 2 : 3);
-                if (patch[0] === Op.SPLICE) {
-                  arr.push((patch[3] as [string, unknown][]).map(([k]) => [k]));
-                }
-                const stripedPatch = arr as unknown as Patch;
-                queue(id.toString(36), stripedPatch);
-              };
-            }
-            // the `reset` marks the document is reset by API
-            if (!reset) {
+            this.#notify ??= (patch) => {
+              // todo: merge patches
+              const id = patchIndex++;
+              const arr = patch.slice(0, patch[0] === Op.DELETE ? 2 : 3);
+              if (patch[0] === Op.SPLICE) {
+                arr.push((patch[3] as [string, unknown][]).map(([k]) => [k]));
+              }
+              const stripedPatch = arr as unknown as Patch;
+              queue(id.toString(36), stripedPatch);
+            };
+            // drain blocked patches
+            if (!resetByApi) {
               uncomfirmedPatches.clear();
               if (blockedPatches.length > 0) {
                 const patches = blockedPatches.splice(0);
