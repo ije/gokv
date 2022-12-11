@@ -350,6 +350,7 @@ export function disableNotify(proxyObject: unknown): void {
   }
 }
 
+/** remix `projectObject` with `updateObject` to re-use proxy objects. */
 export function remix(proxyObject: Record<string, unknown> | Array<unknown>, updateObject: Record<string, unknown>) {
   const traverseCleanup = (value: unknown, path: Path = []) => {
     if (isPlainObject(value)) {
@@ -368,10 +369,12 @@ export function remix(proxyObject: Record<string, unknown> | Array<unknown>, upd
       for (const key in value) {
         const val = value[key];
         if (isPlainObject(val) && (Array.isArray(val.$$indexs) && isPlainObject(val.$$values))) {
-          applyPatch(proxyObject, [Op.SET, [...path, key], val]);
-        } else {
-          traverseSet(val, [...path, key]);
+          if (!Array.isArray(lookupValue(proxyObject, [...path, key]))) {
+            applyPatch(proxyObject, [Op.SET, [...path, key], val]);
+            continue;
+          }
         }
+        traverseSet(val, [...path, key]);
       }
     } else if (path.length > 0) {
       applyPatch(proxyObject, [Op.SET, path, value]);
