@@ -1,15 +1,11 @@
 # `Session` Example
 
-This example shows how to use session storage at edge with gokv.
+This example shows how to use _session_ storage at edge with gokv.
 
-## Deno Server
+## Run the example
 
 ```
 GOKV_TOKEN=YOUR_TOKEN deno run --allow-net --allow-env server.tsx
 ```
 
 Try online: https://dash.deno.com/playground/gokv-session-example
-
-## node.js Server
-
-_WIP_
