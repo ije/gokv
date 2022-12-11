@@ -1,5 +1,5 @@
 import { createContext, createElement, PropsWithChildren } from "react";
-import { GokvContextProps, GokvProviderProps } from "../../types/react.d.ts";
+import type { GokvContextProps, GokvProviderProps } from "../../types/react.d.ts";
 import { config } from "../../mod.ts";
 import { getEnv } from "./utils.ts";
 

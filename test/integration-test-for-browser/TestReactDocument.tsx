@@ -3,6 +3,7 @@
 import { createElement, Fragment, useState } from "react";
 import { useDocument, useSnapshot } from "gokv/react";
 import { JSONViewer, TextInput } from "./_components.tsx";
+import { useValue } from "../../src/react/Document.ts";
 
 export function TestReactDocument() {
   return (
@@ -12,7 +13,7 @@ export function TestReactDocument() {
       </div>
       <Hr />
       <div style={{ minHeight: 300 }}>
-        <DocumentApp idx={1} />
+        <DocumentApp idx={2} />
       </div>
     </>
   );
@@ -80,7 +81,7 @@ function TagInput({ tags }: { tags: string[] }) {
 
 function DocumentApp({ idx }: { idx: number }) {
   const { doc, loading, error, online } = useDocument<{ foo: string; arr: string[] }>("dev-doc");
-  const snap = useSnapshot(doc);
+  const foo = useValue(doc, "foo");
 
   if (loading) {
     return <div>Loading...</div>;
@@ -99,7 +100,7 @@ function DocumentApp({ idx }: { idx: number }) {
         <p>
           <label>
             <code>foo:</code>
-            <TextInput value={snap.foo} onChange={(v) => doc.foo = v} key="foo" />
+            <TextInput value={foo} onChange={(v) => doc.foo = v} key="foo" />
           </label>
         </p>
         <p>
