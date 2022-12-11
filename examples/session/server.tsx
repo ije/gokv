@@ -50,8 +50,10 @@ serve(async (req: Request) => {
         <div>
           <p>Not logined</p>
           <form method="POST" action="/login">
-            <input type="text" name="username" placeholder="username" /> <br />
-            <input type="password" name="password" placeholder="password" /> <br />
+            <input type="text" name="username" placeholder="username" />
+            <br />
+            <input type="password" name="password" placeholder="password" />
+            <br />
             <input type="submit" value="Login" />
           </form>
         </div>,

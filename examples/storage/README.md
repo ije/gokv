@@ -5,7 +5,7 @@ This example shows how to use key-value storage at edge with gokv.
 ## Deno Server
 
 ```
-GOKV_TOKEN=YOUR_TOKEN deno run --allow-net --allow-env server.ts
+GOKV_TOKEN=YOUR_TOKEN deno run --allow-net --allow-env server.tsx
 ```
 
 Try online: https://dash.deno.com/playground/gokv-storage-example
