@@ -27,7 +27,6 @@ serve(async (req: Request) => {
                 <form method="POST" action="/">
                   <input type="hidden" name="_method" value="PATCH" />
                   <input type="hidden" name="id" value={id} />
-                  <input type="hidden" name="done" value={String(!todo.done)} />
                   <input type="submit" value={todo.done ? "Undo" : "Done"} />
                 </form>
                 <form method="POST" action="/">
@@ -39,36 +38,35 @@ serve(async (req: Request) => {
             ))}
           </ul>
           <form method="POST" action="/">
-            <input type="text" name="text" placeholder="Type something..." />
+            <input type="text" name="text" placeholder="Type Something..." />
             <input type="submit" value="Add" />
           </form>
         </div>,
       );
     }
     case "POST": {
-      const form = await req.formData();
-      switch (form.get("_method")) {
+      const fd = await req.formData();
+      switch (fd.get("_method")) {
         case "PATCH": {
-          const id = form.get("id");
-          const done = form.get("done");
-          if (typeof id === "string" && typeof done === "string") {
+          const id = fd.get("id");
+          if (typeof id === "string") {
             const todo = await storage.get<Todo>(id);
             if (todo) {
-              await storage.put(id, { ...todo, done: done === "true" });
+              await storage.put(id, { ...todo, done: !todo.done });
             }
           }
           break;
         }
         case "DELETE": {
-          const id = form.get("id");
+          const id = fd.get("id");
           if (typeof id === "string") {
             await storage.delete(id);
           }
           break;
         }
         default: {
-          const text = form.get("text");
-          if (typeof text === "string" && text !== "") {
+          const text = fd.get("text");
+          if (typeof text === "string") {
             await storage.put(`todo-${Date.now()}`, { text, done: false });
           }
         }

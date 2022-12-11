@@ -3,9 +3,8 @@ import { serve } from "https://deno.land/std@0.165.0/http/server.ts";
 import gokv from "https://deno.land/x/gokv@0.0.33/mod.ts";
 import html, { h } from "https://deno.land/x/htm@0.1.3/mod.ts";
 
-// Ensure `GOKV_TOKEN` env variable is set, check https://gokv.io/docs/access-token
-
 serve(async (req: Request) => {
+  // Ensure `GOKV_TOKEN` env variable is set, check https://gokv.io/docs/access-token
   const session = await gokv.Session<{ username: string }>(req, {
     cookieSameSite: "None", // allow cookie in iframe
   });
