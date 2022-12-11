@@ -37,6 +37,8 @@ export type DocumentProviderProps = {
   id: string;
   // fallback UI for when the document is not available, blank by default
   fallback?: ReactElement;
+  // the initial data of the document, optional
+  initialData?: Record<string, unknown>;
 };
 
 export const DocumentProvider: FC<PropsWithChildren<DocumentProviderProps>>;

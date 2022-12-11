@@ -2,7 +2,8 @@ export type DocumentOptions = {
   namespace?: string;
 };
 
-export type DocumentSyncOptions = {
+export type DocumentSyncOptions<T> = {
+  initialData?: T;
   signal?: AbortSignal;
   onError?: (code: string, message: string) => void;
   onOnline?: () => void;
@@ -28,7 +29,7 @@ export class Document<T extends Record<string, unknown>> {
    * })
    * obj.foo = "baz";
    */
-  sync(options?: DocumentSyncOptions): Promise<T>;
+  sync(options?: DocumentSyncOptions<T>): Promise<T>;
   // todo: delete the document
   // delete(): Promise<void>;
 }

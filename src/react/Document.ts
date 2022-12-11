@@ -28,6 +28,7 @@ export const DocumentProvider: FC<PropsWithChildren<DocumentProviderProps>> = (p
       setLoading(true);
       try {
         await doc.sync({
+          initialData: props.initialData,
           signal: ac.signal,
           onOnline: () => setOnline(true),
           onOffline: () => setOnline(false),
@@ -62,19 +63,11 @@ export const useDocumentStatus = (): { online: boolean } => {
   return { online };
 };
 
-export const useDocument = <T extends Record<string, unknown>>(initialData?: T): T => {
+export const useDocument = <T extends Record<string, unknown>>(): T => {
   const { doc } = useContext(DocumentContext);
 
   if (!doc) {
     throw new Error("No document found, please wrap your component with <DocumentProvider />.");
-  }
-
-  if (initialData !== undefined) {
-    for (const [key, value] of Object.entries(initialData)) {
-      if (!Reflect.has(doc.DOC, key)) {
-        Reflect.set(doc.DOC, key, value);
-      }
-    }
   }
 
   return doc.DOC as T;

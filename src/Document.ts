@@ -14,13 +14,12 @@ export default class DocumentImpl<T extends Record<string, unknown>> implements 
   #namespace: string;
   #id: string;
   #doc: T;
-  #notify?: (patch: Patch) => void;
-  #synced = false;
+  #syncFn?: (patch: Patch) => void;
 
   constructor(docId: string, options?: DocumentOptions) {
     this.#namespace = checkNamespace(options?.namespace ?? "default");
     this.#id = checkNamespace(docId);
-    this.#doc = proxy({} as T, (patch) => this.#notify?.(patch));
+    this.#doc = proxy({} as T, (patch) => this.#syncFn?.(patch));
   }
 
   get #scope() {
@@ -62,15 +61,25 @@ export default class DocumentImpl<T extends Record<string, unknown>> implements 
     return res.json();
   }
 
-  async sync(options?: DocumentSyncOptions): Promise<T> {
+  async sync(options?: DocumentSyncOptions<T>): Promise<T> {
     let docVersion = -1;
     let patchIndex = 0;
     let online = false;
 
-    if (this.#synced) {
+    if (this.#syncFn) {
       return this.#doc;
     }
-    this.#synced = true;
+
+    this.#syncFn = (patch) => {
+      // todo: merge patches
+      const id = patchIndex++;
+      const arr = patch.slice(0, patch[0] === Op.DELETE ? 2 : 3);
+      if (patch[0] === Op.SPLICE) {
+        arr.push((patch[3] as [string, unknown][]).map(([k]) => [k]));
+      }
+      const stripedPatch = arr as unknown as Patch;
+      queue(id.toString(36), stripedPatch);
+    };
 
     const blockedPatches: [string, ...Patch][] = [];
     const uncomfirmedPatches = new Map<string, Patch>();
@@ -85,16 +94,14 @@ export default class DocumentImpl<T extends Record<string, unknown>> implements 
             const [version, snapshot, resetByApi] = JSON.parse(dec.decode(data));
             // update the proxy object with the new snapshot
             remix(this.#doc, snapshot);
-            this.#notify ??= (patch) => {
-              // todo: merge patches
-              const id = patchIndex++;
-              const arr = patch.slice(0, patch[0] === Op.DELETE ? 2 : 3);
-              if (patch[0] === Op.SPLICE) {
-                arr.push((patch[3] as [string, unknown][]).map(([k]) => [k]));
+            // update the doc with the initial data if specified
+            if (options?.initialData) {
+              for (const [k, v] of Object.entries(options.initialData)) {
+                if (!Reflect.has(this.#doc, k)) {
+                  Reflect.set(this.#doc, k, v);
+                }
               }
-              const stripedPatch = arr as unknown as Patch;
-              queue(id.toString(36), stripedPatch);
-            };
+            }
             // drain blocked patches
             if (!resetByApi) {
               uncomfirmedPatches.clear();
@@ -168,7 +175,7 @@ export default class DocumentImpl<T extends Record<string, unknown>> implements 
         disableNotify(this.#doc);
         blockedPatches.length = 0;
         uncomfirmedPatches.clear();
-        this.#synced = false;
+        this.#syncFn = undefined;
       },
       // for debug
       inspect: (flag, gzFlag, message) => {
