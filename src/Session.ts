@@ -43,7 +43,7 @@ export default class SessionImpl<StoreType extends Record<string, unknown>> impl
     if (sid) {
       const [rid, signature] = splitByChar(sid, ".");
       if (signature && signature === await hmacSign(rid, token, "SHA-256")) {
-        const value = await this.#storage.get<[data: StoreType, expires: number]>(sid);
+        const value = await this.#storage.get<[data: StoreType, expires: number]>(sid, { noCache: true });
         if (Array.isArray(value)) {
           const now = Date.now();
           const [data, expires] = value;
@@ -51,7 +51,11 @@ export default class SessionImpl<StoreType extends Record<string, unknown>> impl
             store = data;
             if (expires - now < minMaxAge * 1000) {
               // renew the session
-              await this.#storage.put(sid, [store, SessionImpl.expiresFromNow(this.#options.maxAge)]);
+              await this.#storage.put(
+                sid,
+                [store, SessionImpl.expiresFromNow(this.#options.maxAge)],
+                { noCache: true },
+              );
             }
           } else {
             // delete expired session
@@ -100,7 +104,11 @@ export default class SessionImpl<StoreType extends Record<string, unknown>> impl
       await this.#storage.delete(this.id, { noCache: true });
       this.#store = null;
     } else {
-      await this.#storage.put(this.id, [nextStore, SessionImpl.expiresFromNow(this.#options.maxAge)]);
+      await this.#storage.put(
+        this.id,
+        [nextStore, SessionImpl.expiresFromNow(this.#options.maxAge)],
+        { noCache: true },
+      );
       this.#store = nextStore;
     }
   }
