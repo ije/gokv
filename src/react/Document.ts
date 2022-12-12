@@ -85,7 +85,7 @@ export const useSnapshot = <T extends RecordOrArray>(obj: T): T => {
   return snap;
 };
 
-export const useValue = <T extends Record<string, unknown>, K extends keyof T>(obj: T, key: K): T[K] => {
+export const useSnapshotValue = <T extends Record<string, unknown>, K extends keyof T>(obj: T, key: K): T[K] => {
   const [value, setValue] = useState(() => {
     const val = obj[key];
     if (typeof val === "object" && val !== null) {

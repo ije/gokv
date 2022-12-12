@@ -1,7 +1,7 @@
 /** @jsx createElement */
 /** @jsxFrag Fragment */
 import { createElement, Fragment, useState } from "react";
-import { DocumentProvider, useDocument, useDocumentStatus, useSnapshot, useValue } from "gokv/react";
+import { DocumentProvider, useDocument, useDocumentStatus, useSnapshot, useSnapshotValue } from "gokv/react";
 import { ErrorBoundary, JSONViewer, TextInput } from "./_components.tsx";
 
 export function TestReactDocument() {
@@ -89,9 +89,9 @@ function DocumentApp({ name }: { name: number }) {
 }
 
 function DocumentAppInner({ name }: { name: number }) {
-  const doc = useDocument<{ foo: string; arr: string[] }>();
   const { online } = useDocumentStatus();
-  const foo = useValue(doc, "foo");
+  const doc = useDocument<{ foo: string; arr: string[] }>();
+  const foo = useSnapshotValue(doc, "foo");
 
   return (
     <div className="flex">

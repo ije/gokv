@@ -34,10 +34,10 @@ export type SocketOptions = {
 export function connect(service: ServiceName, namespace: string, options: SocketOptions = {}): Promise<Socket> {
   const debug = getEnv("GOKV_WS_LOG") === "true";
   const newWebSocket = async () => {
-    const socketUrl = new URL(`wss://${atm.apiHost}/${service}/${namespace}`);
     const token = await atm.getAccessToken(`${service}:${namespace}`);
-    socketUrl.searchParams.set("authToken", token.join("-"));
-    return await createWebSocket(socketUrl.href);
+    const url = new URL(`wss://${atm.apiHost}/${service}/${namespace}`);
+    url.searchParams.set("authToken", token.join("-"));
+    return await createWebSocket(url.href);
   };
   return new Promise<Socket>((resolve, reject) => {
     let status: SocketStatus = SocketStatus.PENDING;

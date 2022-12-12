@@ -47,5 +47,4 @@ export const useDocument: <T extends Record<string, unknown>>() => T;
 export const useDocumentStatus: () => { online: boolean };
 
 export const useSnapshot: <T extends Record<string, unknown> | Array<unknown>>(obj: T) => T;
-
-export const useValue: <T extends Record<string, unknown>, K extends keyof T>(obj: T, key: K) => T[K];
+export const useSnapshotValue: <T extends Record<string, unknown>, K extends keyof T>(obj: T, key: K) => T[K];
