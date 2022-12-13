@@ -77,6 +77,7 @@ export default {
 } as Module;
 
 export {
+  ChatRoomImpl as ChatRoom,
   DocumentImpl as Document,
   FileStorageImpl as FileStorage,
   SessionImpl as Session,

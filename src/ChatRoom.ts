@@ -107,23 +107,23 @@ class ChatImpl<U extends AuthUser> implements Chat<U> {
       marker: options?.marker,
     });
   }
-
-  close(): void {
-    this.#socket.close();
-  }
 }
 
 export default class ChatRoomImpl<U extends AuthUser> implements ChatRoom<U> {
   #namespace: string;
-  #roomId: string;
+  #room: string;
 
   constructor(roomId: string, options?: ChatRoomOptions) {
     this.#namespace = checkNamespace(options?.namespace ?? "default");
-    this.#roomId = checkNamespace(roomId);
+    this.#room = checkNamespace(roomId);
+  }
+
+  get id() {
+    return this.#room;
   }
 
   get #scope() {
-    return this.#namespace + "/" + this.#roomId;
+    return this.#namespace + "/" + this.#room;
   }
 
   async connect(options?: ChatRoomConnectOptions): Promise<Chat<U>> {
@@ -131,6 +131,7 @@ export default class ChatRoomImpl<U extends AuthUser> implements ChatRoom<U> {
     let history: ChatMessage<U>[] = [];
     let onlineUsers: U[] = [];
     const socket = await connect("chat", this.#scope, {
+      signal: options?.signal,
       resolveFlag: MessageFlag.CHAT,
       initData: () => ({ ...options, lastMessageId: chat?.$lastMessageId }),
       onMessage: (flag, message) => {

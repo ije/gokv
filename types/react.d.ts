@@ -1,6 +1,8 @@
 /// <reference lib="dom" />
 
 import type { FC, ImgHTMLAttributes, PropsWithChildren, ReactElement } from "react";
+import { AuthUser } from "./common.d.ts";
+import type { Chat } from "./ChatRoom.d.ts";
 
 export type GokvContextProps = {
   namespace: string;
@@ -48,3 +50,16 @@ export const useDocumentStatus: () => { online: boolean };
 
 export const useSnapshot: <T extends Record<string, unknown> | Array<unknown>>(obj: T) => T;
 export const useSnapshotValue: <T extends Record<string, unknown>, K extends keyof T>(obj: T, key: K) => T[K];
+
+export type ChatRoomProviderProps = {
+  // the namespace of the chat room, default to "default"
+  namespace?: string;
+  // the chat room id
+  id: string;
+  // fallback UI for when the document is not available, blank by default
+  fallback?: ReactElement;
+};
+
+export const ChatRoomProviderProps: FC<PropsWithChildren<DocumentProviderProps>>;
+
+export const useChat: <U extends AuthUser>() => Chat<U>;

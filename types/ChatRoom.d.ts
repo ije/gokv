@@ -28,7 +28,6 @@ export type Chat<U extends AuthUser> = {
   on(type: "offline", listener: (event: { type: "offline" }) => void): () => void;
   on(type: "error", listener: (event: ErrorEvent) => void): () => void;
   send(content: string, options?: { contentType?: string; marker?: string }): void;
-  close(): void;
 };
 
 export type ChatRoomOptions = {
@@ -40,6 +39,7 @@ export type ChatRoomConnectOptions = {
   historyMaxLen?: number;
   /** How many messages can be sent per second, default is `1`. */
   rateLimit?: number;
+  signal?: AbortSignal;
 };
 
 export class ChatRoom<U extends AuthUser> {
