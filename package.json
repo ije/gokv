@@ -45,7 +45,7 @@
   "devDependencies": {
     "@peculiar/webcrypto": "1.4.1",
     "dotenv": "16.0.3",
-    "esbuild": "0.15.16",
+    "esbuild": "0.16.10",
     "node-fetch": "3.3.0",
     "websocket": "1.0.34"
   },

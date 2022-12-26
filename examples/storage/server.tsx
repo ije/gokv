@@ -1,5 +1,5 @@
 /** @jsx h */
-import { serve } from "https://deno.land/std@0.165.0/http/server.ts";
+import { serve } from "https://deno.land/std@0.170.0/http/server.ts";
 import gokv from "https://deno.land/x/gokv@0.0.33/mod.ts";
 import html, { h } from "https://deno.land/x/htm@0.1.3/mod.ts";
 
