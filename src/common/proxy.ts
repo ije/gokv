@@ -79,7 +79,7 @@ export function proxyObject<T extends Record<string, unknown>>(
     Reflect.ownKeys(target).forEach((key) => {
       if (typeof key === "string") {
         const value = Reflect.get(target, key, receiver);
-        snapshot[key] = value?.[SNAPSHOT] ?? value;
+        snapshot[key] = asSnapshot(value);
       }
     });
     return Object.freeze(snapshot);
@@ -120,7 +120,7 @@ export function proxyObject<T extends Record<string, unknown>>(
           value === undefined ? Op.DELETE : Op.SET,
           [...path, prop],
           value,
-          oldValue?.[SNAPSHOT] ?? oldValue,
+          asSnapshot(oldValue),
         ]);
       }
       return updated;
@@ -138,7 +138,7 @@ export function proxyObject<T extends Record<string, unknown>>(
           Op.DELETE,
           [...path, prop],
           undefined,
-          oldValue?.[SNAPSHOT] ?? oldValue,
+          asSnapshot(oldValue),
         ]);
       }
       return deleted;
@@ -179,7 +179,7 @@ export function proxyArray<T>(
   const createSnapshot = () =>
     Object.freeze(indexs.map((key) => {
       const value = Reflect.get(values, key);
-      return value?.[SNAPSHOT] ?? value;
+      return asSnapshot(value);
     }));
   const splice = (start: number, deleteCount: number, ...items: T[]) => {
     const len = indexs.length;
@@ -199,7 +199,7 @@ export function proxyArray<T>(
     const deleted = rmIndexs.map((key) => {
       const value = Reflect.get(values, key);
       Reflect.deleteProperty(values, key);
-      return [key, value?.[SNAPSHOT] ?? value];
+      return [key, asSnapshot(value)];
     });
     Reflect.set(values, NOTIFY, true);
     if (added.length > 0 || deleted.length > 0) {
@@ -313,6 +313,14 @@ export function proxyArray<T>(
   return proxy as T[];
 }
 
+/** return the snapshot if possible. */
+function asSnapshot<T = unknown>(value: T): T {
+  if (!canProxy(value)) {
+    return value;
+  }
+  return Reflect.get(value, SNAPSHOT) as T | undefined ?? value;
+}
+
 /** Lookup the value by given path. */
 function lookupValue(obj: RecordOrArray, path: Path): unknown {
   const dep = path.length;
@@ -320,7 +328,7 @@ function lookupValue(obj: RecordOrArray, path: Path): unknown {
     return undefined;
   }
 
-  let value = obj;
+  let value: unknown = obj;
   for (let i = 0; i < dep; i++) {
     const key = path[i];
     if (isPlainObject(value)) {
