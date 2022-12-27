@@ -22,7 +22,7 @@ const watch = <T extends Record<string, unknown> | Array<unknown>>(
     const timer = setTimeout(() => {
       dispose();
       reject(new Error("timeout"));
-    }, 10 * 1000);
+    }, 5 * 1000);
     const dispose = subscribe(obj, () => {
       if (predicate(obj)) {
         clearTimeout(timer);

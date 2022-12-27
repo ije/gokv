@@ -20,8 +20,8 @@ export async function connectRPC(
   service: ServiceName,
   namespace: string,
   options: {
-    onReconnect: (socket: RPCSocket) => void;
     onSync: (entries: [string, unknown][]) => void;
+    onReconnect: (rpc: RPCSocket) => void;
   },
 ): Promise<RPCSocket> {
   const awaits = new Map<number, (data: ArrayBuffer) => void>();

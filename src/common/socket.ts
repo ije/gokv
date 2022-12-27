@@ -19,13 +19,13 @@ export enum SocketStatus {
 }
 
 export type SocketOptions = {
-  resolveFlag?: number;
   signal?: AbortSignal;
+  resolveFlag?: number;
   initData?: () => Record<string, unknown>;
   inspect?: (flag: number, gzFlag: number, message: ArrayBufferLike) => string;
+  onMessage?: (flag: number, message: ArrayBufferLike) => void;
   onError?: (code: string, message: string, details?: Record<string, unknown>) => void;
   onClose?: () => void;
-  onMessage?: (flag: number, message: ArrayBufferLike) => void;
   onReconnect?: (socket: Socket) => void;
   onStatusChange?: (status: SocketStatus) => void;
 };
