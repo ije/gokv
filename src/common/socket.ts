@@ -1,4 +1,4 @@
-import { ServiceName, Socket } from "../../types/common.d.ts";
+import type { ServiceName, Socket } from "../../types/common.d.ts";
 import atm from "../AccessTokenManager.ts";
 import { conactBytes, createWebSocket, dec, enc, getEnv, gzip, ungzip } from "./utils.ts";
 
@@ -174,7 +174,7 @@ export function connect(service: ServiceName, namespace: string, options: Socket
         reject(new Error(message, { cause: e }));
         rejected = true;
       } else {
-        options.onError?.("clientError", message);
+        options.onError?.("clientException", message);
         console.error(`[gokv] socket(${service}/${namespace}): ${message}`, e);
       }
     };

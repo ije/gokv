@@ -50,7 +50,7 @@ class ChatImpl<U extends AuthUser> implements Chat<U> {
     this.#socket = socket;
     this.#onlineUsers = new Map(onlineUsers.map((user) => [user.uid, user] as [string, U]));
     for (const message of history) {
-      this.$pushMessage(message);
+      this._pushMessage(message);
     }
     this.on("userjoin", ({ user }) => {
       this.#onlineUsers.delete(user.uid);
@@ -61,19 +61,19 @@ class ChatImpl<U extends AuthUser> implements Chat<U> {
     });
   }
 
-  get $listeners() {
+  get _listeners() {
     return this.#listeners;
   }
 
-  get $lastMessageId() {
+  get _lastMessageId() {
     return this.#lastMessageId;
   }
 
-  $setOnlineUsers(users: U[]) {
+  _setOnlineUsers(users: U[]) {
     this.#onlineUsers = new Map(users.map((user) => [user.uid, user] as [string, U]));
   }
 
-  $pushMessage(msg: ChatMessage<U>) {
+  _pushMessage(msg: ChatMessage<U>) {
     this.#channel.push(msg);
     this.#lastMessageId = msg.id;
   }
@@ -133,15 +133,15 @@ export default class ChatRoomImpl<U extends AuthUser> implements ChatRoom<U> {
     const socket = await connect("chat", this.#scope, {
       signal: options?.signal,
       resolveFlag: MessageFlag.CHAT,
-      initData: () => ({ ...options, lastMessageId: chat?.$lastMessageId }),
+      initData: () => ({ ...options, lastMessageId: chat?._lastMessageId }),
       onMessage: (flag, message) => {
         switch (flag) {
           case MessageFlag.CHAT: {
             if (chat) {
               for (const msg of history) {
-                chat.$pushMessage(msg);
+                chat._pushMessage(msg);
               }
-              chat.$setOnlineUsers(onlineUsers);
+              chat._setOnlineUsers(onlineUsers);
             } else {
               [history, onlineUsers] = JSON.parse(dec.decode(message));
             }
@@ -149,12 +149,12 @@ export default class ChatRoomImpl<U extends AuthUser> implements ChatRoom<U> {
           }
           case MessageFlag.MESSAGE: {
             const chatMessage = JSON.parse(dec.decode(message));
-            chat?.$pushMessage(chatMessage);
+            chat?._pushMessage(chatMessage);
             break;
           }
           case MessageFlag.EVENT: {
             const evt = JSON.parse(dec.decode(message));
-            const listeners = chat?.$listeners.get(evt.type);
+            const listeners = chat?._listeners.get(evt.type);
             if (listeners) {
               for (const listener of listeners) {
                 listener(evt);
@@ -165,7 +165,7 @@ export default class ChatRoomImpl<U extends AuthUser> implements ChatRoom<U> {
         }
       },
       onError: (code, message, details) => {
-        const listeners = chat?.$listeners.get("error");
+        const listeners = chat?._listeners.get("error");
         if (listeners) {
           for (const listener of listeners) {
             listener({ type: "error", code, message, details });
@@ -174,7 +174,7 @@ export default class ChatRoomImpl<U extends AuthUser> implements ChatRoom<U> {
       },
       onStatusChange: (status) => {
         const evtName = status === SocketStatus.READY ? "online" : "offline";
-        const listeners = chat?.$listeners.get(evtName);
+        const listeners = chat?._listeners.get(evtName);
         if (listeners) {
           for (const listener of listeners) {
             listener({ type: evtName });

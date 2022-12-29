@@ -2,7 +2,11 @@
 
 import type { FC, ImgHTMLAttributes, PropsWithChildren, ReactElement } from "react";
 import { AuthUser } from "./common.d.ts";
-import type { Chat } from "./ChatRoom.d.ts";
+import type { ChatMessage } from "./ChatRoom.d.ts";
+
+export type SocketStatus = {
+  online: boolean;
+};
 
 export type GokvContextProps = {
   namespace: string;
@@ -46,10 +50,15 @@ export type DocumentProviderProps = {
 export const DocumentProvider: FC<PropsWithChildren<DocumentProviderProps>>;
 
 export const useDocument: <T extends Record<string, unknown>>() => T;
-export const useDocumentStatus: () => { online: boolean };
+export const useDocumentSocketStatus: () => SocketStatus;
 
 export const useSnapshot: <T extends Record<string, unknown> | Array<unknown>>(obj: T) => T;
 export const useSnapshotValue: <T extends Record<string, unknown>, K extends keyof T>(obj: T, key: K) => T[K];
+
+export type ChatHandler = {
+  pullHistory(n?: number): Promise<void>;
+  send(content: string, options?: { contentType?: string; marker?: string }): void;
+};
 
 export type ChatRoomProviderProps = {
   // the namespace of the chat room, default to "default"
@@ -60,6 +69,9 @@ export type ChatRoomProviderProps = {
   fallback?: ReactElement;
 };
 
-export const ChatRoomProviderProps: FC<PropsWithChildren<DocumentProviderProps>>;
+export const ChatRoomProvider: FC<PropsWithChildren<ChatRoomProviderProps>>;
 
-export const useChat: <U extends AuthUser>() => Chat<U>;
+export const useChatChannel: <U extends AuthUser>() => Array<ChatMessage<U>>;
+export const useChatOnlineUsers: <U extends AuthUser>() => Array<U>;
+export const useChatHandler: () => ChatHandler;
+export const useChatSocketStatus: () => SocketStatus;

@@ -1,18 +1,16 @@
 import type { FC, PropsWithChildren } from "react";
 import { createContext, createElement, useContext, useEffect, useMemo, useState } from "react";
 import type { RecordOrArray } from "../../types/common.d.ts";
-import type { DocumentProviderProps } from "../../types/react.d.ts";
+import type { DocumentProviderProps, SocketStatus } from "../../types/react.d.ts";
 import { Document, snapshot, subscribe } from "../../mod.ts";
 import { Context } from "./Context.ts";
 
 export type DocumentContextProps = {
   doc?: Document<Record<string, unknown>>;
-  online: boolean;
+  socketStatus?: SocketStatus;
 };
 
-export const DocumentContext = createContext<DocumentContextProps>({
-  online: false,
-});
+export const DocumentContext = createContext<DocumentContextProps>({});
 
 export const DocumentProvider: FC<PropsWithChildren<DocumentProviderProps>> = (props) => {
   const { namespace: parentNamespace } = useContext(Context);
@@ -21,6 +19,7 @@ export const DocumentProvider: FC<PropsWithChildren<DocumentProviderProps>> = (p
   const [error, setError] = useState<Error | null>(null);
   const [loading, setLoading] = useState(true);
   const [online, setOnline] = useState(false);
+  const value: Required<DocumentContextProps> = useMemo(() => ({ doc, socketStatus: { online } }), [doc, online]);
 
   useEffect(() => {
     const ac = new AbortController();
@@ -28,8 +27,8 @@ export const DocumentProvider: FC<PropsWithChildren<DocumentProviderProps>> = (p
       setLoading(true);
       try {
         await doc.sync({
-          initialData: props.initialData,
           signal: ac.signal,
+          initialData: props.initialData,
           onOnline: () => setOnline(true),
           onOffline: () => setOnline(false),
         });
@@ -55,12 +54,7 @@ export const DocumentProvider: FC<PropsWithChildren<DocumentProviderProps>> = (p
   if (error) {
     throw error;
   }
-  return createElement(DocumentContext.Provider, { value: { doc, online } }, props.children);
-};
-
-export const useDocumentStatus = (): { online: boolean } => {
-  const { online } = useContext(DocumentContext);
-  return { online };
+  return createElement(DocumentContext.Provider, { value }, props.children);
 };
 
 export const useDocument = <T extends Record<string, unknown>>(): T => {
@@ -73,10 +67,21 @@ export const useDocument = <T extends Record<string, unknown>>(): T => {
   return doc.DOC as T;
 };
 
+export const useDocumentSocketStatus = (): SocketStatus => {
+  const { socketStatus } = useContext(DocumentContext);
+
+  if (!socketStatus) {
+    throw new Error("No document found, please wrap your component with <DocumentProvider />.");
+  }
+
+  return socketStatus;
+};
+
 export const useSnapshot = <T extends RecordOrArray>(obj: T): T => {
   const [snap, setSnap] = useState(() => snapshot(obj));
 
   useEffect(() => {
+    setSnap(snapshot(obj));
     return subscribe(obj, () => {
       setSnap(snapshot(obj));
     });
@@ -86,22 +91,19 @@ export const useSnapshot = <T extends RecordOrArray>(obj: T): T => {
 };
 
 export const useSnapshotValue = <T extends Record<string, unknown>, K extends keyof T>(obj: T, key: K): T[K] => {
-  const [value, setValue] = useState(() => {
+  const getValue = () => {
     const val = obj[key];
     if (typeof val === "object" && val !== null) {
       return snapshot(val as RecordOrArray) as T[K];
     }
     return val;
-  });
+  };
+  const [value, setValue] = useState(getValue);
 
   useEffect(() => {
+    setValue(getValue());
     return subscribe(obj, key as string, () => {
-      const val = obj[key];
-      if (typeof val === "object" && val !== null) {
-        setValue(snapshot(val as RecordOrArray) as T[K]);
-      } else {
-        setValue(val);
-      }
+      setValue(getValue());
     });
   }, [obj, key]);
 

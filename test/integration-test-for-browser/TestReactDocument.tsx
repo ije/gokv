@@ -1,18 +1,18 @@
 /** @jsx createElement */
 /** @jsxFrag Fragment */
 import { createElement, Fragment, useState } from "react";
-import { DocumentProvider, useDocument, useDocumentStatus, useSnapshot, useSnapshotValue } from "gokv/react";
+import { DocumentProvider, useDocument, useDocumentSocketStatus, useSnapshot, useSnapshotValue } from "gokv/react";
 import { ErrorBoundary, JSONViewer, TextInput } from "./_components.tsx";
 
 export function TestReactDocument() {
   return (
     <>
       <div style={{ minHeight: 300 }}>
-        <DocumentApp name={1} />
+        <DocumentApp name="Session #1" id="dev-doc" />
       </div>
       <Hr />
       <div style={{ minHeight: 300 }}>
-        <DocumentApp name={2} />
+        <DocumentApp name="Session #2" id="dev-doc" />
       </div>
     </>
   );
@@ -78,26 +78,26 @@ function TagInput({ tags }: { tags: string[] }) {
   );
 }
 
-function DocumentApp({ name }: { name: number }) {
+function DocumentApp({ name, id }: { name: string; id: string }) {
   return (
     <ErrorBoundary>
-      <DocumentProvider id="dev-doc" fallback={<div>Loading...</div>}>
+      <DocumentProvider id={id} fallback={<div>Loading...</div>}>
         <DocumentAppInner name={name} />
       </DocumentProvider>
     </ErrorBoundary>
   );
 }
 
-function DocumentAppInner({ name }: { name: number }) {
-  const { online } = useDocumentStatus();
+function DocumentAppInner({ name }: { name: string }) {
   const doc = useDocument<{ foo: string; arr: string[] }>();
   const foo = useSnapshotValue(doc, "foo");
+  const { online } = useDocumentSocketStatus();
 
   return (
     <div className="flex">
       <div className="w-half">
         <h3>
-          Document Editor <em>Session #{name}, {online ? "Online" : "Offline"}</em>
+          Document Editor <em>{name}, {online ? "Online" : "Offline"}</em>
         </h3>
         <p>
           <label>

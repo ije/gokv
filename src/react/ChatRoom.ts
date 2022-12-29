@@ -1,40 +1,57 @@
 import type { FC, PropsWithChildren } from "react";
 import { createContext, createElement, useContext, useEffect, useMemo, useState } from "react";
 import type { AuthUser } from "../../types/common.d.ts";
-import type { ChatRoomProviderProps } from "../../types/react.d.ts";
+import type { ChatHandler, ChatRoomProviderProps, SocketStatus } from "../../types/react.d.ts";
 import type { ChatMessage } from "../../types/ChatRoom.d.ts";
 import { ChatRoom } from "../../mod.ts";
 import { Context } from "./Context.ts";
 
-type Chat<U extends AuthUser> = {
-  readonly channel: ReadonlyArray<ChatMessage<U>>;
-  readonly onlineUsers: ReadonlyArray<U>;
-  pullHistory(n?: number): Promise<ReadonlyArray<ChatMessage<U>>>;
-  send(content: string, options?: { contentType?: string; marker?: string }): void;
-};
-
 export type ChatRoomContextProps = {
-  chat?: Chat<AuthUser>;
-  online: boolean;
+  channel?: Array<ChatMessage<AuthUser>>;
+  onlineUsers?: Array<AuthUser>;
+  handler?: ChatHandler;
+  socketStatus?: SocketStatus;
 };
 
-export const ChatRoomContext = createContext<ChatRoomContextProps>({
-  online: false,
+const badHandler: ChatHandler = Object.freeze({
+  pullHistory: () => {
+    throw new Error("chat room socket not connected");
+  },
+  send: () => {
+    throw new Error("chat room socket not connected");
+  },
 });
 
+// sort messages by `createdAt`
+const appendMessage = (prev: Array<ChatMessage<AuthUser>>, msg: ChatMessage<AuthUser>) => {
+  const i = prev.findIndex((m) => m.createdAt > msg.createdAt);
+  if (i === -1) {
+    return [...prev, msg];
+  }
+  return [...prev.slice(0, i), msg, ...prev.slice(i)];
+};
+
+export const ChatRoomContext = createContext<ChatRoomContextProps>({});
+
 export const ChatRoomProvider: FC<PropsWithChildren<ChatRoomProviderProps>> = (props) => {
-  const { namespace: parentNamespace } = useContext(Context);
-  const namespace = props.namespace || parentNamespace;
+  const { namespace: defaultNS } = useContext(Context);
+  const namespace = props.namespace || defaultNS;
   const room = useMemo(() => new ChatRoom(props.id, { namespace }), [props.id, namespace]);
-  const [chat, setChat] = useState<Chat<AuthUser> | null>(null);
-  const [error, setError] = useState<Error | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [channel, setChannel] = useState<Array<ChatMessage<AuthUser>>>([]);
+  const [onlineUsers, setOnlineUsers] = useState<Array<AuthUser>>([]);
+  const [handler, setHandler] = useState<ChatHandler>(badHandler);
   const [online, setOnline] = useState(false);
+  const [waiting, setWaiting] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  const value: Required<ChatRoomContextProps> = useMemo(() => {
+    return { channel, onlineUsers, handler, socketStatus: { online } };
+  }, [channel, onlineUsers, handler, online]);
 
   useEffect(() => {
     const ac = new AbortController();
     const sync = async (retryTimes = 0) => {
-      setLoading(true);
+      setWaiting(true);
       try {
         const chat = await room.connect({
           signal: ac.signal,
@@ -42,8 +59,31 @@ export const ChatRoomProvider: FC<PropsWithChildren<ChatRoomProviderProps>> = (p
         chat.on("online", () => setOnline(true));
         chat.on("offline", () => setOnline(false));
         chat.on("error", (err) => setError(new Error(err.message)));
-        setChat(chat);
-        setLoading(false);
+        chat.on("userjoin", (e) => {
+          setOnlineUsers((prev) => !prev.find((u) => u.uid === e.user.uid) ? [...prev, e.user] : prev);
+        });
+        chat.on("userleave", (e) => {
+          setOnlineUsers((prev) => prev.filter((u) => u.uid !== e.user.uid));
+        });
+        setOnlineUsers(chat.onlineUsers as typeof onlineUsers);
+        setHandler({
+          pullHistory: async (n?: number) => {
+            const history = await chat.pullHistory(n);
+            setChannel((prev) => {
+              for (const msg of history) {
+                prev = appendMessage(prev, msg);
+              }
+              return prev;
+            });
+          },
+          send: chat.send.bind(chat),
+        });
+        setWaiting(false);
+        (async () => {
+          for await (const msg of chat.channel) {
+            setChannel((prev) => appendMessage(prev, msg));
+          }
+        })();
       } catch (err) {
         if (err.message !== "aborted" && retryTimes < 3) {
           const delay = (retryTimes + 1) * 100;
@@ -51,7 +91,7 @@ export const ChatRoomProvider: FC<PropsWithChildren<ChatRoomProviderProps>> = (p
           console.warn(`[gokv] fail to connect chat room(${room.id}), retry after ${delay}ms ...`);
         } else {
           setError(err);
-          setLoading(false);
+          setWaiting(false);
         }
       }
     };
@@ -59,21 +99,51 @@ export const ChatRoomProvider: FC<PropsWithChildren<ChatRoomProviderProps>> = (p
     return () => ac.abort();
   }, [room]);
 
-  if (loading) {
+  if (waiting) {
     return props.fallback ?? null;
   }
   if (error) {
     throw error;
   }
-  return createElement(ChatRoomContext.Provider, { value: { chat: chat ?? undefined, online } }, props.children);
+  return createElement(ChatRoomContext.Provider, { value }, props.children);
 };
 
-export const useChat = <U extends AuthUser>(): Chat<U> => {
-  const { chat } = useContext(ChatRoomContext);
+export const useChatChannel = <U extends AuthUser>(): Array<ChatMessage<U>> => {
+  const { channel } = useContext(ChatRoomContext);
 
-  if (!chat) {
-    throw new Error("No document found, please wrap your component with <ChatRoomProvider />.");
+  if (!channel) {
+    throw new Error("No chat room found, please wrap your component with <ChatRoomProvider />.");
   }
 
-  return chat as Chat<U>;
+  return channel as Array<ChatMessage<U>>;
+};
+
+export const useChatOnlineUsers = <U extends AuthUser>(): Array<U> => {
+  const { onlineUsers } = useContext(ChatRoomContext);
+
+  if (!onlineUsers) {
+    throw new Error("No chat room found, please wrap your component with <ChatRoomProvider />.");
+  }
+
+  return onlineUsers as Array<U>;
+};
+
+export const useChatHandler = (): ChatHandler => {
+  const { handler } = useContext(ChatRoomContext);
+
+  if (!handler) {
+    throw new Error("No chat room found, please wrap your component with <ChatRoomProvider />.");
+  }
+
+  return handler;
+};
+
+export const useChatSocketStatus = (): SocketStatus => {
+  const { socketStatus } = useContext(ChatRoomContext);
+
+  if (!socketStatus) {
+    throw new Error("No chat room found, please wrap your component with <ChatRoomProvider />.");
+  }
+
+  return socketStatus;
 };
