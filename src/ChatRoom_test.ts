@@ -5,14 +5,14 @@ import "dotenv";
 const room = new ChatRoom("dev-chat");
 const [chat1, chat2] = await Promise.all([room.connect(), room.connect()]);
 
-const testMarker = `mk-${Date.now()}-${Math.random()}`;
+const testMarkerId = `mk-${Date.now()}-${Math.random()}`;
 const testMessage = "hey :)";
 
 let testMessageId: string | null = null;
 
 async function echo1() {
   for await (const msg of chat1.channel) {
-    if (msg.marker === testMarker) {
+    if (msg.marker?.id === testMarkerId) {
       testMessageId = msg.id;
       return msg.content;
     }
@@ -29,7 +29,7 @@ async function echo2() {
 
 Deno.test("chat room", { sanitizeOps: false, sanitizeResources: false }, async () => {
   setTimeout(() => {
-    chat1.send(testMessage, { marker: testMarker });
+    chat1.send(testMessage, { markerId: testMarkerId });
   }, 0);
   assertEquals(await echo1(), testMessage);
   assertEquals(await echo2(), testMessage);

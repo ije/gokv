@@ -130,19 +130,19 @@ class ChatImpl<U extends AuthUser> implements Chat<U> {
 
 export default class ChatRoomImpl<U extends AuthUser> implements ChatRoom<U> {
   #namespace: string;
-  #room: string;
+  #id: string;
 
   constructor(roomId: string, options?: ChatRoomOptions) {
     this.#namespace = checkNamespace(options?.namespace ?? "default");
-    this.#room = checkNamespace(roomId);
+    this.#id = checkNamespace(roomId);
   }
 
   get id() {
-    return this.#room;
+    return this.#id;
   }
 
   get #scope() {
-    return this.#namespace + "/" + this.#room;
+    return this.#namespace + "/" + this.#id;
   }
 
   async connect(options?: ChatRoomConnectOptions): Promise<Chat<U>> {
