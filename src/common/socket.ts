@@ -12,7 +12,7 @@ const MessageFlag = {
   PING: 0xf2,
 };
 
-export enum SocketStatus {
+export enum SocketState {
   CLOSE = 0,
   PENDING = 1,
   READY = 2,
@@ -27,7 +27,7 @@ export type SocketOptions = {
   onError?: (code: string, message: string, details?: Record<string, unknown>) => void;
   onClose?: () => void;
   onReconnect?: (socket: Socket) => void;
-  onStatusChange?: (status: SocketStatus) => void;
+  onStateChange?: (status: SocketState) => void;
 };
 
 /** Creating a `WebSocket` connection that supports heartbeat checking, gzip compression, inspect, and automatic re-connection. */
@@ -40,7 +40,7 @@ export function connect(service: ServiceName, namespace: string, options: Socket
     return await createWebSocket(url.href);
   };
   return new Promise<Socket>((resolve, reject) => {
-    let status: SocketStatus = SocketStatus.PENDING;
+    let status: SocketState = SocketState.PENDING;
     let ws: WebSocket | null = null;
     let fulfilled = false;
     let rejected = false;
@@ -82,7 +82,7 @@ export function connect(service: ServiceName, namespace: string, options: Socket
         }
         ws = null;
       }
-      setStatus(SocketStatus.CLOSE);
+      setStatus(SocketState.CLOSE);
       options.onClose?.();
     };
 
@@ -107,15 +107,15 @@ export function connect(service: ServiceName, namespace: string, options: Socket
       }, pingInterval);
     };
 
-    const setStatus = (newStatus: SocketStatus) => {
+    const setStatus = (newStatus: SocketState) => {
       if (status !== newStatus) {
         status = newStatus;
-        options.onStatusChange?.(status);
+        options.onStateChange?.(status);
       }
     };
 
     const onReady = () => {
-      setStatus(SocketStatus.READY);
+      setStatus(SocketState.READY);
       if (fulfilled) {
         options.onReconnect?.({ send, close });
       }
@@ -180,7 +180,7 @@ export function connect(service: ServiceName, namespace: string, options: Socket
     };
 
     const onClose = () => {
-      setStatus(SocketStatus.CLOSE);
+      setStatus(SocketState.CLOSE);
 
       // clear timers
       hbTimer && clearTimeout(hbTimer);
@@ -191,7 +191,7 @@ export function connect(service: ServiceName, namespace: string, options: Socket
       // reconnect
       if (fulfilled) {
         console.warn(`[gokv] socket(${service}/${namespace}) closed, reconnecting...`);
-        setStatus(SocketStatus.PENDING);
+        setStatus(SocketState.PENDING);
         newWebSocket().then(start);
       }
     };

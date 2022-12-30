@@ -1,7 +1,7 @@
 /** @jsx createElement */
 /** @jsxFrag Fragment */
 import { createElement, Fragment, useState } from "react";
-import { DocumentProvider, useDocument, useDocumentSocketStatus, useSnapshot, useSnapshotValue } from "gokv/react";
+import { DocumentProvider, useConnectState, useDocument, useSnapshot } from "gokv/react";
 import { ErrorBoundary, JSONViewer, TextInput } from "./_components.tsx";
 
 export function TestReactDocument() {
@@ -82,22 +82,22 @@ function DocumentApp({ name, id }: { name: string; id: string }) {
   return (
     <ErrorBoundary>
       <DocumentProvider id={id} fallback={<div>Loading...</div>}>
-        <DocumentAppInner name={name} />
+        <DocumentAppUI name={name} />
       </DocumentProvider>
     </ErrorBoundary>
   );
 }
 
-function DocumentAppInner({ name }: { name: string }) {
+function DocumentAppUI({ name }: { name: string }) {
   const doc = useDocument<{ foo: string; arr: string[] }>();
-  const foo = useSnapshotValue(doc, "foo");
-  const { online } = useDocumentSocketStatus();
+  const foo = useSnapshot(doc, "foo");
+  const connectState = useConnectState();
 
   return (
     <div className="flex">
       <div className="w-half">
         <h3>
-          Document Editor <em>{name}, {online ? "Online" : "Offline"}</em>
+          Document Editor <em>{name}, {connectState === "connected" ? "Online" : "Offline"}</em>
         </h3>
         <p>
           <label>

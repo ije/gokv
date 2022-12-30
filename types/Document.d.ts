@@ -5,9 +5,8 @@ export type DocumentOptions = {
 export type DocumentSyncOptions<T> = {
   initialData?: T;
   signal?: AbortSignal;
-  onError?: (code: string, message: string) => void;
-  onOnline?: () => void;
-  onOffline?: () => void;
+  onError?: (code: string, message: string, details?: Record<string, unknown>) => void;
+  onStateChange?: (state: "connecting" | "connected" | "disconnected") => void;
 };
 
 /** `Document` syncs changes between sessions and saved automatically. */

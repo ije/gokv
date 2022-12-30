@@ -1,13 +1,18 @@
 import { AuthUser } from "./common.d.ts";
 
+export type ChatMessageMarker = {
+  id: string;
+  state: "pending" | "success" | "error";
+};
+
 export type ChatMessage<U> = {
   readonly id: string;
   readonly content: string;
   readonly contentType?: string;
-  readonly marker?: string;
   readonly createdAt: number;
   readonly createdBy: U;
   readonly editedAt?: number;
+  readonly marker?: ChatMessageMarker;
 };
 
 export type ChatEvent = "userjoin" | "userleave" | "usertype";
@@ -21,13 +26,14 @@ export type ErrorEvent = {
 
 export type Chat<U extends AuthUser> = {
   readonly channel: AsyncIterable<ChatMessage<U>>;
+  readonly currentUser: U;
   readonly onlineUsers: ReadonlyArray<U>;
-  pullHistory(n?: number): Promise<ReadonlyArray<ChatMessage<U>>>;
-  on(type: ChatEvent, listener: (event: { type: ChatEvent; user: U }) => void): () => void;
-  on(type: "online", listener: (event: { type: "online" }) => void): () => void;
-  on(type: "offline", listener: (event: { type: "offline" }) => void): () => void;
+  readonly state: "connecting" | "connected" | "disconnected";
+  on(type: "statechange", listener: (event: { type: "statechange" }) => void): () => void;
   on(type: "error", listener: (event: ErrorEvent) => void): () => void;
-  send(content: string, options?: { contentType?: string; marker?: string }): void;
+  on(type: ChatEvent, listener: (event: { type: ChatEvent; user: U }) => void): () => void;
+  pullHistory(n?: number): Promise<ReadonlyArray<ChatMessage<U>>>;
+  send(content: string, options?: { contentType?: string; markerId?: string }): void;
 };
 
 export type ChatRoomOptions = {

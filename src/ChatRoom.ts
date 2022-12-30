@@ -1,7 +1,7 @@
 import type { AuthUser, Socket } from "../types/common.d.ts";
 import type { Chat, ChatMessage, ChatRoom, ChatRoomConnectOptions, ChatRoomOptions } from "../types/ChatRoom.d.ts";
 import { checkNamespace, dec } from "./common/utils.ts";
-import { connect, SocketStatus } from "./common/socket.ts";
+import { connect, SocketState } from "./common/socket.ts";
 
 enum MessageFlag {
   CHAT = 1,
@@ -29,9 +29,9 @@ class Channel<T> {
   }
 
   push(value: T) {
-    const callback = this.#resolvers.shift();
-    if (callback) {
-      callback({ value, done: false });
+    const resolve = this.#resolvers.shift();
+    if (resolve) {
+      resolve({ value, done: false });
     } else {
       this.#queue.push(value);
     }
@@ -41,17 +41,20 @@ class Channel<T> {
 class ChatImpl<U extends AuthUser> implements Chat<U> {
   #channel: Channel<ChatMessage<U>>;
   #onlineUsers: Map<string, U>;
+  #currentUser: U;
   #socket: Socket;
   #listeners: Map<string, Set<(event: unknown) => void>> = new Map();
   #lastMessageId: string | null = null;
+  #state: "connecting" | "connected" | "disconnected" = "connecting";
 
-  constructor(socket: Socket, history: ChatMessage<U>[], onlineUsers: U[]) {
+  constructor(socket: Socket, history: ChatMessage<U>[], onlineUsers: U[], currentUser: U) {
     this.#channel = new Channel();
     this.#socket = socket;
     this.#onlineUsers = new Map(onlineUsers.map((user) => [user.uid, user] as [string, U]));
     for (const message of history) {
       this._pushMessage(message);
     }
+    this.#currentUser = currentUser;
     this.on("userjoin", ({ user }) => {
       this.#onlineUsers.delete(user.uid);
       this.#onlineUsers.set(user.uid, user);
@@ -69,13 +72,21 @@ class ChatImpl<U extends AuthUser> implements Chat<U> {
     return this.#lastMessageId;
   }
 
+  _pushMessage(msg: ChatMessage<U>) {
+    this.#channel.push(msg);
+    this.#lastMessageId = msg.id;
+  }
+
   _setOnlineUsers(users: U[]) {
     this.#onlineUsers = new Map(users.map((user) => [user.uid, user] as [string, U]));
   }
 
-  _pushMessage(msg: ChatMessage<U>) {
-    this.#channel.push(msg);
-    this.#lastMessageId = msg.id;
+  _setCurrentUser(user: U) {
+    this.#currentUser = user;
+  }
+
+  _setState(state: "connecting" | "connected" | "disconnected") {
+    this.#state = state;
   }
 
   get channel() {
@@ -84,6 +95,14 @@ class ChatImpl<U extends AuthUser> implements Chat<U> {
 
   get onlineUsers(): U[] {
     return [...this.#onlineUsers.values()].map((user) => ({ ...user }));
+  }
+
+  get currentUser(): U {
+    return { ...this.#currentUser };
+  }
+
+  get state() {
+    return this.#state;
   }
 
   pullHistory(_n?: number): Promise<ChatMessage<U>[]> {
@@ -100,11 +119,11 @@ class ChatImpl<U extends AuthUser> implements Chat<U> {
     };
   }
 
-  send(content: string, options?: { contentType?: string; marker?: string }): void {
+  send(content: string, options?: { contentType?: string; markerId?: string }): void {
     this.#socket.send(MessageFlag.MESSAGE, {
       content,
       contentType: options?.contentType ?? "text/plain",
-      marker: options?.marker,
+      markerId: options?.markerId,
     });
   }
 }
@@ -130,6 +149,7 @@ export default class ChatRoomImpl<U extends AuthUser> implements ChatRoom<U> {
     let chat: ChatImpl<U> | null = null;
     let history: ChatMessage<U>[] = [];
     let onlineUsers: U[] = [];
+    let currentUser: U;
     const socket = await connect("chat", this.#scope, {
       signal: options?.signal,
       resolveFlag: MessageFlag.CHAT,
@@ -137,13 +157,13 @@ export default class ChatRoomImpl<U extends AuthUser> implements ChatRoom<U> {
       onMessage: (flag, message) => {
         switch (flag) {
           case MessageFlag.CHAT: {
+            [history, onlineUsers, currentUser] = JSON.parse(dec.decode(message));
             if (chat) {
               for (const msg of history) {
                 chat._pushMessage(msg);
               }
               chat._setOnlineUsers(onlineUsers);
-            } else {
-              [history, onlineUsers] = JSON.parse(dec.decode(message));
+              chat._setCurrentUser(currentUser!);
             }
             break;
           }
@@ -172,12 +192,24 @@ export default class ChatRoomImpl<U extends AuthUser> implements ChatRoom<U> {
           }
         }
       },
-      onStatusChange: (status) => {
-        const evtName = status === SocketStatus.READY ? "online" : "offline";
-        const listeners = chat?._listeners.get(evtName);
+      onStateChange: (state) => {
+        if (!chat) {
+          return;
+        }
+        switch (state) {
+          case SocketState.PENDING:
+            chat._setState("connecting");
+            break;
+          case SocketState.CLOSE:
+            chat._setState("disconnected");
+            break;
+          case SocketState.READY:
+            chat._setState("connected");
+        }
+        const listeners = chat._listeners.get("statechange");
         if (listeners) {
           for (const listener of listeners) {
-            listener({ type: evtName });
+            listener({ type: "statechange" });
           }
         }
       },
@@ -202,7 +234,6 @@ export default class ChatRoomImpl<U extends AuthUser> implements ChatRoom<U> {
         }
       },
     });
-    chat = new ChatImpl<U>(socket, history, onlineUsers);
-    return chat;
+    return chat = new ChatImpl<U>(socket, history, onlineUsers, currentUser!);
   }
 }

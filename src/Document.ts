@@ -1,7 +1,7 @@
 import type { Document, DocumentOptions, DocumentSyncOptions } from "../types/Document.d.ts";
 import atm from "./AccessTokenManager.ts";
 import { applyPatch, disableNotify, Op, Patch, proxy, remix, restoreArray } from "./common/proxy.ts";
-import { connect, SocketStatus } from "./common/socket.ts";
+import { connect, SocketState } from "./common/socket.ts";
 import { checkNamespace, dec } from "./common/utils.ts";
 
 enum MessageFlag {
@@ -162,13 +162,22 @@ export default class DocumentImpl<T extends Record<string, unknown>> implements 
           }
         }
       },
-      onStatusChange: (status) => {
-        online = status === SocketStatus.READY;
-        if (online) {
-          options?.onOnline?.();
-        } else {
-          options?.onOffline?.();
+      onStateChange: (state) => {
+        const onStateChange = options?.onStateChange;
+        if (onStateChange) {
+          switch (state) {
+            case SocketState.PENDING:
+              onStateChange("connecting");
+              break;
+            case SocketState.CLOSE:
+              onStateChange("disconnected");
+              break;
+            case SocketState.READY:
+              onStateChange("connected");
+              break;
+          }
         }
+        online = state === SocketState.READY;
       },
       onError: options?.onError,
       onClose: () => {
