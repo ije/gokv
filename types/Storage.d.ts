@@ -32,7 +32,7 @@ export class Storage {
   preload(keys: string[]): Promise<void>;
   get<T = unknown>(key: string, options?: StorageGetOptions): Promise<T | undefined>;
   get<T = unknown>(keys: string[], options?: StorageGetOptions): Promise<Map<string, T>>;
-  get<T = unknown>(options: StorageListOptions): Promise<Map<string, T>>;
+  list<T = unknown>(options?: StorageListOptions): Promise<Map<string, T>>;
   put(key: string, value: unknown, options?: StoragePutOptions): Promise<void>;
   put(entries: Record<string, unknown>, options?: StoragePutOptions): Promise<void>;
   delete(key: string, options?: StoragePutOptions): Promise<boolean>;

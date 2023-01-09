@@ -15,9 +15,10 @@ enum StorageMethod {
   GET = 1,
   PUT = 2,
   DELETE = 3,
-  UPDATE_NUMBER = 4,
-  SUM = 5,
-  FORGET = 6,
+  LIST = 4,
+  UPDATE_NUMBER = 5,
+  SUM = 6,
+  FORGET = 7,
 }
 
 export default class StorageImpl implements Storage {
@@ -85,36 +86,32 @@ export default class StorageImpl implements Storage {
     this.#cache(ret.entries());
   }
 
-  async get(
-    keyOrKeysOrOptions: string | string[] | StorageListOptions,
-    options?: StorageGetOptions,
-    // deno-lint-ignore no-explicit-any
-  ): Promise<any> {
-    // `noCache` or list with conditions
-    if (options?.noCache || isPlainObject(keyOrKeysOrOptions)) {
+  // deno-lint-ignore no-explicit-any
+  async get(keyOrKeys: string | string[], options?: StorageGetOptions): Promise<any> {
+    if (options?.noCache) {
       const rpc = await this.#rpc();
-      return await rpc.invoke(StorageMethod.GET, keyOrKeysOrOptions);
+      return await rpc.invoke(StorageMethod.GET, keyOrKeys);
     }
 
     // get single key-value pair
-    if (typeof keyOrKeysOrOptions === "string" && keyOrKeysOrOptions.length > 0) {
-      if (this.#isHot(keyOrKeysOrOptions)) {
-        return this.#cacheStore.get(keyOrKeysOrOptions);
+    if (typeof keyOrKeys === "string" && keyOrKeys.length > 0) {
+      if (this.#isHot(keyOrKeys)) {
+        return this.#cacheStore.get(keyOrKeys);
       }
       const rpc = await this.#rpc();
-      const ret = await rpc.invoke(StorageMethod.GET, keyOrKeysOrOptions, 1);
-      this.#cache([[keyOrKeysOrOptions, ret]]);
+      const ret = await rpc.invoke(StorageMethod.GET, keyOrKeys, 1);
+      this.#cache([[keyOrKeys, ret]]);
       return ret;
     }
 
     // get multiple key-value pairs
-    if (Array.isArray(keyOrKeysOrOptions)) {
-      if (keyOrKeysOrOptions.length > 100) {
+    if (Array.isArray(keyOrKeys)) {
+      if (keyOrKeys.length > 100) {
         throw new Error("only support get less than 100 keys");
       }
       const hitKeys: string[] = [];
       const keys: string[] = [];
-      for (const key of keyOrKeysOrOptions) {
+      for (const key of keyOrKeys) {
         if (this.#isHot(key)) {
           hitKeys.push(key);
         } else {
@@ -181,6 +178,11 @@ export default class StorageImpl implements Storage {
       }
     }
     return ret;
+  }
+
+  async list<T = unknown>(options?: StorageListOptions): Promise<Map<string, T>> {
+    const rpc = await this.#rpc();
+    return rpc.invoke(StorageMethod.LIST, options);
   }
 
   async updateNumber(key: string, delta: number, options?: StoragePutOptions): Promise<number> {
