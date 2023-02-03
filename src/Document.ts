@@ -2,7 +2,8 @@ import type { Document, DocumentOptions, DocumentSyncOptions } from "../types/Do
 import atm from "./AccessTokenManager.ts";
 import { applyPatch, disableNotify, Op, Patch, proxy, remix, restoreArray } from "./common/proxy.ts";
 import { connect, SocketState } from "./common/socket.ts";
-import { checkNamespace, dec } from "./common/utils.ts";
+import { deserialize, serialize } from "./common/structured.ts";
+import { checkNamespace } from "./common/utils.ts";
 
 enum MessageFlag {
   DOC = 1,
@@ -43,7 +44,7 @@ export default class DocumentImpl<T extends Record<string, unknown>> implements 
     if (!res.ok) {
       throw new Error(`Failed to get document snapshot: ${res.status} ${res.statusText}`);
     }
-    return restoreArray(await res.json()) as T;
+    return restoreArray(deserialize(await res.arrayBuffer())) as T;
   }
 
   async reset(data: T): Promise<{ version: number }> {
@@ -51,9 +52,9 @@ export default class DocumentImpl<T extends Record<string, unknown>> implements 
       method: "PUT",
       headers: {
         "Authorization": (await atm.getAccessToken(`doc:${this.#scope}`)).join(" "),
-        "Content-Type": "application/json",
+        "Content-Type": "binary/structured",
       },
-      body: JSON.stringify(data),
+      body: serialize(data),
     });
     if (!res.ok) {
       throw new Error(`Failed to reset document: ${res.status} ${await res.text()}`);
@@ -91,7 +92,7 @@ export default class DocumentImpl<T extends Record<string, unknown>> implements 
       onMessage: (flag, data) => {
         switch (flag) {
           case MessageFlag.DOC: {
-            const [version, snapshot, resetByApi] = JSON.parse(dec.decode(data));
+            const [version, snapshot, resetByApi] = deserialize<[number, T, boolean | undefined]>(data);
             // update the proxy object with the new snapshot
             remix(this.#doc, snapshot);
             // update the doc with the initial data if specified
@@ -117,7 +118,7 @@ export default class DocumentImpl<T extends Record<string, unknown>> implements 
             break;
           }
           case MessageFlag.PATCH: {
-            const [version, ...patches] = JSON.parse(dec.decode(data)) as [number, ...Patch[]];
+            const [version, ...patches] = deserialize<[number, ...Patch[]]>(data);
             for (const patch of patches) {
               const [$op, $path, $values] = patch;
               let shouldApply = true;
@@ -145,7 +146,7 @@ export default class DocumentImpl<T extends Record<string, unknown>> implements 
             break;
           }
           case MessageFlag.ACK: {
-            const ids = JSON.parse(dec.decode(data));
+            const ids = deserialize<string[]>(data);
             for (const id of ids) {
               if (!uncomfirmedPatches.has(id)) {
                 // ignore invalid id
@@ -188,22 +189,16 @@ export default class DocumentImpl<T extends Record<string, unknown>> implements 
       },
       // for debug
       inspect: (flag, gzFlag, message) => {
-        const print = (buf: ArrayBuffer) => {
-          if (buf.byteLength > 1024) {
-            return `${dec.decode(buf.slice(0, 1024))}...(more ${buf.byteLength - 1024} bytes)`;
-          }
-          return dec.decode(buf);
-        };
         const gzTip = gzFlag ? "(gzipped)" : "";
         switch (flag) {
           case MessageFlag.DOC:
-            return `DOC${gzTip} ${print(message)}`;
+            return [`DOC${gzTip}`, deserialize(message)];
           case MessageFlag.PATCH:
-            return `PATCH${gzTip} ${print(message)}`;
+            return [`PATCH${gzTip}`, deserialize(message)];
           case MessageFlag.ACK:
-            return `ACK${gzTip} ${print(message)}`;
+            return [`ACK${gzTip}`, deserialize(message)];
           default:
-            return `UNKNOWN ${print(message)}`;
+            return `UNKNOWN FLAG ${flag}`;
         }
       },
     });

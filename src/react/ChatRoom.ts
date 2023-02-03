@@ -80,7 +80,7 @@ const _ChatRoomProvider: FC<PropsWithChildren<ChatRoomProviderProps>> = (props) 
           },
           send: (content, options) => {
             const now = Date.now();
-            const markerId = now.toString(36) + Math.random().toString(36).slice(2);
+            const markerId = `mk-${now.toString(36)}${Math.random().toString(36).slice(2)}`;
             setChannel((prev) =>
               appendMessage(prev, {
                 ...options,

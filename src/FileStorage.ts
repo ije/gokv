@@ -27,7 +27,7 @@ export default class FileStorageImpl implements FileStorage {
 
     // calculate file hash using xxhash64
     const h1 = await xxhash(file.slice().stream(), 1n);
-    const h2 = await xxhash(file.slice().stream(), 2n);
+    const h2 = await xxhash(file.slice().stream(), BigInt(file.size));
     const fileMeta = {
       ...pick(file, "name", "type", "size", "lastModified"),
       hash: h1.toString(16) + h2.toString(16),

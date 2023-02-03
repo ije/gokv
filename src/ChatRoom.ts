@@ -1,7 +1,8 @@
 import type { AuthUser, Socket } from "../types/common.d.ts";
 import type { Chat, ChatMessage, ChatRoom, ChatRoomConnectOptions, ChatRoomOptions } from "../types/ChatRoom.d.ts";
-import { checkNamespace, dec } from "./common/utils.ts";
+import { checkNamespace } from "./common/utils.ts";
 import { connect, SocketState } from "./common/socket.ts";
+import { deserialize } from "./common/structured.ts";
 
 enum MessageFlag {
   CHAT = 1,
@@ -157,7 +158,7 @@ export default class ChatRoomImpl<U extends AuthUser> implements ChatRoom<U> {
       onMessage: (flag, message) => {
         switch (flag) {
           case MessageFlag.CHAT: {
-            [history, onlineUsers, currentUser] = JSON.parse(dec.decode(message));
+            [history, onlineUsers, currentUser] = deserialize(message);
             if (chat) {
               for (const msg of history) {
                 chat._pushMessage(msg);
@@ -168,12 +169,12 @@ export default class ChatRoomImpl<U extends AuthUser> implements ChatRoom<U> {
             break;
           }
           case MessageFlag.MESSAGE: {
-            const chatMessage = JSON.parse(dec.decode(message));
+            const chatMessage = deserialize<ChatMessage<U>>(message);
             chat?._pushMessage(chatMessage);
             break;
           }
           case MessageFlag.EVENT: {
-            const evt = JSON.parse(dec.decode(message));
+            const evt = deserialize(message);
             const listeners = chat?._listeners.get(evt.type);
             if (listeners) {
               for (const listener of listeners) {
@@ -215,22 +216,16 @@ export default class ChatRoomImpl<U extends AuthUser> implements ChatRoom<U> {
       },
       // for debug
       inspect: (flag, gzFlag, message) => {
-        const print = (buf: ArrayBuffer) => {
-          if (buf.byteLength > 1024) {
-            return `${dec.decode(buf.slice(0, 1024))}...(more ${buf.byteLength - 1024} bytes)`;
-          }
-          return dec.decode(buf);
-        };
         const gzTip = gzFlag ? "(gzipped)" : "";
         switch (flag) {
           case MessageFlag.CHAT:
-            return `CHAT${gzTip} ${print(message)}`;
+            return [`CHAT${gzTip}`, deserialize(message)];
           case MessageFlag.MESSAGE:
-            return `MESSAGE${gzTip} ${print(message)}`;
+            return [`MESSAGE${gzTip}`, deserialize(message)];
           case MessageFlag.EVENT:
-            return `EVENT${gzTip} ${print(message)}`;
+            return [`EVENT${gzTip}`, deserialize(message)];
           default:
-            return `UNKNOWN ${print(message)}`;
+            return `UNKNOWN FLAG ${flag}`;
         }
       },
     });

@@ -2,9 +2,9 @@ export const enc = new TextEncoder();
 export const dec = new TextDecoder();
 export const dummyFn = () => {};
 
-export const isPlainObject = (v: unknown): v is Record<string, unknown> => {
+export function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && Object.getPrototypeOf(v) === Object.prototype;
-};
+}
 
 export function checkNamespace(namespace: string) {
   if (namespace === "default" || namespace === "default/session") {
@@ -28,15 +28,15 @@ export function checkNamespace(namespace: string) {
 }
 
 // deno-lint-ignore ban-types
-export const pick = <T extends object, K extends keyof T>(obj: T, ...keys: K[]): Pick<T, K> => {
+export function pick<T extends object, K extends keyof T>(obj: T, ...keys: K[]): Pick<T, K> {
   const ret: Partial<T> = {};
   for (const key of keys) {
     ret[key] = obj[key];
   }
   return ret as Pick<T, K>;
-};
+}
 
-export const splitByChar = (str: string, char: string) => {
+export function splitByChar(str: string, char: string) {
   if (char.length !== 1) {
     throw new Error("char must be a single character");
   }
@@ -46,7 +46,7 @@ export const splitByChar = (str: string, char: string) => {
     }
   }
   return [str, ""];
-};
+}
 
 export function getEnv(key: string): string | undefined {
   const denoNs = Reflect.get(globalThis, "Deno");
