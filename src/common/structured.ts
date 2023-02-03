@@ -21,6 +21,7 @@ enum Type {
   DATE = 0x13,
   REGEXP = 0x14,
   URL = 0x15,
+  ERROR = 0x16,
 }
 
 const TypedArraryTypes = [
@@ -94,6 +95,8 @@ class StructuredWriter {
         this.writeRegExp(v);
       } else if (v instanceof URL) {
         this.writeURL(v);
+      } else if (v instanceof Error) {
+        this.writeError(v);
       } else if (v instanceof Map) {
         this.writeMap(v);
       } else if (Object.getPrototypeOf(v) === Object.prototype) {
@@ -305,6 +308,16 @@ class StructuredWriter {
     this.write(this.headerBox(Type.URL, data.byteLength));
     this.write(data);
   }
+
+  writeError(v: Error): void {
+    const errorData = new StructuredWriter().serialize({
+      name: v.name,
+      message: v.message,
+      stack: v.stack,
+    });
+    this.writeByte(Type.ERROR);
+    this.write(errorData);
+  }
 }
 
 class StructuredReader {
@@ -447,6 +460,13 @@ class StructuredReader {
       case Type.URL: {
         const size = getSizeMarker();
         return new URL(new TextDecoder().decode(this.read(size))) as T;
+      }
+      case Type.ERROR: {
+        const { name, message, stack } = this.deserialize<{ name: string; message: string; stack?: string }>();
+        const error = new Error(message);
+        error.name = name;
+        error.stack = stack;
+        return error as T;
       }
       default:
         throw new Error("Unknown type");

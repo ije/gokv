@@ -1,4 +1,4 @@
-import { assertEquals } from "asserts";
+import { assertEquals, assertStringIncludes } from "asserts";
 import { deserialize, serialize } from "./structured.ts";
 
 Deno.test("structured serialize/deserialize", () => {
@@ -73,4 +73,10 @@ Deno.test("structured serialize/deserialize", () => {
   const deserialized = deserialize(data.buffer);
   assertEquals(deserialized, object);
   console.log("serialized data size:", data.byteLength);
+
+  const data2 = serialize(new Error("error"));
+  const deserialized2 = deserialize<Error>(data2.buffer);
+  assertEquals(deserialized2.name, "Error");
+  assertEquals(deserialized2.message, "error");
+  assertStringIncludes(deserialized2.stack!, "structured_test.ts");
 });
