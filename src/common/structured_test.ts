@@ -60,6 +60,8 @@ Deno.test("structured serialize/deserialize", () => {
     undefined: undefined,
     nil: null,
     now,
+    nowTime: now.getTime(),
+    negativeNowTime: -now.getTime(),
     test: /^https:\/\/gokv.io\//gi,
     url: new URL("https://gokv.io/"),
   };

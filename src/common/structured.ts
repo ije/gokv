@@ -1,27 +1,29 @@
 enum Type {
-  UNDEFINED = 0x0,
-  NULL = 0x1,
-  BOOL = 0x2,
-  NAN = 0x3,
-  INFINITY = 0x4,
-  INT = 0x5,
-  UINT = 0x6,
-  FLOAT32 = 0x7,
-  FLOAT64 = 0x8,
-  BIGINT = 0x9,
-  BIGUINT = 0xA,
-  STRING = 0xB,
-  UINT8_ARRAY = 0xC,
-  TYPED_ARRAY = 0xD,
-  ARRAY_BUFFER = 0xE,
-  ARRAY = 0xF,
-  SET = 0x10,
-  OBJECT = 0x11,
-  MAP = 0x12,
-  DATE = 0x13,
-  REGEXP = 0x14,
-  URL = 0x15,
-  ERROR = 0x16,
+  UNDEFINED,
+  NULL,
+  BOOL,
+  NAN,
+  INFINITY,
+  INT,
+  INT64,
+  UINT,
+  UINT64,
+  FLOAT32,
+  FLOAT64,
+  BIGINT,
+  BIGUINT,
+  STRING,
+  UINT8_ARRAY,
+  TYPED_ARRAY,
+  ARRAY_BUFFER,
+  ARRAY,
+  SET,
+  OBJECT,
+  MAP,
+  DATE,
+  REGEXP,
+  URL,
+  ERROR,
 }
 
 const TypedArraryTypes = [
@@ -61,9 +63,17 @@ class StructuredWriter {
         this.writeByte(Type.INFINITY);
       } else if (Number.isInteger(v)) {
         if (v >= 0) {
-          this.writeUInt(v);
+          if (v > 2 ** 32) {
+            this.writeInt64(v);
+          } else {
+            this.writeUint(v);
+          }
         } else {
-          this.writeInt(v);
+          if (v < -(2 ** 31)) {
+            this.writeInt64(v);
+          } else {
+            this.writeInt(v);
+          }
         }
       } else if (v === Math.fround(v)) {
         this.writeFloat32(v);
@@ -123,7 +133,42 @@ class StructuredWriter {
     this.write(new Uint8Array(a));
   }
 
-  writeUInt(v: number): void {
+  writeInt(v: number): void {
+    const buf = new Uint8Array(5);
+    const view = new DataView(buf.buffer);
+
+    // 1 byte for size when v >= -128 and v < 128
+    if (v >= -128 && v < 128) {
+      buf[0] = Type.INT;
+      view.setInt8(1, v);
+      this.write(buf.slice(0, 2));
+      return;
+    }
+
+    // 2 bytes for size when v >= -32768 and v < 32768 (2^15)
+    // add 100 to type to indicate 2 bytes size
+    if (v >= -32768 && v < 32768) {
+      buf[0] = Type.INT + 100;
+      view.setInt16(1, v);
+      this.write(buf.slice(0, 3));
+      return;
+    }
+
+    // add 200 to type to indicate 4 bytes size
+    buf[0] = Type.INT + 200;
+    view.setInt32(1, v);
+    this.write(buf);
+  }
+
+  writeInt64(v: number): void {
+    const buf = new Uint8Array(9);
+    const view = new DataView(buf.buffer);
+    buf[0] = Type.INT64;
+    view.setBigInt64(1, BigInt(v));
+    this.write(buf);
+  }
+
+  writeUint(v: number): void {
     const buf = new Uint8Array(5);
     const view = new DataView(buf.buffer);
 
@@ -150,30 +195,11 @@ class StructuredWriter {
     this.write(buf);
   }
 
-  writeInt(v: number): void {
-    const buf = new Uint8Array(5);
+  writeUint64(v: number): void {
+    const buf = new Uint8Array(9);
     const view = new DataView(buf.buffer);
-
-    // 1 byte for size when v >= -128 and v < 128
-    if (v >= -128 && v < 128) {
-      buf[0] = Type.INT;
-      view.setInt8(1, v);
-      this.write(buf.slice(0, 2));
-      return;
-    }
-
-    // 2 bytes for size when v >= -32768 and v < 32768 (2^15)
-    // add 100 to type to indicate 2 bytes size
-    if (v >= -32768 && v < 32768) {
-      buf[0] = Type.INT + 100;
-      view.setInt16(1, v);
-      this.write(buf.slice(0, 3));
-      return;
-    }
-
-    // add 200 to type to indicate 4 bytes size
-    buf[0] = Type.INT + 200;
-    view.setInt32(1, v);
+    buf[0] = Type.UINT64;
+    view.setBigUint64(1, BigInt(v));
     this.write(buf);
   }
 
@@ -379,8 +405,14 @@ class StructuredReader {
         }
         return this.readInt8() as T;
       }
+      case Type.INT64: {
+        return Number(this.readBigInt()) as T;
+      }
       case Type.UINT: {
         return getSizeMarker() as T;
+      }
+      case Type.UINT64: {
+        return Number(this.readBigUint()) as T;
       }
       case Type.FLOAT32: {
         return this.readFloat32() as T;
@@ -463,7 +495,9 @@ class StructuredReader {
       }
       case Type.ERROR: {
         const { name, message, stack } = this.deserialize<{ name: string; message: string; stack?: string }>();
-        const error = new Error(message);
+        // deno-lint-ignore no-explicit-any
+        const TypedError = (globalThis as any)[name] ?? Error;
+        const error = new TypedError(message);
         error.name = name;
         error.stack = stack;
         return error as T;
