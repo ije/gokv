@@ -62,7 +62,7 @@ class StructuredWriter {
       } else if (v === Infinity) {
         this.writeByte(Type.INFINITY);
       } else if (Number.isInteger(v)) {
-        if (v > 2 ** 32) {
+        if (v >= 2 ** 32) {
           this.writeInt64(v);
         } else if (v >= 0) {
           this.writeUint(v);

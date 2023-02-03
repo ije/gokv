@@ -36,6 +36,7 @@ Deno.test("structured serialize/deserialize", () => {
     ]),
     /^https:\/\/gokv.io\//gi,
     new URL("https://gokv.io/"),
+    2 ** 32,
   ];
   const object: Record<string, unknown> = {
     foo: "bar",
