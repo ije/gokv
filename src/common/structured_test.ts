@@ -9,6 +9,7 @@ Deno.test("structured serialize/deserialize", () => {
     ":)",
     true,
     now,
+    now.getTime(),
     -123,
     123,
     12312,

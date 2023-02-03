@@ -62,18 +62,14 @@ class StructuredWriter {
       } else if (v === Infinity) {
         this.writeByte(Type.INFINITY);
       } else if (Number.isInteger(v)) {
-        if (v >= 0) {
-          if (v > 2 ** 32) {
-            this.writeInt64(v);
-          } else {
-            this.writeUint(v);
-          }
+        if (v > 2 ** 32) {
+          this.writeInt64(v);
+        } else if (v >= 0) {
+          this.writeUint(v);
+        } else if (v < -(2 ** 31)) {
+          this.writeInt64(v);
         } else {
-          if (v < -(2 ** 31)) {
-            this.writeInt64(v);
-          } else {
-            this.writeInt(v);
-          }
+          this.writeInt(v);
         }
       } else if (v === Math.fround(v)) {
         this.writeFloat32(v);
@@ -131,6 +127,31 @@ class StructuredWriter {
 
   writeByte(...a: number[]): void {
     this.write(new Uint8Array(a));
+  }
+
+  headerBox(type: Type, size: number): Uint8Array {
+    const buf = new Uint8Array(5);
+    const view = new DataView(buf.buffer);
+
+    // 1 byte for size  when size < 256
+    if (size < 256) {
+      buf[0] = type;
+      view.setUint8(1, size);
+      return buf.slice(0, 2);
+    }
+
+    // 2 bytes for size when size < 65536 (2^16)
+    // add 100 to type to indicate 2 bytes size
+    if (size < 65536) {
+      buf[0] = type + 100;
+      view.setUint16(1, size);
+      return buf.slice(0, 3);
+    }
+
+    // add 200 to type to indicate 4 bytes size
+    buf[0] = type + 200;
+    view.setUint32(1, size);
+    return buf;
   }
 
   writeInt(v: number): void {
@@ -233,31 +254,6 @@ class StructuredWriter {
     buf[0] = Type.FLOAT64;
     view.setFloat64(1, v);
     this.write(buf);
-  }
-
-  headerBox(type: Type, size: number): Uint8Array {
-    const buf = new Uint8Array(5);
-    const view = new DataView(buf.buffer);
-
-    // 1 byte for size  when size < 256
-    if (size < 256) {
-      buf[0] = type;
-      view.setUint8(1, size);
-      return buf.slice(0, 2);
-    }
-
-    // 2 bytes for size when size < 65536 (2^16)
-    // add 100 to type to indicate 2 bytes size
-    if (size < 65536) {
-      buf[0] = type + 100;
-      view.setUint16(1, size);
-      return buf.slice(0, 3);
-    }
-
-    // add 200 to type to indicate 4 bytes size
-    buf[0] = type + 200;
-    view.setUint32(1, size);
-    return buf;
   }
 
   writeString(v: string): void {
@@ -495,8 +491,7 @@ class StructuredReader {
       }
       case Type.ERROR: {
         const { name, message, stack } = this.deserialize<{ name: string; message: string; stack?: string }>();
-        // deno-lint-ignore no-explicit-any
-        const TypedError = (globalThis as any)[name] ?? Error;
+        const TypedError = Reflect.get(globalThis, name) ?? Error;
         const error = new TypedError(message);
         error.name = name;
         error.stack = stack;
