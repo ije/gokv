@@ -3,13 +3,14 @@
 /** @jsxFrag Fragment */
 import { createElement, type FC, Fragment, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { TestReactImage } from "./TestReactImage.tsx";
+import { TestReactChatRoom } from "./TestReactChatRoom.tsx";
 import { TestReactDocument } from "./TestReactDocument.tsx";
+import { TestReactImage } from "./TestReactImage.tsx";
 
 // use api.gokv.dev endpoint for integration test
 localStorage.setItem("GOKV_ENV", "development");
 
-const tests = [
+const integrationTests = [
   ["KV Storage", "./TestKVStorage.ts"],
   ["File Storage", "./TestFileStorage.ts"],
 ];
@@ -30,13 +31,18 @@ function Index() {
         <a href="/integration">Integration Testings</a>
       </li>
       <li>
+        <a href="/test-react-chatroom">
+          Test `ChatRoom` with React
+        </a>
+      </li>
+      <li>
         <a href="/test-react-document">
-          Test react <code>`useDocument`</code> hook
+          Test `Document` with React
         </a>
       </li>
       <li>
         <a href="/test-react-image">
-          Test react <code>`Image`</code> component
+          Test `FileStorage` with React
         </a>
       </li>
     </ul>
@@ -85,7 +91,7 @@ function IntegrationTest() {
 
   useEffect(() => {
     (async () => {
-      for (const [name, module] of tests) {
+      for (const [name, module] of integrationTests) {
         await test(name, module);
       }
     })();
@@ -119,6 +125,7 @@ function IntegrationTest() {
 const routes: Record<string, FC> = {
   "/": Index,
   "/integration": IntegrationTest,
+  "/test-react-chatroom": TestReactChatRoom,
   "/test-react-document": TestReactDocument,
   "/test-react-image": TestReactImage,
 };

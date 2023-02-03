@@ -3,14 +3,14 @@ import gokv from "../../dist/index.mjs";
 const room = gokv.ChatRoom("dev-chat");
 const [chat1, chat2] = await Promise.all([room.connect(), room.connect()]);
 
-const testMarker = `mk-${Date.now()}-${Math.random()}`;
+const testMarkerId = `mk-${Date.now()}-${Math.random()}`;
 const testMessage = "hey :)";
 
 let testMessageId = null;
 
 async function echo1() {
   for await (const msg of chat1.channel) {
-    if (msg.marker === testMarker) {
+    if (msg.marker?.id === testMarkerId) {
       testMessageId = msg.id;
       return msg.content;
     }
@@ -27,7 +27,7 @@ async function echo2() {
 
 await test("chat room", async () => {
   setTimeout(() => {
-    chat1.send(testMessage, { marker: testMarker });
+    chat1.send(testMessage, { markerId: testMarkerId });
   }, 0);
   assertEquals(await echo1(), testMessage);
   assertEquals(await echo2(), testMessage);
