@@ -41,10 +41,10 @@ const TypedArraryTypes = [
 ];
 
 class Buffer {
-  #buffer = new Uint8Array(1024);
+  #buffer = new Uint8Array();
   #offset = 0;
 
-  write(chunk: Uint8Array): void {
+  write(chunk: Uint8Array): Promise<void> {
     if (this.#offset + chunk.byteLength > this.#buffer.byteLength) {
       const newBuffer = new Uint8Array(this.#offset + chunk.byteLength);
       newBuffer.set(this.#buffer);
@@ -52,6 +52,7 @@ class Buffer {
     }
     this.#buffer.set(chunk, this.#offset);
     this.#offset += chunk.byteLength;
+    return Promise.resolve();
   }
 
   readAll(): Uint8Array {
@@ -60,102 +61,309 @@ class Buffer {
 }
 
 class StructuredWriter {
-  #writer: { write(chunk: Uint8Array): void };
+  #writer: { write(chunk: Uint8Array): Promise<void> };
 
-  constructor(writer?: { write(chunk: Uint8Array): void }) {
-    this.#writer = writer ?? new Buffer();
+  constructor() {
+    this.#writer = new Buffer();
   }
 
-  serialize(v: unknown): Uint8Array {
-    this.serializeWrite(v);
-    return (this.#writer as Buffer).readAll();
+  async serialize(v: unknown): Promise<Uint8Array> {
+    const buffer = new Buffer();
+    this.#writer = buffer;
+    await this.serializeWrite(v);
+    return buffer.readAll();
   }
 
   serializeStream(v: unknown): ReadableStream<Uint8Array> {
     const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
-    this.#writer = writable.getWriter();
-    Promise.resolve().then(() => {
-      this.serializeWrite(v);
-      (this.#writer as WritableStreamDefaultWriter).close();
-    });
+    const writer = writable.getWriter();
+    this.#writer = writer;
+    this.serializeWrite(v).then(() => writer.close());
     return readable;
   }
 
-  serializeWrite(v: unknown): void {
+  serializeWrite(v: unknown): Promise<void> {
     if (v === undefined) {
-      this.writeByte(Type.UNDEFINED);
-    } else if (v === null) {
-      this.writeByte(Type.NULL);
-    } else if (typeof v === "boolean") {
-      this.writeByte(Type.BOOL, v ? 1 : 0);
-    } else if (typeof v === "number") {
+      return this.writeByte(Type.UNDEFINED);
+    }
+
+    if (v === null) {
+      return this.writeByte(Type.NULL);
+    }
+
+    if (typeof v === "boolean") {
+      return this.writeByte(Type.BOOL, v ? 1 : 0);
+    }
+
+    if (typeof v === "number") {
       if (Number.isNaN(v)) {
-        this.writeByte(Type.NAN);
-      } else if (v === Infinity) {
-        this.writeByte(Type.INFINITY);
-      } else if (Number.isInteger(v)) {
+        return this.writeByte(Type.NAN);
+      }
+      if (v === Infinity) {
+        return this.writeByte(Type.INFINITY);
+      }
+      if (Number.isInteger(v)) {
         if (v >= 2 ** 32) {
-          this.writeInt64(v);
-        } else if (v >= 0) {
-          this.writeUint(v);
-        } else if (v < -(2 ** 31)) {
-          this.writeInt64(v);
-        } else {
-          this.writeInt(v);
+          return this.writeInt64(v);
         }
-      } else if (v === Math.fround(v)) {
-        this.writeFloat32(v);
-      } else {
-        this.writeFloat64(v);
+        if (v >= 0) {
+          return this.writeUint(v);
+        }
+        if (v < -(2 ** 31)) {
+          return this.writeInt64(v);
+        }
+        return this.writeInt(v);
       }
-    } else if (typeof v === "bigint") {
+      if (v === Math.fround(v)) {
+        return this.writeFloat32(v);
+      }
+      return this.writeFloat64(v);
+    }
+
+    if (typeof v === "bigint") {
       if (v >= 0) {
-        this.writeBigUInt(v);
-      } else {
-        this.writeBigInt(v);
+        return this.writeBigUInt(v);
       }
-    } else if (typeof v === "string") {
-      this.writeString(v);
-    } else if (v instanceof Uint8Array) {
-      this.writeUint8Array(v);
-    } else if (v instanceof ArrayBuffer) {
-      this.writeArrayBuffer(v);
-    } else if (TypedArraryTypes.some((t) => v instanceof t)) {
-      this.writeTypedArray(v as { byteLength: number; buffer: ArrayBufferLike });
-    } else if (v instanceof Set) {
-      this.writeSet(v);
-    } else if (Array.isArray(v)) {
-      this.writeArray(v);
-    } else if (typeof v === "object") {
+      return this.writeBigInt(v);
+    }
+
+    if (typeof v === "string") {
+      return this.writeString(v);
+    }
+
+    if (v instanceof Uint8Array) {
+      return this.writeUint8Array(v);
+    }
+
+    if (v instanceof ArrayBuffer) {
+      return this.writeArrayBuffer(v);
+    }
+
+    if (TypedArraryTypes.some((t) => v instanceof t)) {
+      return this.writeTypedArray(v as { byteLength: number; buffer: ArrayBufferLike });
+    }
+
+    if (v instanceof Set) {
+      return this.writeSet(v);
+    }
+
+    if (Array.isArray(v)) {
+      return this.writeArray(v);
+    }
+
+    if (typeof v === "object") {
       if (v instanceof Date) {
-        this.writeDate(v);
-      } else if (v instanceof RegExp) {
-        this.writeRegExp(v);
-      } else if (v instanceof URL) {
-        this.writeURL(v);
-      } else if (v instanceof Error) {
-        this.writeError(v);
-      } else if (v instanceof Map) {
-        this.writeMap(v);
-      } else if (Object.getPrototypeOf(v) === Object.prototype) {
-        this.writeObject(v as Record<string, unknown>);
-      } else {
-        throw new Error(`Unsupported type: ${v}`);
+        return this.writeDate(v);
       }
-    } else {
-      throw new Error(`Unsupported type: ${v}`);
+      if (v instanceof RegExp) {
+        return this.writeRegExp(v);
+      }
+      if (v instanceof URL) {
+        return this.writeURL(v);
+      }
+      if (v instanceof Error) {
+        return this.writeError(v);
+      }
+      if (v instanceof Map) {
+        return this.writeMap(v);
+      }
+      if (Object.getPrototypeOf(v) === Object.prototype) {
+        return this.writeObject(v as Record<string, unknown>);
+      }
+    }
+
+    throw new Error(`Unsupported type: ${v}`);
+  }
+
+  write(chunk: Uint8Array): Promise<void> {
+    return this.#writer.write(chunk);
+  }
+
+  writeByte(...a: number[]): Promise<void> {
+    return this.write(new Uint8Array(a));
+  }
+
+  writeInt(v: number): Promise<void> {
+    const buf = new Uint8Array(5);
+    const view = new DataView(buf.buffer);
+
+    // 1 byte for size when v >= -128 and v < 128
+    if (v >= -128 && v < 128) {
+      buf[0] = Type.INT;
+      view.setInt8(1, v);
+      return this.write(buf.slice(0, 2));
+    }
+
+    // 2 bytes for size when v >= -32768 and v < 32768 (2^15)
+    // add 100 to type to indicate 2 bytes size
+    if (v >= -32768 && v < 32768) {
+      buf[0] = Type.INT + 100;
+      view.setInt16(1, v);
+      return this.write(buf.slice(0, 3));
+    }
+
+    // add 200 to type to indicate 4 bytes size
+    buf[0] = Type.INT + 200;
+    view.setInt32(1, v);
+    return this.write(buf);
+  }
+
+  writeInt64(v: number): Promise<void> {
+    const buf = new Uint8Array(9);
+    const view = new DataView(buf.buffer);
+    buf[0] = Type.INT64;
+    view.setBigInt64(1, BigInt(v));
+    return this.write(buf);
+  }
+
+  writeUint(v: number): Promise<void> {
+    const buf = new Uint8Array(5);
+    const view = new DataView(buf.buffer);
+
+    // 1 byte for size when v >= 0 and v < 256
+    if (v < 256) {
+      buf[0] = Type.UINT;
+      view.setUint8(1, v);
+      return this.write(buf.slice(0, 2));
+    }
+
+    // 2 bytes for size when v >= 0 and v < 65536 (2^16)
+    // add 100 to type to indicate 2 bytes size
+    if (v < 65536) {
+      buf[0] = Type.UINT + 100;
+      view.setUint16(1, v);
+      return this.write(buf.slice(0, 3));
+    }
+
+    // add 200 to type to indicate 4 bytes size
+    buf[0] = Type.UINT + 200;
+    view.setUint32(1, v);
+    return this.write(buf);
+  }
+
+  writeUint64(v: number): Promise<void> {
+    const buf = new Uint8Array(9);
+    const view = new DataView(buf.buffer);
+    buf[0] = Type.UINT64;
+    view.setBigUint64(1, BigInt(v));
+    return this.write(buf);
+  }
+
+  writeBigUInt(v: bigint): Promise<void> {
+    const buf = new Uint8Array(9);
+    const view = new DataView(buf.buffer);
+    buf[0] = Type.BIGUINT;
+    view.setBigUint64(1, v);
+    return this.write(buf);
+  }
+
+  writeBigInt(v: bigint): Promise<void> {
+    const buf = new Uint8Array(9);
+    const view = new DataView(buf.buffer);
+    buf[0] = Type.BIGINT;
+    view.setBigInt64(1, v);
+    return this.write(buf);
+  }
+
+  writeFloat32(v: number): Promise<void> {
+    const buf = new Uint8Array(5);
+    const view = new DataView(buf.buffer);
+    buf[0] = Type.FLOAT32;
+    view.setFloat32(1, v);
+    return this.write(buf);
+  }
+
+  writeFloat64(v: number): Promise<void> {
+    const buf = new Uint8Array(9);
+    const view = new DataView(buf.buffer);
+    buf[0] = Type.FLOAT64;
+    view.setFloat64(1, v);
+    return this.write(buf);
+  }
+
+  async writeString(v: string): Promise<void> {
+    const data = new TextEncoder().encode(v); // use utf-8 as default
+    await this.write(this.#headerBox(Type.STRING, data.byteLength));
+    await this.write(data);
+  }
+
+  async writeUint8Array(v: Uint8Array): Promise<void> {
+    await this.write(this.#headerBox(Type.UINT8_ARRAY, v.byteLength));
+    await this.write(v);
+  }
+
+  async writeTypedArray(v: { byteLength: number; buffer: ArrayBufferLike }): Promise<void> {
+    const t = TypedArraryTypes.findIndex((t) => v instanceof t);
+    if (t === -1) {
+      throw new Error("Unknown typed array type");
+    }
+    await this.write(this.#headerBox(Type.TYPED_ARRAY, v.byteLength));
+    await this.writeByte(t);
+    await this.write(new Uint8Array(v.buffer));
+  }
+
+  async writeArrayBuffer(v: ArrayBuffer): Promise<void> {
+    await this.write(this.#headerBox(Type.ARRAY_BUFFER, v.byteLength));
+    await this.write(new Uint8Array(v));
+  }
+
+  async writeArray(v: Array<unknown>): Promise<void> {
+    await this.write(this.#headerBox(Type.ARRAY, v.length));
+    for (const e of v) {
+      await this.serializeWrite(e);
     }
   }
 
-  write(chunk: Uint8Array): void {
-    this.#writer.write(chunk);
+  async writeSet(v: Set<unknown>): Promise<void> {
+    await this.write(this.#headerBox(Type.SET, v.size));
+    for (const e of v) {
+      await this.serializeWrite(e);
+    }
   }
 
-  writeByte(...a: number[]): void {
-    this.write(new Uint8Array(a));
+  async writeObject(v: Record<string, unknown>): Promise<void> {
+    const keys = Object.keys(v);
+    await this.writeByte(Type.OBJECT);
+    await this.serializeWrite(keys);
+    await this.serializeWrite(keys.map((k) => v[k]));
   }
 
-  headerBox(type: Type, size: number): Uint8Array {
+  async writeMap(v: Map<unknown, unknown>): Promise<void> {
+    const entries = Array.from(v.entries());
+    await this.writeByte(Type.MAP);
+    await this.serializeWrite(entries.map(([k]) => k));
+    await this.serializeWrite(entries.map(([, v]) => v));
+  }
+
+  writeDate(v: Date): Promise<void> {
+    const header = new Uint8Array(9);
+    const view = new DataView(header.buffer);
+    header[0] = Type.DATE;
+    view.setFloat64(1, v.getTime());
+    return this.write(header);
+  }
+
+  async writeRegExp(v: RegExp): Promise<void> {
+    await this.writeByte(Type.REGEXP);
+    await this.serializeWrite([v.source, v.flags]);
+  }
+
+  async writeURL(v: URL): Promise<void> {
+    const data = new TextEncoder().encode(v.toString());
+    await this.write(this.#headerBox(Type.URL, data.byteLength));
+    await this.write(data);
+  }
+
+  async writeError(v: Error): Promise<void> {
+    await this.writeByte(Type.ERROR);
+    await this.serializeWrite({
+      name: v.name,
+      message: v.message,
+      stack: v.stack,
+    });
+  }
+
+  #headerBox(type: Type, size: number): Uint8Array {
     const buf = new Uint8Array(5);
     const view = new DataView(buf.buffer);
 
@@ -178,186 +386,6 @@ class StructuredWriter {
     buf[0] = type + 200;
     view.setUint32(1, size);
     return buf;
-  }
-
-  writeInt(v: number): void {
-    const buf = new Uint8Array(5);
-    const view = new DataView(buf.buffer);
-
-    // 1 byte for size when v >= -128 and v < 128
-    if (v >= -128 && v < 128) {
-      buf[0] = Type.INT;
-      view.setInt8(1, v);
-      this.write(buf.slice(0, 2));
-      return;
-    }
-
-    // 2 bytes for size when v >= -32768 and v < 32768 (2^15)
-    // add 100 to type to indicate 2 bytes size
-    if (v >= -32768 && v < 32768) {
-      buf[0] = Type.INT + 100;
-      view.setInt16(1, v);
-      this.write(buf.slice(0, 3));
-      return;
-    }
-
-    // add 200 to type to indicate 4 bytes size
-    buf[0] = Type.INT + 200;
-    view.setInt32(1, v);
-    this.write(buf);
-  }
-
-  writeInt64(v: number): void {
-    const buf = new Uint8Array(9);
-    const view = new DataView(buf.buffer);
-    buf[0] = Type.INT64;
-    view.setBigInt64(1, BigInt(v));
-    this.write(buf);
-  }
-
-  writeUint(v: number): void {
-    const buf = new Uint8Array(5);
-    const view = new DataView(buf.buffer);
-
-    // 1 byte for size when v >= 0 and v < 256
-    if (v < 256) {
-      buf[0] = Type.UINT;
-      view.setUint8(1, v);
-      this.write(buf.slice(0, 2));
-      return;
-    }
-
-    // 2 bytes for size when v >= 0 and v < 65536 (2^16)
-    // add 100 to type to indicate 2 bytes size
-    if (v < 65536) {
-      buf[0] = Type.UINT + 100;
-      view.setUint16(1, v);
-      this.write(buf.slice(0, 3));
-      return;
-    }
-
-    // add 200 to type to indicate 4 bytes size
-    buf[0] = Type.UINT + 200;
-    view.setUint32(1, v);
-    this.write(buf);
-  }
-
-  writeUint64(v: number): void {
-    const buf = new Uint8Array(9);
-    const view = new DataView(buf.buffer);
-    buf[0] = Type.UINT64;
-    view.setBigUint64(1, BigInt(v));
-    this.write(buf);
-  }
-
-  writeBigUInt(v: bigint): void {
-    const buf = new Uint8Array(9);
-    const view = new DataView(buf.buffer);
-    buf[0] = Type.BIGUINT;
-    view.setBigUint64(1, v);
-    this.write(buf);
-  }
-
-  writeBigInt(v: bigint): void {
-    const buf = new Uint8Array(9);
-    const view = new DataView(buf.buffer);
-    buf[0] = Type.BIGINT;
-    view.setBigInt64(1, v);
-    this.write(buf);
-  }
-
-  writeFloat32(v: number): void {
-    const buf = new Uint8Array(5);
-    const view = new DataView(buf.buffer);
-    buf[0] = Type.FLOAT32;
-    view.setFloat32(1, v);
-    this.write(buf);
-  }
-
-  writeFloat64(v: number): void {
-    const buf = new Uint8Array(9);
-    const view = new DataView(buf.buffer);
-    buf[0] = Type.FLOAT64;
-    view.setFloat64(1, v);
-    this.write(buf);
-  }
-
-  writeString(v: string): void {
-    const data = new TextEncoder().encode(v); // use utf-8 as default
-    this.write(this.headerBox(Type.STRING, data.byteLength));
-    this.write(data);
-  }
-
-  writeUint8Array(v: Uint8Array): void {
-    this.write(this.headerBox(Type.UINT8_ARRAY, v.byteLength));
-    this.write(v);
-  }
-
-  writeTypedArray(v: { byteLength: number; buffer: ArrayBufferLike }): void {
-    const t = TypedArraryTypes.findIndex((t) => v instanceof t);
-    if (t === -1) {
-      throw new Error("Unknown typed array type");
-    }
-    this.write(this.headerBox(Type.TYPED_ARRAY, v.byteLength));
-    this.writeByte(t);
-    this.write(new Uint8Array(v.buffer));
-  }
-
-  writeArrayBuffer(v: ArrayBuffer): void {
-    this.write(this.headerBox(Type.ARRAY_BUFFER, v.byteLength));
-    this.write(new Uint8Array(v));
-  }
-
-  writeArray(v: Array<unknown>): void {
-    this.write(this.headerBox(Type.ARRAY, v.length));
-    v.forEach((e) => this.serializeWrite(e));
-  }
-
-  writeSet(v: Set<unknown>): void {
-    this.write(this.headerBox(Type.SET, v.size));
-    v.forEach((e) => this.serializeWrite(e));
-  }
-
-  writeObject(v: Record<string, unknown>): void {
-    const keys = Object.keys(v);
-    this.writeByte(Type.OBJECT);
-    this.serializeWrite(keys);
-    this.serializeWrite(keys.map((k) => v[k]));
-  }
-
-  writeMap(v: Map<unknown, unknown>): void {
-    const entries = Array.from(v.entries());
-    this.writeByte(Type.MAP);
-    this.serializeWrite(entries.map(([k]) => k));
-    this.serializeWrite(entries.map(([, v]) => v));
-  }
-
-  writeDate(v: Date): void {
-    const header = new Uint8Array(9);
-    const view = new DataView(header.buffer);
-    header[0] = Type.DATE;
-    view.setFloat64(1, v.getTime());
-    this.write(header);
-  }
-
-  writeRegExp(v: RegExp): void {
-    this.writeByte(Type.REGEXP);
-    this.serializeWrite([v.source, v.flags]);
-  }
-
-  writeURL(v: URL): void {
-    const data = new TextEncoder().encode(v.toString());
-    this.write(this.headerBox(Type.URL, data.byteLength));
-    this.write(data);
-  }
-
-  writeError(v: Error): void {
-    this.writeByte(Type.ERROR);
-    this.serializeWrite({
-      name: v.name,
-      message: v.message,
-      stack: v.stack,
-    });
   }
 }
 
@@ -589,7 +617,7 @@ class StructuredReader {
   }
 }
 
-export function serialize(v: unknown): Uint8Array {
+export function serialize(v: unknown): Promise<Uint8Array> {
   return new StructuredWriter().serialize(v);
 }
 

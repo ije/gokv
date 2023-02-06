@@ -1,7 +1,7 @@
 import { assertEquals, assertStringIncludes } from "asserts";
 import { deserialize, serialize, serializeStream } from "./structured.ts";
 
-Deno.test("structured serialize/deserialize", () => {
+Deno.test("structured serialize/deserialize", async () => {
   const now = new Date();
   const array = [
     "Hello",
@@ -74,14 +74,14 @@ Deno.test("structured serialize/deserialize", () => {
   array.push(structuredClone(object));
   object.array = array;
   object.clone = structuredClone(object);
-  object.data = serialize(object);
+  object.data = await serialize(object);
 
-  const data = serialize(object);
+  const data = await serialize(object);
   const deserialized = deserialize(data.buffer);
   assertEquals(deserialized, object);
   console.log("serialized data size:", data.byteLength);
 
-  const data2 = serialize(new Error("error"));
+  const data2 = await serialize(new Error("error"));
   const deserialized2 = deserialize<Error>(data2.buffer);
   assertEquals(deserialized2.name, "Error");
   assertEquals(deserialized2.message, "error");
