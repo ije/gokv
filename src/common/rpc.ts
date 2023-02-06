@@ -66,11 +66,12 @@ export async function connectRPC(
   });
 
   let invokeIndex = 0;
-  const invoke = <T = unknown>(method: number, ...args: unknown[]): Promise<T> =>
-    new Promise((resolve, reject) => {
+  const invoke = async <T = unknown>(method: number, ...args: unknown[]): Promise<T> => {
+    const argsData = await serialize(args);
+    return new Promise((resolve, reject) => {
       const invokeId = invokeIndex++;
       try {
-        const data = conactBytes(u32ToBytes(invokeId), new Uint8Array([method]), serialize(args));
+        const data = conactBytes(u32ToBytes(invokeId), new Uint8Array([method]), argsData);
         socket.send(RPCMessageFlag.INVOKE, data);
         const timer = setTimeout(() => {
           awaits.delete(invokeId);
@@ -79,16 +80,18 @@ export async function connectRPC(
         awaits.set(invokeId, (data) => {
           clearTimeout(timer);
           awaits.delete(invokeId);
-          try {
-            resolve(deserialize(data));
-          } catch (error) {
-            reject(error);
+          const result = deserialize(data);
+          if (result instanceof Error) {
+            reject(result);
+          } else {
+            resolve(result);
           }
         });
       } catch (err) {
         reject(err);
       }
     });
+  };
 
   return { invoke, close: socket.close };
 }

@@ -54,7 +54,7 @@ export default class DocumentImpl<T extends Record<string, unknown>> implements 
         "Authorization": (await atm.getAccessToken(`doc:${this.#scope}`)).join(" "),
         "Content-Type": "binary/structured",
       },
-      body: serialize(data),
+      body: await serialize(data),
     });
     if (!res.ok) {
       throw new Error(`Failed to reset document: ${res.status} ${await res.text()}`);

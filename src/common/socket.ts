@@ -52,7 +52,7 @@ export function connect(service: ServiceName, namespace: string, options: Socket
     const send = async (flag: number, data: Uint8Array | Record<string, unknown> | Array<unknown>) => {
       let gzFlag = 0;
       if (!(data instanceof Uint8Array)) {
-        data = serialize(data);
+        data = await serialize(data);
       }
       if (typeof CompressionStream === "function" && data.byteLength > gzipMinLength) {
         data = new Uint8Array(await gzip(data));
