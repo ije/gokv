@@ -62,14 +62,14 @@ export default class StorageImpl implements Storage {
       store.delete(key);
       store.set(key, value);
     }
-    const forgotKeys: string[] = [];
+    const forgetKeys: string[] = [];
     while (store.size > cacheMaxKeys) {
       const key = store.keys().next().value;
       store.delete(key);
-      forgotKeys.push(key);
+      forgetKeys.push(key);
     }
-    if (forgotKeys.length > 0) {
-      this.#rpc().then((rpc) => rpc.invoke(StorageMethod.FORGET, forgotKeys));
+    if (forgetKeys.length > 0) {
+      this.#rpc().then((rpc) => rpc.invoke(StorageMethod.FORGET, forgetKeys));
     }
   }
 
@@ -106,6 +106,9 @@ export default class StorageImpl implements Storage {
 
     // get multiple key-value pairs
     if (Array.isArray(keyOrKeys)) {
+      if (keyOrKeys.length === 0) {
+        return new Map();
+      }
       if (keyOrKeys.length > 100) {
         throw new Error("only support get less than 100 keys");
       }
@@ -118,17 +121,17 @@ export default class StorageImpl implements Storage {
           keys.push(key);
         }
       }
-      const hit = new Map(hitKeys.map((key) => [key, this.#cacheStore.get(key)]));
+      const kv = new Map(hitKeys.map((key) => [key, this.#cacheStore.get(key)]));
       if (keys.length === 0) {
-        return hit;
+        return kv;
       }
       const rpc = await this.#rpc();
       const ret = await rpc.invoke<Map<string, unknown>>(StorageMethod.GET, keys, 1);
       this.#cache(ret.entries());
       for (const [key, value] of ret) {
-        hit.set(key, value);
+        kv.set(key, value);
       }
-      return hit;
+      return kv;
     }
 
     throw new Error("Invalid key or keys");

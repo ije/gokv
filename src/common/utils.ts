@@ -11,20 +11,20 @@ export function checkNamespace(namespace: string) {
     return namespace;
   }
   const sessionSuffix = "/session";
-  const forSession = namespace.endsWith(sessionSuffix);
-  if (forSession) {
+  const withSessionSuffix = namespace.endsWith(sessionSuffix);
+  if (withSessionSuffix) {
     namespace = namespace.slice(0, -sessionSuffix.length);
   }
   if (namespace === "") {
-    throw new Error("namespace cannot be empty");
+    throw new Error("Namespace is empty");
   }
   if (namespace.length > 100) {
     throw new Error("Namespace is too long");
   }
-  if (!/^[a-zA-Z0-9_\-]+$/.test(namespace)) {
-    throw new Error("Namespace must only contain alphanumeric characters, underscores, and dashes");
+  if (!/^[\w\-]+$/.test(namespace)) {
+    throw new Error("Namespace contains invalid characters, only [\\w\\-] are allowed");
   }
-  return namespace.toLowerCase() + (forSession ? sessionSuffix : "");
+  return namespace.toLowerCase() + (withSessionSuffix ? sessionSuffix : "");
 }
 
 // deno-lint-ignore ban-types
@@ -36,10 +36,7 @@ export function pick<T extends object, K extends keyof T>(obj: T, ...keys: K[]):
   return ret as Pick<T, K>;
 }
 
-export function splitByChar(str: string, char: string) {
-  if (char.length !== 1) {
-    throw new Error("char must be a single character");
-  }
+export function splitByChar(str: string, char: string): [string, string] {
   for (let i = 0; i < str.length; i++) {
     if (str.charAt(i) === char) {
       return [str.slice(0, i), str.slice(i + 1)];
