@@ -22,6 +22,12 @@ export default class FileStorageImpl implements FileStorage {
     return `https://${atm.apiHost}/fs/${this.#namespace}`;
   }
 
+  async list(): Promise<FileStorageObject[]> {
+    const res = await fetch(this.#apiUrl);
+    const ret = await res.json();
+    return ret.files;
+  }
+
   async put(file: File, options?: FileStoragePutOptions): Promise<FileStorageObject> {
     if (file.size > 100 * MB) throw new Error("File size is too large");
 
