@@ -40,13 +40,45 @@ const TypedArraryTypes = [
   BigUint64Array,
 ];
 
+class Buffer {
+  #buffer = new Uint8Array(1024);
+  #offset = 0;
+
+  write(chunk: Uint8Array): void {
+    if (this.#offset + chunk.byteLength > this.#buffer.byteLength) {
+      const newBuffer = new Uint8Array(this.#offset + chunk.byteLength);
+      newBuffer.set(this.#buffer);
+      this.#buffer = newBuffer;
+    }
+    this.#buffer.set(chunk, this.#offset);
+    this.#offset += chunk.byteLength;
+  }
+
+  readAll(): Uint8Array {
+    return this.#buffer.slice(0, this.#offset);
+  }
+}
+
 class StructuredWriter {
-  buffer = new Uint8Array(1024);
-  offset = 0;
+  #writer: { write(chunk: Uint8Array): void };
+
+  constructor(writer?: { write(chunk: Uint8Array): void }) {
+    this.#writer = writer ?? new Buffer();
+  }
 
   serialize(v: unknown): Uint8Array {
     this.serializeWrite(v);
-    return this.buffer.slice(0, this.offset);
+    return (this.#writer as Buffer).readAll();
+  }
+
+  serializeStream(v: unknown): ReadableStream<Uint8Array> {
+    const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
+    this.#writer = writable.getWriter();
+    Promise.resolve().then(() => {
+      this.serializeWrite(v);
+      (this.#writer as WritableStreamDefaultWriter).close();
+    });
+    return readable;
   }
 
   serializeWrite(v: unknown): void {
@@ -116,13 +148,7 @@ class StructuredWriter {
   }
 
   write(chunk: Uint8Array): void {
-    if (this.offset + chunk.byteLength > this.buffer.byteLength) {
-      const newBuffer = new Uint8Array(this.offset + chunk.byteLength);
-      newBuffer.set(this.buffer);
-      this.buffer = newBuffer;
-    }
-    this.buffer.set(chunk, this.offset);
-    this.offset += chunk.byteLength;
+    this.#writer.write(chunk);
   }
 
   writeByte(...a: number[]): void {
@@ -257,8 +283,7 @@ class StructuredWriter {
   }
 
   writeString(v: string): void {
-    const enc = new TextEncoder(); // use utf-8 as default
-    const data = enc.encode(v);
+    const data = new TextEncoder().encode(v); // use utf-8 as default
     this.write(this.headerBox(Type.STRING, data.byteLength));
     this.write(data);
   }
@@ -284,31 +309,27 @@ class StructuredWriter {
   }
 
   writeArray(v: Array<unknown>): void {
-    const arrayData = v.map((v) => new StructuredWriter().serialize(v));
     this.write(this.headerBox(Type.ARRAY, v.length));
-    arrayData.forEach((d) => this.write(d));
+    v.forEach((e) => this.serializeWrite(e));
   }
 
   writeSet(v: Set<unknown>): void {
-    const setData = Array.from(v).map((v) => new StructuredWriter().serialize(v));
     this.write(this.headerBox(Type.SET, v.size));
-    setData.forEach((d) => this.write(d));
+    v.forEach((e) => this.serializeWrite(e));
   }
 
   writeObject(v: Record<string, unknown>): void {
     const keys = Object.keys(v);
     this.writeByte(Type.OBJECT);
-    this.write(new StructuredWriter().serialize(keys));
-    this.write(new StructuredWriter().serialize(keys.map((k) => v[k])));
+    this.serializeWrite(keys);
+    this.serializeWrite(keys.map((k) => v[k]));
   }
 
   writeMap(v: Map<unknown, unknown>): void {
     const entries = Array.from(v.entries());
-    const keysData = new StructuredWriter().serialize(entries.map(([k]) => k));
-    const valuesData = new StructuredWriter().serialize(entries.map(([, v]) => v));
     this.writeByte(Type.MAP);
-    this.write(keysData);
-    this.write(valuesData);
+    this.serializeWrite(entries.map(([k]) => k));
+    this.serializeWrite(entries.map(([, v]) => v));
   }
 
   writeDate(v: Date): void {
@@ -321,24 +342,22 @@ class StructuredWriter {
 
   writeRegExp(v: RegExp): void {
     this.writeByte(Type.REGEXP);
-    this.write(new StructuredWriter().serialize([v.source, v.flags]));
+    this.serializeWrite([v.source, v.flags]);
   }
 
   writeURL(v: URL): void {
-    const enc = new TextEncoder();
-    const data = enc.encode(v.toString());
+    const data = new TextEncoder().encode(v.toString());
     this.write(this.headerBox(Type.URL, data.byteLength));
     this.write(data);
   }
 
   writeError(v: Error): void {
-    const errorData = new StructuredWriter().serialize({
+    this.writeByte(Type.ERROR);
+    this.serializeWrite({
       name: v.name,
       message: v.message,
       stack: v.stack,
     });
-    this.writeByte(Type.ERROR);
-    this.write(errorData);
   }
 }
 
@@ -348,12 +367,6 @@ class StructuredReader {
 
   constructor(data: ArrayBuffer) {
     this.view = new DataView(data);
-  }
-
-  clone(): StructuredReader {
-    const reader = new StructuredReader(this.view.buffer);
-    reader.offset = this.offset;
-    return reader;
   }
 
   // deno-lint-ignore no-explicit-any
@@ -424,7 +437,7 @@ class StructuredReader {
       }
       case Type.STRING: {
         const size = getSizeMarker();
-        return new TextDecoder().decode(this.read(size)) as T;
+        return this.readString(size) as T;
       }
       case Type.UINT8_ARRAY: {
         const size = getSizeMarker();
@@ -487,7 +500,7 @@ class StructuredReader {
       }
       case Type.URL: {
         const size = getSizeMarker();
-        return new URL(new TextDecoder().decode(this.read(size))) as T;
+        return new URL(this.readString(size)) as T;
       }
       case Type.ERROR: {
         const { name, message, stack } = this.deserialize<{ name: string; message: string; stack?: string }>();
@@ -509,6 +522,10 @@ class StructuredReader {
     }
     this.offset += n;
     return buf;
+  }
+
+  readString(n: number): string {
+    return new TextDecoder().decode(this.read(n));
   }
 
   readInt8(): number {
@@ -574,6 +591,10 @@ class StructuredReader {
 
 export function serialize(v: unknown): Uint8Array {
   return new StructuredWriter().serialize(v);
+}
+
+export function serializeStream(v: unknown): ReadableStream<Uint8Array> {
+  return new StructuredWriter().serializeStream(v);
 }
 
 // deno-lint-ignore no-explicit-any
