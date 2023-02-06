@@ -65,7 +65,8 @@ export default class SessionImpl<StoreType extends Record<string, unknown>> impl
       }
     }
     if (!sid || !store) {
-      const rid = await hashText(token + crypto.randomUUID(), "SHA-1");
+      const expirs = SessionImpl.expiresFromNow(this.#options.maxAge);
+      const rid = expirs.toString(36) + await hashText(crypto.randomUUID(), "SHA-1");
       const signature = await hmacSign(rid, token, "SHA-256");
       sid = rid + "." + signature;
     }
