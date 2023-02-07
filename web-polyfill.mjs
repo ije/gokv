@@ -10,6 +10,6 @@ globalThis.FormData = globalThis.FormData || FormData;
 globalThis.Headers = globalThis.Headers || Headers;
 globalThis.Request = globalThis.Request || Request;
 globalThis.Response = globalThis.Response || Response;
-globalThis.crypto = globalThis.crypto || new Crypto();
+globalThis.crypto = globalThis.crypto || crypto.webcrypto || new Crypto();
 globalThis.crypto.randomUUID = globalThis.crypto.randomUUID || crypto.randomUUID;
 globalThis.WebSocket = globalThis.WebSocket || ws;
