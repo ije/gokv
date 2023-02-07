@@ -21,8 +21,9 @@ await test("Sign Access Token", async () => {
   }
   data = data.replace(/\-/g, "+").replace(/_/g, "/");
 
-  const [gokvUID, user, perm, scope, expires] = JSON.parse("[" + atob(data) + "]");
+  const [gokvUID, isPro, user, perm, scope, expires] = JSON.parse("[" + atob(data) + "]");
   assertEquals(typeof gokvUID, "string");
+  assertEquals(typeof isPro, "boolean");
   assertEquals(scope, "doc:default/doc-id");
   assertEquals(user.uid, 123);
   assertEquals(user.name, "Guest");

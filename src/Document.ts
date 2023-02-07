@@ -44,7 +44,7 @@ export default class DocumentImpl<T extends Record<string, unknown>> implements 
     if (!res.ok) {
       throw new Error(`Failed to get document snapshot: ${res.status} ${res.statusText}`);
     }
-    const snapshot = await deserialize<T>(res.body!);
+    const snapshot = await deserialize<T>(!Reflect.has(globalThis, "process") ? res.body! : await res.arrayBuffer());
     return restoreArray(snapshot) as T;
   }
 
