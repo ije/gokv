@@ -21,10 +21,10 @@ export enum SocketState {
 
 export type SocketOptions = {
   signal?: AbortSignal;
-  resolveFlag?: number;
+  resolve?: (flag: number) => boolean;
   initData?: () => Record<string, unknown>;
   inspect?: (flag: number, gzFlag: number, message: ArrayBufferLike) => string | string[] | Promise<string | string[]>;
-  onMessage?: (flag: number, message: ArrayBufferLike) => void;
+  onMessage?: (flag: number, message: ArrayBufferLike) => void | Promise<void>;
   onError?: (code: string, message: string, details?: Record<string, unknown>) => void;
   onClose?: () => void;
   onReconnect?: (socket: Socket) => void;
@@ -133,7 +133,7 @@ export function connect(service: ServiceName, namespace: string, options: Socket
     const onOpen = () => {
       send(SocketMessageFlags.INIT, { ...options.initData?.(), acceptGzip: typeof DecompressionStream === "function" });
       heartbeat();
-      if (!options.resolveFlag) {
+      if (!options.resolve) {
         onReady();
       }
     };
@@ -156,8 +156,8 @@ export function connect(service: ServiceName, namespace: string, options: Socket
           break;
         }
         default: {
-          options.onMessage?.(flag, data);
-          if (options.resolveFlag && options.resolveFlag === flag) {
+          await options.onMessage?.(flag, data);
+          if (options.resolve?.(flag)) {
             onReady();
           }
         }

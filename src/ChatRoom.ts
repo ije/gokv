@@ -153,7 +153,7 @@ export default class ChatRoomImpl<U extends AuthUser> implements ChatRoom<U> {
     let currentUser: U;
     const socket = await connect("chat", this.#scope, {
       signal: options?.signal,
-      resolveFlag: MessageFlag.CHAT,
+      resolve: (flag) => flag === MessageFlag.CHAT,
       initData: () => ({ ...options, lastMessageId: chat?._lastMessageId }),
       onMessage: async (flag, message) => {
         switch (flag) {

@@ -12,7 +12,7 @@ export type DocumentContextProps = {
 
 export const DocumentContext = createContext<DocumentContextProps>({});
 
-const _DocumentProvider: FC<PropsWithChildren<DocumentProviderProps>> = (props) => {
+const DocumentConnect: FC<PropsWithChildren<DocumentProviderProps>> = (props) => {
   const { namespace: parentNamespace } = useContext(Context);
   const { setState: setConnState } = useContext(ConnectStateContext);
   const namespace = props.namespace || parentNamespace;
@@ -57,7 +57,7 @@ const _DocumentProvider: FC<PropsWithChildren<DocumentProviderProps>> = (props) 
 };
 
 export const DocumentProvider: FC<PropsWithChildren<DocumentProviderProps>> = (props) => {
-  return createElement(ConnectStateProvider, null, createElement(_DocumentProvider, props));
+  return createElement(ConnectStateProvider, null, createElement(DocumentConnect, props));
 };
 
 export const useDocument = <T extends Record<string, unknown>>(): T => {

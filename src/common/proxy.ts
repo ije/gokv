@@ -7,9 +7,11 @@ import { dummyFn, isPlainObject } from "./utils.ts";
 
 /** The operation (enum) for the `Patch`. */
 export enum Op {
+  /** set object property */
   SET = 1,
+  /** delete object property */
   DELETE = 2,
-  /** for array mutations */
+  /** update array elements */
   SPLICE = 3,
 }
 
@@ -25,13 +27,13 @@ export type Patch = Readonly<[
   oldValue?: unknown,
 ]>;
 
+type RecordOrArray = Record<string, unknown> | Array<unknown>;
+type CB = () => void;
+
 // symbols
 const INTERNAL = Symbol();
 const SNAPSHOT = Symbol();
 const NOTIFY = Symbol();
-
-type RecordOrArray = Record<string, unknown> | Array<unknown>;
-type CB = () => void;
 
 /** only plain object and array object can be proxied for now. */
 function canProxy(a: unknown): a is RecordOrArray {

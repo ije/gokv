@@ -1,6 +1,7 @@
+import { Socket } from "../types/common.d.ts";
 import type { Document, DocumentOptions, DocumentSyncOptions } from "../types/Document.d.ts";
 import atm from "./AccessTokenManager.ts";
-import { applyPatch, disableNotify, Op, Patch, proxy, remix, restoreArray } from "./common/proxy.ts";
+import { applyPatch, Op, Patch, proxy, remix, restoreArray } from "./common/proxy.ts";
 import { connect, SocketState } from "./common/socket.ts";
 import { deserialize, serialize } from "./common/structured.ts";
 import { checkNamespace } from "./common/utils.ts";
@@ -15,12 +16,12 @@ export default class DocumentImpl<T extends Record<string, unknown>> implements 
   #namespace: string;
   #id: string;
   #doc: T;
-  #syncFn?: (patch: Patch) => void;
+  #patchHandler?: (patch: Patch) => void;
 
   constructor(docId: string, options?: DocumentOptions) {
     this.#namespace = checkNamespace(options?.namespace ?? "default");
     this.#id = checkNamespace(docId);
-    this.#doc = proxy({} as T, (patch) => this.#syncFn?.(patch));
+    this.#doc = proxy({} as T, (patch) => this.#patchHandler?.(patch));
   }
 
   get #scope() {
@@ -64,15 +65,44 @@ export default class DocumentImpl<T extends Record<string, unknown>> implements 
   }
 
   async sync(options?: DocumentSyncOptions<T>): Promise<T> {
-    let docVersion = -1;
-    let patchIndex = 0;
-    let online = false;
-
-    if (this.#syncFn) {
+    if (this.#patchHandler) {
       return this.#doc;
     }
 
-    this.#syncFn = (patch) => {
+    let docVersion = -1;
+    let patchIndex = 0;
+    let online = false;
+    let socket: Socket | null = null;
+
+    const queue: [string, ...Patch][] = [];
+    const uncomfirmedPatches = new Map<string, Patch>();
+
+    const push = (() => {
+      let promise: Promise<void> | undefined;
+      return (id: string, patch: Patch) => {
+        // TODO: remove repeat patches
+        queue.push([id, ...patch]);
+        promise = promise ?? Promise.resolve().then(() => {
+          promise = undefined;
+          drain(queue.splice(0));
+        });
+      };
+    })();
+
+    const drain = (patches: [string, ...Patch][]) => {
+      try {
+        if (!socket || !online) {
+          throw new Error("Bad socket");
+        }
+        socket.send(MessageFlag.PATCH, patches);
+        patches.forEach(([id, ...patch]) => uncomfirmedPatches.set(id, patch));
+      } catch (_) {
+        // Whoops, the connection is dead! Put back those patches in the queue.
+        queue.unshift(...patches);
+      }
+    };
+
+    this.#patchHandler = (patch) => {
       // todo: merge patches
       const id = patchIndex++;
       const arr = patch.slice(0, patch[0] === Op.DELETE ? 2 : 3);
@@ -80,15 +110,12 @@ export default class DocumentImpl<T extends Record<string, unknown>> implements 
         arr.push((patch[3] as [string, unknown][]).map(([k]) => [k]));
       }
       const stripedPatch = arr as unknown as Patch;
-      queue(id.toString(36), stripedPatch);
+      push(id.toString(36), stripedPatch);
     };
 
-    const blockedPatches: [string, ...Patch][] = [];
-    const uncomfirmedPatches = new Map<string, Patch>();
-
-    const socket = await connect("doc", this.#scope, {
+    socket = await connect("doc", this.#scope, {
       signal: options?.signal,
-      resolveFlag: MessageFlag.DOC,
+      resolve: (flag) => flag === MessageFlag.DOC,
       initData: () => ({ version: docVersion }),
       onMessage: async (flag, data) => {
         switch (flag) {
@@ -104,11 +131,11 @@ export default class DocumentImpl<T extends Record<string, unknown>> implements 
                 }
               }
             }
-            // drain blocked patches
+            // drain queued patches
             if (!resetByApi) {
               uncomfirmedPatches.clear();
-              if (blockedPatches.length > 0) {
-                const patches = blockedPatches.splice(0);
+              if (queue.length > 0) {
+                const patches = queue.splice(0);
                 for (const [, ...patch] of patches) {
                   applyPatch(this.#doc, patch);
                 }
@@ -181,13 +208,12 @@ export default class DocumentImpl<T extends Record<string, unknown>> implements 
         }
         online = state === SocketState.READY;
       },
-      onError: options?.onError,
       onClose: () => {
-        disableNotify(this.#doc);
-        blockedPatches.length = 0;
+        this.#patchHandler = undefined;
+        queue.length = 0;
         uncomfirmedPatches.clear();
-        this.#syncFn = undefined;
       },
+      onError: options?.onError,
       // for debug
       inspect: async (flag, gzFlag, message) => {
         const gzTip = gzFlag ? "(gzipped)" : "";
@@ -203,31 +229,6 @@ export default class DocumentImpl<T extends Record<string, unknown>> implements 
         }
       },
     });
-
-    const queue = (() => {
-      let promise: Promise<void> | undefined;
-      return (id: string, patch: Patch) => {
-        // TODO: remove repeat patches
-        blockedPatches.push([id, ...patch]);
-        promise = promise ?? Promise.resolve().then(() => {
-          promise = undefined;
-          drain(blockedPatches.splice(0));
-        });
-      };
-    })();
-
-    const drain = (patches: [string, ...Patch][]) => {
-      try {
-        if (!online) {
-          throw new Error("Bad socket");
-        }
-        socket.send(MessageFlag.PATCH, patches);
-        patches.forEach(([id, ...patch]) => uncomfirmedPatches.set(id, patch));
-      } catch (_) {
-        // Whoops, the connection is dead! Put back those patches in the queue.
-        blockedPatches.unshift(...patches);
-      }
-    };
 
     return this.#doc;
   }
