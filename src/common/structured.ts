@@ -77,7 +77,7 @@ class StructuredWriter {
     const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
     const writer = writable.getWriter();
     this.#writer = writer;
-    this.serializeWrite(v).then(() => !writer.closed && writer.close());
+    this.serializeWrite(v).then(() => writer.close());
     return readable;
   }
 
@@ -647,7 +647,5 @@ export function serializeStream(value: unknown): ReadableStream<Uint8Array> {
 
 /** Deserialize the value from ArrayBuffer or ReadableStream. */
 export function deserialize<T = unknown>(input: ArrayBuffer | Uint8Array | ReadableStream<Uint8Array>): Promise<T> {
-  return new StructuredReader(input).deserialize<T>().finally(() =>
-    input instanceof ReadableStream && input.cancel?.()
-  );
+  return new StructuredReader(input).deserialize<T>();
 }

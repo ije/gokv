@@ -3,7 +3,7 @@ import type { Document, DocumentOptions, DocumentSyncOptions } from "../types/Do
 import atm from "./AccessTokenManager.ts";
 import { applyPatch, Op, Patch, proxy, remix, restoreArray } from "./common/proxy.ts";
 import { connect, SocketState } from "./common/socket.ts";
-import { deserialize, serialize } from "./common/structured.ts";
+import { deserialize, serializeStream } from "./common/structured.ts";
 import { checkNamespace } from "./common/utils.ts";
 
 enum MessageFlag {
@@ -43,9 +43,11 @@ export default class DocumentImpl<T extends Record<string, unknown>> implements 
       },
     });
     if (!res.ok) {
+      res.body?.cancel?.();
       throw new Error(`Failed to get document snapshot: ${res.status} ${res.statusText}`);
     }
     const snapshot = await deserialize<T>(!Reflect.has(globalThis, "process") ? res.body! : await res.arrayBuffer());
+    res.body?.cancel?.();
     return restoreArray(snapshot) as T;
   }
 
@@ -56,7 +58,7 @@ export default class DocumentImpl<T extends Record<string, unknown>> implements 
         "Authorization": (await atm.getAccessToken(`doc:${this.#scope}`)).join(" "),
         "Content-Type": "binary/structured",
       },
-      body: await serialize(data),
+      body: serializeStream(data),
     });
     if (!res.ok) {
       throw new Error(`Failed to reset document: ${res.status} ${await res.text()}`);
