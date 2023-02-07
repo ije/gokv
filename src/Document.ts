@@ -45,7 +45,6 @@ export default class DocumentImpl<T extends Record<string, unknown>> implements 
       throw new Error(`Failed to get document snapshot: ${res.status} ${res.statusText}`);
     }
     const snapshot = await deserialize(res.body!);
-    await res.body?.cancel?.();
     return restoreArray(snapshot) as T;
   }
 
