@@ -1,6 +1,7 @@
 export const enc = new TextEncoder();
 export const dec = new TextDecoder();
 export const dummyFn = () => {};
+export const isLegacyNode = parseInt((Reflect.get(globalThis, "process")?.version ?? "v100.0.0").slice(1)) < 18;
 
 /** Check if the given value is a plain object. */
 export function isPlainObject(v: unknown): v is Record<string, unknown> {
