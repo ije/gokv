@@ -150,7 +150,7 @@ export function connect(service: ServiceName, namespace: string, options: Socket
           break;
         }
         case SocketMessageFlags.ERROR: {
-          const { code, message, ...rest } = await deserialize(data);
+          const { code, message, ...rest } = await deserialize<{ code: string; message: string }>(data);
           options.onError?.(code, message, rest);
           console.error(`[gokv] socket(${service}/${namespace}): <${code}> ${message}`);
           break;

@@ -1,3 +1,7 @@
+// Serializing and deserializing complex JavaScript objects in structured binary format with streaming support.
+// The serializing value can be any type supported by the structured clone algorithm.
+// The serialized data is less than JSON, but it's not human readable.
+
 enum Type {
   UNDEFINED,
   NULL,
@@ -398,8 +402,7 @@ class StructuredReader {
     }
   }
 
-  // deno-lint-ignore no-explicit-any
-  async deserialize<T = any>(): Promise<T> {
+  async deserialize<T = unknown>(): Promise<T> {
     let type = await this.readUint8();
     let sizeMarkerBits = 1;
     if (type >= 200) {
@@ -627,15 +630,25 @@ class StructuredReader {
   }
 }
 
-export function serialize(v: unknown): Promise<Uint8Array> {
-  return new StructuredWriter().serialize(v);
+/**
+ * Serialize the value to a Uint8Array.
+ * The value can be any type supported by the structured clone algorithm.
+ */
+export function serialize(value: unknown): Promise<Uint8Array> {
+  return new StructuredWriter().serialize(value);
 }
 
-export function serializeStream(v: unknown): ReadableStream<Uint8Array> {
-  return new StructuredWriter().serializeStream(v);
+/**
+ * Serialize the value to a ReadableStream.
+ * The value can be any type supported by the structured clone algorithm.
+ */
+export function serializeStream(value: unknown): ReadableStream<Uint8Array> {
+  return new StructuredWriter().serializeStream(value);
 }
 
-// deno-lint-ignore no-explicit-any
-export function deserialize<T = any>(input: ArrayBuffer | Uint8Array | ReadableStream<Uint8Array>): Promise<T> {
-  return new StructuredReader(input).deserialize().finally(() => input instanceof ReadableStream && input.cancel?.());
+/** Deserialize the value from ArrayBuffer or ReadableStream. */
+export function deserialize<T = unknown>(input: ArrayBuffer | Uint8Array | ReadableStream<Uint8Array>): Promise<T> {
+  return new StructuredReader(input).deserialize<T>().finally(() =>
+    input instanceof ReadableStream && input.cancel?.()
+  );
 }

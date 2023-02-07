@@ -1,7 +1,7 @@
 import type { Session, SessionOptions, Storage, StorageOptions } from "../types/mod.d.ts";
 import atm from "./AccessTokenManager.ts";
 import StorageImpl from "./Storage.ts";
-import { hashText, hmacSign, parseCookies, splitByChar } from "./common/utils.ts";
+import { hashText, hmacSign, parseCookies, splitByChar, toHex } from "./common/utils.ts";
 
 const minMaxAge = 60; // one minute
 const defaultMaxAge = 30 * 60; // half an hour
@@ -42,7 +42,7 @@ export default class SessionImpl<StoreType extends Record<string, unknown>> impl
     let store: StoreType | null = null;
     if (sid) {
       const [rid, signature] = splitByChar(sid, ".");
-      if (signature && signature === await hmacSign(rid, token, "SHA-256")) {
+      if (signature && signature === toHex(await hmacSign(rid, token, "SHA-256"), 36)) {
         const value = await this.#storage.get<[data: StoreType, expires: number]>(sid, { noCache: true });
         if (Array.isArray(value)) {
           const now = Date.now();
@@ -66,9 +66,9 @@ export default class SessionImpl<StoreType extends Record<string, unknown>> impl
     }
     if (!sid || !store) {
       const expirs = SessionImpl.expiresFromNow(this.#options.maxAge);
-      const rid = expirs.toString(36) + await hashText(crypto.randomUUID(), "SHA-1");
+      const rid = expirs.toString(36) + toHex(await hashText(crypto.randomUUID(), "SHA-1"), 36);
       const signature = await hmacSign(rid, token, "SHA-256");
-      sid = rid + "." + signature;
+      sid = rid + "." + toHex(signature, 36);
     }
     this.#id = sid;
     this.#store = store;

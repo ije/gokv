@@ -174,7 +174,7 @@ export default class ChatRoomImpl<U extends AuthUser> implements ChatRoom<U> {
             break;
           }
           case MessageFlag.EVENT: {
-            const evt = await deserialize(message);
+            const evt = await deserialize<{ type: string }>(message);
             const listeners = chat?._listeners.get(evt.type);
             if (listeners) {
               for (const listener of listeners) {

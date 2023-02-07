@@ -1,7 +1,7 @@
 import { ServiceName } from "../../types/common.d.ts";
 import { connect } from "./socket.ts";
 import { deserialize, serialize } from "./structured.ts";
-import { conactBytes, u32ToBytes } from "./utils.ts";
+import { conactBytes } from "./utils.ts";
 
 const invokeTimeout = 15 * 1000; // invoke timeout in 15 seconds
 
@@ -71,7 +71,9 @@ export async function connectRPC(
     return new Promise((resolve, reject) => {
       const invokeId = invokeIndex++;
       try {
-        const data = conactBytes(u32ToBytes(invokeId), new Uint8Array([method]), argsData);
+        const idBuf = new ArrayBuffer(4);
+        new DataView(idBuf).setUint32(0, invokeId);
+        const data = conactBytes(new Uint8Array(idBuf), new Uint8Array([method]), argsData);
         socket.send(RPCMessageFlag.INVOKE, data);
         const timer = setTimeout(() => {
           awaits.delete(invokeId);
@@ -80,7 +82,7 @@ export async function connectRPC(
         awaits.set(invokeId, (data) => {
           clearTimeout(timer);
           awaits.delete(invokeId);
-          const result = deserialize(data);
+          const result = deserialize<T>(data);
           if (result instanceof Error) {
             reject(result);
           } else {

@@ -2,10 +2,12 @@ export const enc = new TextEncoder();
 export const dec = new TextDecoder();
 export const dummyFn = () => {};
 
+/** Check if the given value is a plain object. */
 export function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && Object.getPrototypeOf(v) === Object.prototype;
 }
 
+/** Check if the given namespace is valid. */
 export function checkNamespace(namespace: string) {
   if (namespace === "default" || namespace === "default/session") {
     return namespace;
@@ -27,8 +29,8 @@ export function checkNamespace(namespace: string) {
   return namespace.toLowerCase() + (withSessionSuffix ? sessionSuffix : "");
 }
 
-// deno-lint-ignore ban-types
-export function pick<T extends object, K extends keyof T>(obj: T, ...keys: K[]): Pick<T, K> {
+/** From T, pick a set of properties whose keys are in the union K. */
+export function pick<T, K extends keyof T>(obj: T, ...keys: K[]): Pick<T, K> {
   const ret: Partial<T> = {};
   for (const key of keys) {
     ret[key] = obj[key];
@@ -36,7 +38,8 @@ export function pick<T extends object, K extends keyof T>(obj: T, ...keys: K[]):
   return ret as Pick<T, K>;
 }
 
-export function splitByChar(str: string, char: string): [string, string] {
+/** Split a string by the first occurrence of the given char. */
+export function splitByChar(str: string, char: string): [left: string, right: string] {
   for (let i = 0; i < str.length; i++) {
     if (str.charAt(i) === char) {
       return [str.slice(0, i), str.slice(i + 1)];
@@ -45,6 +48,7 @@ export function splitByChar(str: string, char: string): [string, string] {
   return [str, ""];
 }
 
+/** Get the environment variable by the given key from Deno.env, Node process or browser localStorage. */
 export function getEnv(key: string): string | undefined {
   const denoNs = Reflect.get(globalThis, "Deno");
   if (denoNs) {
@@ -61,13 +65,7 @@ export function getEnv(key: string): string | undefined {
   return void 0;
 }
 
-export function u32ToBytes(n: number) {
-  const buf = new ArrayBuffer(4);
-  const view = new DataView(buf);
-  view.setUint32(0, n);
-  return new Uint8Array(buf);
-}
-
+/** Concat Uint8Arrays into one. */
 export function conactBytes(...bytes: Uint8Array[]) {
   const len = bytes.reduce((acc, b) => acc + b.length, 0);
   const u8a = new Uint8Array(len);
@@ -79,35 +77,38 @@ export function conactBytes(...bytes: Uint8Array[]) {
   return u8a;
 }
 
+/** Compress data with gzip encoding, needs `CompressionStream` enabled. */
 export function gzip(data: ArrayBufferLike): Promise<ArrayBuffer> {
   return new Response(new Blob([data]).stream().pipeThrough(new CompressionStream("gzip")))
     .arrayBuffer();
 }
 
+/** Decompress data with gzip encoding, needs `DecompressionStream` enabled. */
 export function ungzip(data: ArrayBufferLike): Promise<ArrayBuffer> {
   return new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream("gzip")))
     .arrayBuffer();
 }
 
+/** Convert ArrayBuffer to hex string. You can specify the radix, default is 16. */
 export function toHex(buf: ArrayBuffer, radix = 16): string {
   return Array.from(new Uint8Array(buf)).map((b) => b.toString(radix).padStart(2, "0")).join("");
 }
 
-export async function hashText(text: string, hash = "SHA-1") {
-  const hashBuffer = await crypto.subtle.digest({ name: hash }, enc.encode(text));
-  return toHex(hashBuffer, 36);
+/** Compute hash of the given text, default is using SHA-1 algorithm. */
+export function hashText(text: string, hasher = "SHA-1") {
+  return crypto.subtle.digest({ name: hasher }, enc.encode(text));
 }
 
-export async function hmacSign(data: string, secret: string, hash = "SHA-256") {
+/** Sign the given data with hmac algorithm. */
+export async function hmacSign(data: string, secret: string, hasher = "SHA-256") {
   const key = await crypto.subtle.importKey(
     "raw",
     enc.encode(secret),
-    { name: "HMAC", hash: { name: hash } },
+    { name: "HMAC", hash: { name: hasher } },
     false,
     ["sign", "verify"],
   );
-  const signature = await crypto.subtle.sign("HMAC", key, enc.encode(data));
-  return toHex(signature, 36);
+  return crypto.subtle.sign("HMAC", key, enc.encode(data));
 }
 
 /** Parses cookies from request header. */
@@ -125,6 +126,7 @@ export function parseCookies(req: Request): Map<string, string> {
   return cookie;
 }
 
+/** Create a websocket connection. */
 export async function createWebSocket(url: string, protocols?: string | string[]) {
   // workaround for cloudflare worker
   // see https://developers.cloudflare.com/workers/learning/using-websockets/#writing-a-websocket-client
