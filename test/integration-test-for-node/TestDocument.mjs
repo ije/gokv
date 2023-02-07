@@ -15,7 +15,6 @@ const watch = (obj) => {
   });
 };
 
-
 const initData = { foo: "bar", baz: "qux", words: ["Hello", "World"] };
 const docId = "dev-doc";
 const doc = gokv.Document(docId);
@@ -33,6 +32,7 @@ await test("Get document snapshot", async () => {
 
 await test("Update and sync document", async () => {
   const ac = new AbortController();
+
   // crate two sessions
   const s1 = await gokv.Document(docId).sync({ signal: ac.signal });
   const s2 = await gokv.Document(docId).sync({ signal: ac.signal });

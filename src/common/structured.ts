@@ -1,6 +1,5 @@
-// Serializing and deserializing complex JavaScript objects in structured binary format with streaming support.
-// The serializing value can be any type supported by the structured clone algorithm.
-// The serialized data is less than JSON, but it's not human readable.
+// Serializing and deserializing complex JavaScript objects in structured binary format with streams support.
+// The serialized data is smaller than output of `JSON.stringify`, but it's not human readable.
 
 enum Type {
   UNDEFINED,
