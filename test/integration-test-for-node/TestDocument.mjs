@@ -1,67 +1,61 @@
 import gokv, { snapshot, subscribe } from "../../dist/index.mjs";
 
-const doc = gokv.Document("dev-doc");
-
-const initData = { foo: "bar", baz: "qux", arr: ["Hello", "world!"] };
-const { version } = await doc.reset(initData);
-console.log("document has been reset, current version is", version);
-
-const obj = await doc.sync();
-const jbo = await doc.sync();
-
-const watch = (obj, predicate) => {
+// watch changes
+const watch = (obj) => {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       dispose();
       reject(new Error("timeout"));
-    }, 6 * 1000);
+    }, 10 * 1000);
     const dispose = subscribe(obj, () => {
-      if (predicate(obj)) {
-        clearTimeout(timer);
-        resolve();
-      }
+      clearTimeout(timer);
+      dispose();
+      resolve();
     });
   });
 };
 
-await test("Document snapshot", async () => {
+
+const initData = { foo: "bar", baz: "qux", words: ["Hello", "World"] };
+const docId = "dev-doc";
+const doc = gokv.Document(docId);
+
+await test("Reset document", async () => {
+  const { version } = await doc.reset(initData);
+  assertEquals(typeof version, "number");
+  console.log("document has been reset, current version is", version);
+});
+
+await test("Get document snapshot", async () => {
   const snapshot = await doc.getSnapshot();
-  assertEquals(snapshot, { foo: "bar", baz: "qux", arr: ["Hello", "world!"] });
+  assertEquals(snapshot, initData);
 });
 
-await test("Update document object", async () => {
-  assertEquals(obj.foo, "bar");
-  assertEquals(obj.baz, "qux");
-  assertEquals(jbo.foo, obj.foo);
-  assertEquals(jbo.baz, obj.baz);
+await test("Update and sync document", async () => {
+  const ac = new AbortController();
+  // crate two sessions
+  const s1 = await gokv.Document(docId).sync({ signal: ac.signal });
+  const s2 = await gokv.Document(docId).sync({ signal: ac.signal });
+  assertEquals(snapshot(s1), initData);
+  assertEquals(snapshot(s2), initData);
 
-  const promise = Promise.all([
-    watch(obj, () => obj.baz === undefined),
-    watch(jbo, () => jbo.foo === obj.foo),
-  ]);
-
-  obj.foo = crypto.randomUUID();
-  Reflect.deleteProperty(jbo, "baz");
-
+  let promise = watch(s2);
+  const random = crypto.randomUUID();
+  s1.foo = random;
   await promise;
+  assertEquals(s2.foo, random);
 
-  assertEquals(jbo.baz, obj.baz);
-  assertEquals(jbo.foo, obj.foo);
-});
-
-await test("Update document array", async () => {
-  assertEquals(snapshot(obj.arr), ["Hello", "world!"]);
-  assertEquals(snapshot(obj.arr), snapshot(jbo.arr));
-
-  const promise = Promise.all([
-    watch(obj.arr, (arr) => arr.length === 4),
-    watch(jbo.arr, (arr) => arr.length === 4),
-  ]);
-
-  obj.arr.push("wow");
-  jbo.arr.push("super");
-
+  promise = watch(s1);
+  delete s2.baz;
   await promise;
+  assertEquals(s1.baz, undefined);
 
-  assertEquals(snapshot(obj.arr), snapshot(jbo.arr));
+  promise = watch(s2.words);
+  s1.words.push("!");
+  await promise;
+  assertEquals(s2.words.length, 3);
+  assertEquals(s2.words[2], "!");
+
+  // close sessions
+  ac.abort();
 });

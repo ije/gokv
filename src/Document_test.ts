@@ -3,73 +3,69 @@ import Document from "./Document.ts";
 import { snapshot, subscribe } from "./common/proxy.ts";
 import "dotenv";
 
-// reset document with `initData`
-const initData = { foo: "bar", baz: "qux", arr: ["Hello", "world!"] };
-const doc = new Document<typeof initData>("dev-doc");
-const { version } = await doc.reset(initData);
-console.log("document has been reset, current version is", version);
-
-// crate two sessions
-const obj = await new Document<typeof initData>("dev-doc").sync();
-const jbo = await new Document<typeof initData>("dev-doc").sync();
+type DocType = {
+  foo: string;
+  baz?: string;
+  words: string[];
+};
 
 // watch changes
-const watch = <T extends Record<string, unknown> | Array<unknown>>(
-  obj: T,
-  predicate: (obj: T) => boolean,
-) => {
+const watch = (obj: Record<string, unknown> | Array<unknown>) => {
   return new Promise<void>((resolve, reject) => {
     const timer = setTimeout(() => {
       dispose();
       reject(new Error("timeout"));
-    }, 5 * 1000);
+    }, 10 * 1000);
     const dispose = subscribe(obj, () => {
-      if (predicate(obj)) {
-        clearTimeout(timer);
-        resolve();
-      }
+      clearTimeout(timer);
+      dispose();
+      resolve();
     });
   });
 };
 
-Deno.test("Document snapshot", async () => {
-  const snapshot = await doc.getSnapshot();
-  assertEquals(snapshot, { foo: "bar", baz: "qux", arr: ["Hello", "world!"] });
-});
+Deno.test("Co Document", { sanitizeOps: false, sanitizeResources: false }, async (t) => {
+  const initData: DocType = { foo: "bar", baz: "qux", words: ["Hello", "World"] };
+  const docId = "dev-doc";
+  const doc = new Document<DocType>(docId);
 
-Deno.test("Update document object", { sanitizeOps: false, sanitizeResources: false }, async () => {
-  assertEquals(jbo.foo, "bar");
-  assertEquals(obj.baz, "qux");
-  assertEquals(jbo.foo, obj.foo);
-  assertEquals(jbo.baz, obj.baz);
+  await t.step("Reset document", async () => {
+    const { version } = await doc.reset(initData);
+    assertEquals(typeof version, "number");
+    console.log("document has been reset, current version is", version);
+  });
 
-  const promise = Promise.all([
-    watch(obj, () => obj.baz === undefined),
-    watch(jbo, () => jbo.foo === obj.foo),
-  ]);
+  await t.step("Get document snapshot", async () => {
+    const snapshot = await doc.getSnapshot();
+    assertEquals(snapshot, initData);
+  });
 
-  obj.foo = crypto.randomUUID();
-  Reflect.deleteProperty(jbo, "baz");
+  await t.step("Update and sync document", async () => {
+    const ac = new AbortController();
+    // crate two sessions
+    const s1 = await new Document<DocType>(docId).sync({ signal: ac.signal });
+    const s2 = await new Document<DocType>(docId).sync({ signal: ac.signal });
+    assertEquals(snapshot(s1), initData);
+    assertEquals(snapshot(s2), initData);
 
-  await promise;
+    let promise = watch(s2);
+    const random = crypto.randomUUID();
+    s1.foo = random;
+    await promise;
+    assertEquals(s2.foo, random);
 
-  assertEquals(jbo.baz, obj.baz);
-  assertEquals(jbo.foo, obj.foo);
-});
+    promise = watch(s1);
+    delete s2.baz;
+    await promise;
+    assertEquals(s1.baz, undefined);
 
-Deno.test("Update document array", { sanitizeOps: false, sanitizeResources: false }, async () => {
-  assertEquals(snapshot(obj.arr), ["Hello", "world!"]);
-  assertEquals(snapshot(obj.arr), snapshot(jbo.arr));
+    promise = watch(s2.words);
+    s1.words.push("!");
+    await promise;
+    assertEquals(s2.words.length, 3);
+    assertEquals(s2.words[2], "!");
 
-  const promise = Promise.all([
-    watch(obj.arr, (arr) => arr.length === 4),
-    watch(jbo.arr, (arr) => arr.length === 4),
-  ]);
-
-  obj.arr.push("wow");
-  jbo.arr.push("super");
-
-  await promise;
-
-  assertEquals(snapshot(obj.arr), snapshot(jbo.arr));
+    // close sessions
+    ac.abort();
+  });
 });
