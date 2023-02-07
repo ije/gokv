@@ -155,10 +155,10 @@ export default class ChatRoomImpl<U extends AuthUser> implements ChatRoom<U> {
       signal: options?.signal,
       resolveFlag: MessageFlag.CHAT,
       initData: () => ({ ...options, lastMessageId: chat?._lastMessageId }),
-      onMessage: (flag, message) => {
+      onMessage: async (flag, message) => {
         switch (flag) {
           case MessageFlag.CHAT: {
-            [history, onlineUsers, currentUser] = deserialize(message);
+            [history, onlineUsers, currentUser] = await deserialize(message);
             if (chat) {
               for (const msg of history) {
                 chat._pushMessage(msg);
@@ -169,12 +169,12 @@ export default class ChatRoomImpl<U extends AuthUser> implements ChatRoom<U> {
             break;
           }
           case MessageFlag.MESSAGE: {
-            const chatMessage = deserialize<ChatMessage<U>>(message);
+            const chatMessage = await deserialize<ChatMessage<U>>(message);
             chat?._pushMessage(chatMessage);
             break;
           }
           case MessageFlag.EVENT: {
-            const evt = deserialize(message);
+            const evt = await deserialize(message);
             const listeners = chat?._listeners.get(evt.type);
             if (listeners) {
               for (const listener of listeners) {
@@ -215,15 +215,15 @@ export default class ChatRoomImpl<U extends AuthUser> implements ChatRoom<U> {
         }
       },
       // for debug
-      inspect: (flag, gzFlag, message) => {
+      inspect: async (flag, gzFlag, message) => {
         const gzTip = gzFlag ? "(gzipped)" : "";
         switch (flag) {
           case MessageFlag.CHAT:
-            return [`CHAT${gzTip}`, deserialize(message)];
+            return [`CHAT${gzTip}`, await deserialize(message)];
           case MessageFlag.MESSAGE:
-            return [`MESSAGE${gzTip}`, deserialize(message)];
+            return [`MESSAGE${gzTip}`, await deserialize(message)];
           case MessageFlag.EVENT:
-            return [`EVENT${gzTip}`, deserialize(message)];
+            return [`EVENT${gzTip}`, await deserialize(message)];
           default:
             return `UNKNOWN FLAG ${flag}`;
         }

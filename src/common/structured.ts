@@ -61,11 +61,7 @@ class Buffer {
 }
 
 class StructuredWriter {
-  #writer: { write(chunk: Uint8Array): Promise<void> };
-
-  constructor() {
-    this.#writer = new Buffer();
-  }
+  #writer: { write(chunk: Uint8Array): Promise<void> } = new Buffer();
 
   async serialize(v: unknown): Promise<Uint8Array> {
     const buffer = new Buffer();
@@ -390,16 +386,21 @@ class StructuredWriter {
 }
 
 class StructuredReader {
-  view: DataView;
-  offset = 0;
+  #input: ArrayBuffer | ReadableStream<Uint8Array>;
+  #streamBuffer = new Uint8Array(0);
+  #offset = 0;
 
-  constructor(data: ArrayBuffer) {
-    this.view = new DataView(data);
+  constructor(input: ArrayBuffer | Uint8Array | ReadableStream<Uint8Array>) {
+    if (input instanceof Uint8Array) {
+      this.#input = input.buffer;
+    } else {
+      this.#input = input;
+    }
   }
 
   // deno-lint-ignore no-explicit-any
-  deserialize<T = any>(): T {
-    let type = this.readUint8();
+  async deserialize<T = any>(): Promise<T> {
+    let type = await this.readUint8();
     let sizeMarkerBits = 1;
     if (type >= 200) {
       sizeMarkerBits = 4;
@@ -408,7 +409,7 @@ class StructuredReader {
       sizeMarkerBits = 2;
       type -= 100;
     }
-    const getSizeMarker = (): number => {
+    const getSizeMarker = (): Promise<number> => {
       if (sizeMarkerBits === 4) {
         return this.readUint32();
       }
@@ -425,7 +426,7 @@ class StructuredReader {
         return null as T;
       }
       case Type.BOOL: {
-        return (this.readUint8() === 1) as T;
+        return (await this.readUint8() === 1) as T;
       }
       case Type.NAN: {
         return NaN as T;
@@ -443,13 +444,13 @@ class StructuredReader {
         return this.readInt8() as T;
       }
       case Type.INT64: {
-        return Number(this.readBigInt()) as T;
+        return Number(await this.readBigInt()) as T;
       }
       case Type.UINT: {
         return getSizeMarker() as T;
       }
       case Type.UINT64: {
-        return Number(this.readBigUint()) as T;
+        return Number(await this.readBigUint()) as T;
       }
       case Type.FLOAT32: {
         return this.readFloat32() as T;
@@ -464,74 +465,74 @@ class StructuredReader {
         return this.readBigUint() as T;
       }
       case Type.STRING: {
-        const size = getSizeMarker();
+        const size = await getSizeMarker();
         return this.readString(size) as T;
       }
       case Type.UINT8_ARRAY: {
-        const size = getSizeMarker();
-        return new Uint8Array(this.read(size)) as T;
+        const size = await getSizeMarker();
+        return new Uint8Array(await this.read(size)) as T;
       }
       case Type.TYPED_ARRAY: {
-        const size = getSizeMarker();
-        const t = this.readInt8();
+        const size = await getSizeMarker();
+        const t = await this.readInt8();
         const TypedArrary = TypedArraryTypes[t];
         if (!TypedArrary) {
           throw new Error("Unknown typed array type");
         }
-        return new TypedArrary(this.read(size)) as T;
+        return new TypedArrary(await this.read(size)) as T;
       }
       case Type.ARRAY_BUFFER: {
-        const size = getSizeMarker();
+        const size = await getSizeMarker();
         return this.read(size) as T;
       }
       case Type.ARRAY: {
-        const arrayLen = getSizeMarker();
+        const arrayLen = await getSizeMarker();
         const array: unknown[] = new Array(arrayLen);
         for (let i = 0; i < arrayLen; i++) {
-          array[i] = this.deserialize();
+          array[i] = await this.deserialize();
         }
         return array as T;
       }
       case Type.SET: {
-        const setSize = getSizeMarker();
+        const setSize = await getSizeMarker();
         const set = new Set();
         for (let i = 0; i < setSize; i++) {
-          set.add(this.deserialize());
+          set.add(await this.deserialize());
         }
         return set as T;
       }
       case Type.OBJECT: {
-        const keys = this.deserialize<unknown[]>();
-        const values = this.deserialize<unknown[]>();
+        const keys = await this.deserialize<unknown[]>();
+        const values = await this.deserialize<unknown[]>();
         if (!Array.isArray(values) || !Array.isArray(keys) || keys.length !== values.length) {
           throw new Error("Invalid object");
         }
         return Object.fromEntries(keys.map((k, i) => [k, values[i]])) as T;
       }
       case Type.MAP: {
-        const keys = this.deserialize<unknown[]>();
-        const values = this.deserialize<unknown[]>();
+        const keys = await this.deserialize<unknown[]>();
+        const values = await this.deserialize<unknown[]>();
         if (!Array.isArray(values) || !Array.isArray(keys) || keys.length !== values.length) {
           throw new Error("Invalid map");
         }
         return new Map(keys.map((k, i) => [k, values[i]])) as T;
       }
       case Type.DATE: {
-        return new Date(this.readFloat64()) as T;
+        return new Date(await this.readFloat64()) as T;
       }
       case Type.REGEXP: {
-        const pattern = this.deserialize<[string, string]>();
+        const pattern = await this.deserialize<[string, string]>();
         if (!Array.isArray(pattern) || pattern.length !== 2) {
           throw new Error("Invalid regexp");
         }
         return new RegExp(...pattern) as T;
       }
       case Type.URL: {
-        const size = getSizeMarker();
-        return new URL(this.readString(size)) as T;
+        const size = await getSizeMarker();
+        return new URL(await this.readString(size)) as T;
       }
       case Type.ERROR: {
-        const { name, message, stack } = this.deserialize<{ name: string; message: string; stack?: string }>();
+        const { name, message, stack } = await this.deserialize<{ name: string; message: string; stack?: string }>();
         const TypedError = Reflect.get(globalThis, name) ?? Error;
         const error = new TypedError(message);
         error.name = name;
@@ -543,77 +544,86 @@ class StructuredReader {
     }
   }
 
-  read(n: number): ArrayBuffer {
-    const buf = this.view!.buffer.slice(this.offset, this.offset + n);
+  async read(n: number): Promise<ArrayBuffer> {
+    if (this.#input instanceof ReadableStream) {
+      if (this.#streamBuffer.byteLength < n) {
+        const reader = this.#input.getReader();
+        while (this.#streamBuffer.byteLength < n) {
+          const { done, value } = await reader.read();
+          if (done) {
+            break;
+          }
+          const newBuffer = new Uint8Array(this.#streamBuffer.byteLength + value.byteLength);
+          newBuffer.set(this.#streamBuffer);
+          newBuffer.set(value, this.#streamBuffer.byteLength);
+          this.#streamBuffer = newBuffer;
+        }
+        reader.releaseLock();
+      }
+      const buf = this.#streamBuffer.slice(0, n);
+      this.#streamBuffer = this.#streamBuffer.slice(n);
+      return buf.buffer;
+    }
+    const buf = this.#input.slice(this.#offset, this.#offset + n);
     if (buf.byteLength !== n) {
       throw new Error("Unexpected end of data");
     }
-    this.offset += n;
+    this.#offset += n;
     return buf;
   }
 
-  readString(n: number): string {
-    return new TextDecoder().decode(this.read(n));
+  async readString(n: number): Promise<string> {
+    return new TextDecoder().decode(await this.read(n));
   }
 
-  readInt8(): number {
-    const v = this.view!.getInt8(this.offset);
-    this.offset += 1;
-    return v;
+  async readInt8(): Promise<number> {
+    const view = new DataView(await this.read(1));
+    return view.getInt8(0);
   }
 
-  readInt16(): number {
-    const v = this.view!.getInt16(this.offset);
-    this.offset += 2;
-    return v;
+  async readInt16(): Promise<number> {
+    const view = new DataView(await this.read(2));
+    return view.getInt16(0);
   }
 
-  readInt32(): number {
-    const v = this.view!.getInt32(this.offset);
-    this.offset += 4;
-    return v;
+  async readInt32(): Promise<number> {
+    const view = new DataView(await this.read(4));
+    return view.getInt32(0);
   }
 
-  readUint8(): number {
-    const v = this.view!.getUint8(this.offset);
-    this.offset += 1;
-    return v;
+  async readUint8(): Promise<number> {
+    const view = new DataView(await this.read(1));
+    return view.getUint8(0);
   }
 
-  readUint16(): number {
-    const v = this.view!.getUint16(this.offset);
-    this.offset += 2;
-    return v;
+  async readUint16(): Promise<number> {
+    const view = new DataView(await this.read(2));
+    return view.getUint16(0);
   }
 
-  readUint32(): number {
-    const v = this.view!.getUint32(this.offset);
-    this.offset += 4;
-    return v;
+  async readUint32(): Promise<number> {
+    const view = new DataView(await this.read(4));
+    return view.getUint32(0);
   }
 
-  readFloat32(): number {
-    const v = this.view!.getFloat32(this.offset);
-    this.offset += 4;
-    return v;
+  async readFloat32(): Promise<number> {
+    const view = new DataView(await this.read(4));
+    return view.getFloat32(0);
   }
 
-  readFloat64(): number {
-    const v = this.view!.getFloat64(this.offset);
-    this.offset += 8;
-    return v;
+  async readFloat64(): Promise<number> {
+    const view = new DataView(await this.read(8));
+    return view.getFloat64(0);
   }
 
-  readBigUint(): bigint {
-    const v = this.view!.getBigUint64(this.offset);
-    this.offset += 8;
-    return v;
+  async readBigUint(): Promise<bigint> {
+    const view = new DataView(await this.read(8));
+    return view.getBigUint64(0);
   }
 
-  readBigInt(): bigint {
-    const v = this.view!.getBigInt64(this.offset);
-    this.offset += 8;
-    return v;
+  async readBigInt(): Promise<bigint> {
+    const view = new DataView(await this.read(8));
+    return view.getBigInt64(0);
   }
 }
 
@@ -626,6 +636,6 @@ export function serializeStream(v: unknown): ReadableStream<Uint8Array> {
 }
 
 // deno-lint-ignore no-explicit-any
-export function deserialize<T = any>(buffer: ArrayBuffer): T {
-  return new StructuredReader(buffer).deserialize();
+export function deserialize<T = any>(input: ArrayBuffer | Uint8Array | ReadableStream<Uint8Array>): Promise<T> {
+  return new StructuredReader(input).deserialize();
 }

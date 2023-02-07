@@ -44,7 +44,9 @@ export default class DocumentImpl<T extends Record<string, unknown>> implements 
     if (!res.ok) {
       throw new Error(`Failed to get document snapshot: ${res.status} ${res.statusText}`);
     }
-    return restoreArray(deserialize(await res.arrayBuffer())) as T;
+    const snapshot = await deserialize(res.body!);
+    await res.body?.cancel?.();
+    return restoreArray(snapshot) as T;
   }
 
   async reset(data: T): Promise<{ version: number }> {
@@ -89,10 +91,10 @@ export default class DocumentImpl<T extends Record<string, unknown>> implements 
       signal: options?.signal,
       resolveFlag: MessageFlag.DOC,
       initData: () => ({ version: docVersion }),
-      onMessage: (flag, data) => {
+      onMessage: async (flag, data) => {
         switch (flag) {
           case MessageFlag.DOC: {
-            const [version, snapshot, resetByApi] = deserialize<[number, T, boolean | undefined]>(data);
+            const [version, snapshot, resetByApi] = await deserialize<[number, T, boolean | undefined]>(data);
             // update the proxy object with the new snapshot
             remix(this.#doc, snapshot);
             // update the doc with the initial data if specified
@@ -118,7 +120,7 @@ export default class DocumentImpl<T extends Record<string, unknown>> implements 
             break;
           }
           case MessageFlag.PATCH: {
-            const [version, ...patches] = deserialize<[number, ...Patch[]]>(data);
+            const [version, ...patches] = await deserialize<[number, ...Patch[]]>(data);
             for (const patch of patches) {
               const [$op, $path, $values] = patch;
               let shouldApply = true;
@@ -146,7 +148,7 @@ export default class DocumentImpl<T extends Record<string, unknown>> implements 
             break;
           }
           case MessageFlag.ACK: {
-            const ids = deserialize<string[]>(data);
+            const ids = await deserialize<string[]>(data);
             for (const id of ids) {
               if (!uncomfirmedPatches.has(id)) {
                 // ignore invalid id
@@ -188,15 +190,15 @@ export default class DocumentImpl<T extends Record<string, unknown>> implements 
         this.#syncFn = undefined;
       },
       // for debug
-      inspect: (flag, gzFlag, message) => {
+      inspect: async (flag, gzFlag, message) => {
         const gzTip = gzFlag ? "(gzipped)" : "";
         switch (flag) {
           case MessageFlag.DOC:
-            return [`DOC${gzTip}`, deserialize(message)];
+            return [`DOC${gzTip}`, await deserialize(message)];
           case MessageFlag.PATCH:
-            return [`PATCH${gzTip}`, deserialize(message)];
+            return [`PATCH${gzTip}`, await deserialize(message)];
           case MessageFlag.ACK:
-            return [`ACK${gzTip}`, deserialize(message)];
+            return [`ACK${gzTip}`, await deserialize(message)];
           default:
             return `UNKNOWN FLAG ${flag}`;
         }

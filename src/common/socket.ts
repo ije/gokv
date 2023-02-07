@@ -23,7 +23,7 @@ export type SocketOptions = {
   signal?: AbortSignal;
   resolveFlag?: number;
   initData?: () => Record<string, unknown>;
-  inspect?: (flag: number, gzFlag: number, message: ArrayBufferLike) => string | string[];
+  inspect?: (flag: number, gzFlag: number, message: ArrayBufferLike) => string | string[] | Promise<string | string[]>;
   onMessage?: (flag: number, message: ArrayBufferLike) => void;
   onError?: (code: string, message: string, details?: Record<string, unknown>) => void;
   onClose?: () => void;
@@ -64,9 +64,9 @@ export function connect(service: ServiceName, namespace: string, options: Socket
         const message: unknown[] = [];
         if (flag >= 0xf0) {
           message.push(Object.entries(SocketMessageFlags).find(([, f]) => flag === f)?.[0] ?? flag);
-          message.push(deserialize(data.buffer));
+          message.push(await deserialize(data.buffer));
         } else if (options.inspect) {
-          message.push(...[options.inspect(flag, gzFlag, data.buffer)].flat());
+          message.push(...[await options.inspect(flag, gzFlag, data.buffer)].flat());
         } else {
           message.push(flag);
         }
@@ -150,7 +150,7 @@ export function connect(service: ServiceName, namespace: string, options: Socket
           break;
         }
         case SocketMessageFlags.ERROR: {
-          const { code, message, ...rest } = deserialize(data);
+          const { code, message, ...rest } = await deserialize(data);
           options.onError?.(code, message, rest);
           console.error(`[gokv] socket(${service}/${namespace}): <${code}> ${message}`);
           break;
@@ -166,9 +166,9 @@ export function connect(service: ServiceName, namespace: string, options: Socket
         const message: unknown[] = [];
         if (flag >= 0xf0) {
           message.push(Object.entries(SocketMessageFlags).find(([, f]) => flag === f)?.[0] ?? flag);
-          message.push(deserialize(data));
+          message.push(await deserialize(data));
         } else if (options.inspect) {
-          message.push(...[options.inspect(flag, gzFlag, data)].flat());
+          message.push(...[await options.inspect(flag, gzFlag, data)].flat());
         } else {
           message.push(flag);
         }

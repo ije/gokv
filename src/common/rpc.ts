@@ -27,7 +27,7 @@ export async function connectRPC(
 ): Promise<RPCSocket> {
   const awaits = new Map<number, (data: ArrayBuffer) => void>();
   const socket = await connect(service, namespace, {
-    onMessage: (flag, message) => {
+    onMessage: async (flag, message) => {
       switch (flag) {
         case RPCMessageFlag.DATA: {
           const id = new DataView(message.slice(0, 4)).getInt32(0);
@@ -35,7 +35,7 @@ export async function connectRPC(
           break;
         }
         case RPCMessageFlag.SYNC:
-          options.onSync(deserialize(message));
+          options.onSync(await deserialize(message));
           break;
       }
     },
@@ -44,21 +44,21 @@ export async function connectRPC(
       options.onReconnect({ invoke, close: socket.close });
     },
     // for debug
-    inspect: (flag, gzFlag, message) => {
+    inspect: async (flag, gzFlag, message) => {
       const gzTip = gzFlag ? "(gzipped)" : "";
       switch (flag) {
         case RPCMessageFlag.INVOKE: {
           const invokeId = new DataView(message, 0, 4).getUint32(0).toString(36);
           const kvMethods = ["GET", "PUT", "DELETE", "LIST", "UPDATE_NUMBER", "SUM", "FORGET"];
           const method = kvMethods[new DataView(message, 4, 1).getUint8(0) - 1] ?? "UNKNOWN";
-          return [`INVOKE${gzTip} 0x${invokeId} ${method}`, deserialize(message.slice(5))];
+          return [`INVOKE${gzTip} 0x${invokeId} ${method}`, await deserialize(message.slice(5))];
         }
         case RPCMessageFlag.DATA: {
           const invokeId = new DataView(message, 0, 4).getUint32(0).toString(36);
-          return [`DATA${gzTip} 0x${invokeId} `, deserialize(message.slice(4))];
+          return [`DATA${gzTip} 0x${invokeId} `, await deserialize(message.slice(4))];
         }
         case RPCMessageFlag.SYNC:
-          return [`SYNC${gzTip}`, deserialize(message)];
+          return [`SYNC${gzTip}`, await deserialize(message)];
         default:
           return `UNKNOWN FLAG ${flag}`;
       }

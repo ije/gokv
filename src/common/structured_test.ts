@@ -77,12 +77,12 @@ Deno.test("structured serialize/deserialize", async () => {
   object.data = await serialize(object);
 
   const data = await serialize(object);
-  const deserialized = deserialize(data.buffer);
+  const deserialized = await deserialize(data);
   assertEquals(deserialized, object);
   console.log("serialized data size:", data.byteLength);
 
   const data2 = await serialize(new Error("error"));
-  const deserialized2 = deserialize<Error>(data2.buffer);
+  const deserialized2 = await deserialize<Error>(data2);
   assertEquals(deserialized2.name, "Error");
   assertEquals(deserialized2.message, "error");
   assertStringIncludes(deserialized2.stack!, "structured_test.ts");
@@ -119,7 +119,6 @@ Deno.test("structured serializeStream", async () => {
     test: /^https:\/\/gokv.io\//gi,
     url: new URL("https://gokv.io/"),
   };
-  const res = new Response(serializeStream(object));
-  const deserialized = deserialize(await res.arrayBuffer());
+  const deserialized = await deserialize(serializeStream(object));
   assertEquals(deserialized, object);
 });
