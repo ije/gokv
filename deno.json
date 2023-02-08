@@ -27,6 +27,7 @@
         ".vscode/",
         "dist/",
         "node_modules/",
+        "package.json",
         "CODE_OF_CONDUCT.md"
       ]
     }
