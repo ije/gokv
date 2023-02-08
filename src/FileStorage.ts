@@ -11,6 +11,20 @@ import xxhash from "./vendor/xxhash.js";
 const KB = 1 << 10;
 const MB = 1 << 20;
 
+// polyfill `File` class for nodejs
+if (!Reflect.has(globalThis, "File")) {
+  class File extends Blob {
+    name: string;
+    lastModified: number;
+    constructor(blobParts: BlobPart[], fileName: string, options?: FilePropertyBag) {
+      super(blobParts, options);
+      this.name = fileName;
+      this.lastModified = options?.lastModified ?? Date.now();
+    }
+  }
+  Reflect.set(globalThis, "File", File);
+}
+
 export default class FileStorageImpl implements FileStorage {
   #namespace: string;
 
@@ -94,7 +108,7 @@ export default class FileStorageImpl implements FileStorage {
         Authorization: (await atm.getAccessToken(`fs:${this.#namespace}`)).join(" "),
         "X-File-Meta": JSON.stringify(fileMeta),
       },
-      // to fix "The `duplex` member must be specified for a request with a streaming body" in browser
+      // to fix "The `duplex` member must be specified for a request with a streaming body"
       // deno-lint-ignore ban-ts-comment
       // @ts-ignore
       duplex: "half",

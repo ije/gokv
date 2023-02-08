@@ -126,28 +126,3 @@ export function parseCookies(req: Request): Map<string, string> {
   }
   return cookie;
 }
-
-/** Create a websocket connection. */
-export async function createWebSocket(url: string, protocols?: string | string[]) {
-  // workaround for cloudflare worker
-  // see https://developers.cloudflare.com/workers/learning/using-websockets/#writing-a-websocket-client
-  if (typeof WebSocket === "undefined" && typeof fetch === "function") {
-    const headers = new Headers({ Upgrade: "websocket" });
-    if (protocols) {
-      if (Array.isArray(protocols)) {
-        headers.append("Sec-WebSocket-Protocol", protocols.join(","));
-      } else {
-        headers.append("Sec-WebSocket-Protocol", String(protocols));
-      }
-    }
-    const res = await fetch(url, { headers });
-    // deno-lint-ignore no-explicit-any
-    const ws = (res as any).webSocket;
-    if (!ws) {
-      throw new Error("Server didn't accept WebSocket");
-    }
-    ws.accept();
-    return ws as WebSocket;
-  }
-  return new WebSocket(url, protocols);
-}

@@ -1,7 +1,7 @@
 import type { ServiceName, Socket } from "../../types/common.d.ts";
 import atm from "../AccessTokenManager.ts";
 import { deserialize, serialize } from "./structured.ts";
-import { conactBytes, createWebSocket, getEnv, gzip, ungzip } from "./utils.ts";
+import { conactBytes, getEnv, gzip, ungzip } from "./utils.ts";
 
 const pingTimeout = 5 * 1000; // wait for ping message for 5 seconds
 const pingInterval = 30 * 1000; // send ping message pre 30 seconds
@@ -24,7 +24,7 @@ export type SocketOptions = {
   resolve?: (flag: number) => boolean;
   initData?: () => Record<string, unknown>;
   inspect?: (flag: number, gzFlag: number, message: ArrayBufferLike) => string | string[] | Promise<string | string[]>;
-  onMessage?: (flag: number, message: ArrayBufferLike) => void | Promise<void>;
+  onMessage?: (flag: number, message: ArrayBufferLike, socket: Socket) => void | Promise<void>;
   onError?: (code: string, message: string, details?: Record<string, unknown>) => void;
   onClose?: () => void;
   onReconnect?: (socket: Socket) => void;
@@ -48,7 +48,7 @@ export function connect(service: ServiceName, namespace: string, options: Socket
     let pingTimer: number | undefined;
     let hbTimer: number | undefined;
 
-    // send data and compress it if possible
+    // send data and compress it with gzip if possible
     const send = async (flag: number, data: Uint8Array | Record<string, unknown> | Array<unknown>) => {
       let gzFlag = 0;
       if (!(data instanceof Uint8Array)) {
@@ -87,9 +87,11 @@ export function connect(service: ServiceName, namespace: string, options: Socket
         }
         ws = null;
       }
-      onStatusChange(SocketState.CLOSE);
+      setStatus(SocketState.CLOSE);
       options.onClose?.();
     };
+
+    const socket = Object.freeze({ send, close });
 
     const heartbeat = () => {
       if (pingTimer) {
@@ -112,7 +114,7 @@ export function connect(service: ServiceName, namespace: string, options: Socket
       }, pingInterval);
     };
 
-    const onStatusChange = (newStatus: SocketState) => {
+    const setStatus = (newStatus: SocketState) => {
       if (status !== newStatus) {
         status = newStatus;
         options.onStateChange?.(status);
@@ -120,12 +122,12 @@ export function connect(service: ServiceName, namespace: string, options: Socket
     };
 
     const onReady = () => {
-      onStatusChange(SocketState.READY);
+      setStatus(SocketState.READY);
       if (fulfilled) {
-        options.onReconnect?.({ send, close });
+        options.onReconnect?.(socket);
       }
       if (!fulfilled && !rejected) {
-        resolve({ send, close });
+        resolve(socket);
         fulfilled = true;
       }
     };
@@ -156,7 +158,7 @@ export function connect(service: ServiceName, namespace: string, options: Socket
           break;
         }
         default: {
-          await options.onMessage?.(flag, data);
+          await options.onMessage?.(flag, data, socket);
           if (options.resolve?.(flag)) {
             onReady();
           }
@@ -188,7 +190,7 @@ export function connect(service: ServiceName, namespace: string, options: Socket
     };
 
     const onClose = () => {
-      onStatusChange(SocketState.CLOSE);
+      setStatus(SocketState.CLOSE);
 
       // clear timers
       hbTimer && clearTimeout(hbTimer);
@@ -199,12 +201,12 @@ export function connect(service: ServiceName, namespace: string, options: Socket
       // reconnect
       if (fulfilled) {
         console.warn(`[gokv] socket(${service}/${namespace}) closed, reconnecting...`);
-        onStatusChange(SocketState.PENDING);
-        newWebSocket().then(start);
+        setStatus(SocketState.PENDING);
+        newWebSocket().then(setup);
       }
     };
 
-    const start = (_ws: WebSocket) => {
+    const setup = (_ws: WebSocket) => {
       _ws.binaryType = "arraybuffer";
       _ws.addEventListener("open", onOpen);
       _ws.addEventListener("message", onMessage);
@@ -225,6 +227,44 @@ export function connect(service: ServiceName, namespace: string, options: Socket
       }
     });
 
-    newWebSocket().then(start);
+    newWebSocket().then(setup);
   });
+}
+
+// polyfill `WebSocket` class for nodejs
+if (!Reflect.has(globalThis, "WebSocket") && !Reflect.has(globalThis, "WebSocketPair")) {
+  const { WebSocket: WS } = await import(`ws`);
+  class WebSocket extends WS {
+    constructor(url: string, protocols?: string | string[]) {
+      // skip utf8 validation since we are using binary data only
+      const skipUTF8Validation = true;
+      super(url, protocols, { skipUTF8Validation });
+    }
+  }
+  Reflect.set(globalThis, "WebSocket", WebSocket);
+}
+
+/** Create a websocket connection. */
+async function createWebSocket(url: string, protocols?: string | string[]) {
+  // workaround for cloudflare worker
+  // see https://developers.cloudflare.com/workers/learning/using-websockets/#writing-a-websocket-client
+  if (!Reflect.has(globalThis, "WebSocket") && Reflect.has(globalThis, "WebSocketPair")) {
+    const headers = new Headers({ Upgrade: "websocket" });
+    if (protocols) {
+      if (Array.isArray(protocols)) {
+        headers.append("Sec-WebSocket-Protocol", protocols.join(","));
+      } else {
+        headers.append("Sec-WebSocket-Protocol", String(protocols));
+      }
+    }
+    const res = await fetch(url, { headers });
+    // deno-lint-ignore no-explicit-any
+    const ws = (res as any).webSocket;
+    if (!ws) {
+      throw new Error("Server didn't accept WebSocket");
+    }
+    ws.accept();
+    return ws as WebSocket;
+  }
+  return new WebSocket(url, protocols);
 }

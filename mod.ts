@@ -21,7 +21,8 @@ import SessionImpl from "./src/Session.ts";
 import ChatRoomImpl from "./src/ChatRoom.ts";
 import DocumentImpl from "./src/Document.ts";
 import FileStorageImpl from "./src/FileStorage.ts";
-import { snapshot, subscribe } from "./src/common/proxy.ts";
+
+export { snapshot, subscribe } from "./src/common/proxy.ts";
 
 export const config = ({ token, tokenSignUrl, tokenMaxAge }: ConfigOptions) => {
   if (token) {
@@ -81,7 +82,5 @@ export {
   DocumentImpl as Document,
   FileStorageImpl as FileStorage,
   SessionImpl as Session,
-  snapshot,
   StorageImpl as Storage,
-  subscribe,
 };

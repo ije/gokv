@@ -148,23 +148,22 @@ export default class ChatRoomImpl<U extends AuthUser> implements ChatRoom<U> {
 
   async connect(options?: ChatRoomConnectOptions): Promise<Chat<U>> {
     let chat: ChatImpl<U> | null = null;
-    let history: ChatMessage<U>[] = [];
-    let onlineUsers: U[] = [];
-    let currentUser: U;
-    const socket = await connect("chat", this.#scope, {
+    await connect("chat", this.#scope, {
       signal: options?.signal,
       resolve: (flag) => flag === MessageFlag.CHAT,
       initData: () => ({ ...options, lastMessageId: chat?._lastMessageId }),
-      onMessage: async (flag, message) => {
+      onMessage: async (flag, message, socket) => {
         switch (flag) {
           case MessageFlag.CHAT: {
-            [history, onlineUsers, currentUser] = await deserialize(message);
-            if (chat) {
+            const [history, onlineUsers, currentUser] = await deserialize<[ChatMessage<U>[], U[], U]>(message);
+            if (chat !== null) {
               for (const msg of history) {
                 chat._pushMessage(msg);
               }
               chat._setOnlineUsers(onlineUsers);
               chat._setCurrentUser(currentUser!);
+            } else {
+              chat = new ChatImpl<U>(socket, history, onlineUsers, currentUser);
             }
             break;
           }
@@ -229,6 +228,9 @@ export default class ChatRoomImpl<U extends AuthUser> implements ChatRoom<U> {
         }
       },
     });
-    return chat = new ChatImpl<U>(socket, history, onlineUsers, currentUser!);
+    if (chat === null) {
+      throw new Error("Socket not ready");
+    }
+    return chat;
   }
 }

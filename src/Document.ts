@@ -59,6 +59,10 @@ export default class DocumentImpl<T extends Record<string, unknown>> implements 
         "Content-Type": "binary/structured",
       },
       body: !isLegacyNode ? serializeStream(data) : await serialize(data),
+      // to fix "The `duplex` member must be specified for a request with a streaming body"
+      // deno-lint-ignore ban-ts-comment
+      // @ts-ignore
+      duplex: !isLegacyNode ? "half" : undefined,
     });
     if (!res.ok) {
       throw new Error(`Failed to reset document: ${res.status} ${await res.text()}`);
