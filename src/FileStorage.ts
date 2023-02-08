@@ -11,7 +11,7 @@ import xxhash from "./vendor/xxhash.js";
 const KB = 1 << 10;
 const MB = 1 << 20;
 
-// polyfill `File` class for nodejs
+// polyfill `File` class for Node.js
 if (!Reflect.has(globalThis, "File")) {
   class File extends Blob {
     name: string;

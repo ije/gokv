@@ -231,7 +231,7 @@ export function connect(service: ServiceName, namespace: string, options: Socket
   });
 }
 
-// polyfill `WebSocket` class for nodejs
+// polyfill `WebSocket` class for Node.js
 if (!Reflect.has(globalThis, "WebSocket") && !Reflect.has(globalThis, "WebSocketPair")) {
   const { WebSocket: WS } = await import(`ws`);
   class WebSocket extends WS {

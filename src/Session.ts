@@ -7,7 +7,7 @@ const minMaxAge = 60; // one minute
 const defaultMaxAge = 30 * 60; // half an hour
 const storageCache = new Map<string, Storage>();
 
-// polyfill web crypto for nodejs
+// polyfill web crypto for Node.js
 if (!Reflect.has(globalThis, "crypto")) {
   const { webcrypto } = await import(`node:crypto`);
   Reflect.set(globalThis, "crypto", webcrypto);

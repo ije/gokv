@@ -28,9 +28,7 @@ async function echo2() {
 }
 
 Deno.test("chat room", { sanitizeOps: false, sanitizeResources: false }, async () => {
-  setTimeout(() => {
-    chat1.send(testMessage, { markerId: testMarkerId });
-  }, 0);
+  Promise.resolve().then(() => chat1.send(testMessage, { markerId: testMarkerId }));
   assertEquals(await echo1(), testMessage);
   assertEquals(await echo2(), testMessage);
   assertEquals(chat1.onlineUsers.length, 1);
