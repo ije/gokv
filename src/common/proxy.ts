@@ -496,7 +496,7 @@ export function applyPatch(proxyObject: RecordOrArray, patch: Patch): boolean {
 
 export function snapshot<T extends RecordOrArray>(proxyObject: T): T {
   if (!canProxy(proxyObject)) {
-    throw new Error("requires object");
+    throw new Error("requires object but got " + typeof proxyObject);
   }
   return Reflect.get(proxyObject, SNAPSHOT) as T | undefined ?? proxyObject;
 }
@@ -505,7 +505,7 @@ export function subscribe(proxyObject: RecordOrArray, callback: CB): CB;
 export function subscribe(proxyObject: RecordOrArray, key: string, callback: CB): CB;
 export function subscribe(proxyObject: RecordOrArray, keyOrCallback: string | (CB), callback?: CB): CB {
   if (!canProxy(proxyObject)) {
-    throw new Error("requires object");
+    throw new Error("requires object but got " + typeof proxyObject);
   }
   const proxy = Reflect.get(proxyObject, INTERNAL) as
     | { listeners: Set<CB>; keyListeners?: Map<string, Set<CB>> }

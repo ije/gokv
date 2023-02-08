@@ -89,7 +89,7 @@ function DocumentApp({ name, id }: { name: string; id: string }) {
 }
 
 function DocumentAppUI({ name }: { name: string }) {
-  const doc = useDocument<{ foo: string; arr: string[] }>();
+  const doc = useDocument<{ foo: string; words: string[] }>();
   const foo = useSnapshot(doc, "foo");
   const connectState = useConnectState();
 
@@ -101,14 +101,14 @@ function DocumentAppUI({ name }: { name: string }) {
         </h3>
         <p>
           <label>
-            <code>foo:</code>
+            <code>&nbsp;&nbsp;foo:</code>
             <TextInput value={foo} onChange={(v) => doc.foo = v} key="foo" />
           </label>
         </p>
         <p>
           <label>
-            <code>arr:</code>
-            <TagInput tags={doc.arr} />
+            <code>words:</code>
+            <TagInput tags={doc.words} />
           </label>
         </p>
       </div>

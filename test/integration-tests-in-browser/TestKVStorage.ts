@@ -13,27 +13,27 @@ export async function test() {
     new Map(new Array(3).fill(null).map((_, index) => [`k-${index}`, index])),
   );
   assertEquals(
-    await kv.get({ prefix: "k-" }),
+    await kv.list({ prefix: "k-" }),
     new Map(new Array(10).fill(null).map((_, index) => [`k-${index}`, index])),
   );
   assertEquals(
-    await kv.get({ limit: 5 }),
+    await kv.list({ limit: 5 }),
     new Map(new Array(5).fill(null).map((_, index) => [`k-${index}`, index])),
   );
   assertEquals(
-    await kv.get({ limit: 3, reverse: true }),
+    await kv.list({ limit: 3, reverse: true }),
     new Map([["k-7", 7], ["k-8", 8], ["k-9", 9]]),
   );
   assertEquals(
-    await kv.get({ start: "k-7" }),
+    await kv.list({ start: "k-7" }),
     new Map([["k-7", 7], ["k-8", 8], ["k-9", 9]]),
   );
   assertEquals(
-    await kv.get({ start: "k-7", limit: 2 }),
+    await kv.list({ start: "k-7", limit: 2 }),
     new Map([["k-7", 7], ["k-8", 8]]),
   );
   assertEquals(
-    await kv.get({ start: "k-7", end: "k-9" }),
+    await kv.list({ start: "k-7", end: "k-9" }),
     new Map([["k-7", 7], ["k-8", 8]]),
   );
 
@@ -56,5 +56,5 @@ export async function test() {
   assertEquals(await kv.delete(["k-1", "k-2"]), 2);
   assertEquals(await kv.delete({ start: "k-3", end: "k-6" }), 3);
   assertEquals(await kv.delete({ start: "k-6", limit: 2 }), 2);
-  assertEquals(await kv.get({ prefix: "k-" }), new Map([["k-8", 8], ["k-9", 9]]));
+  assertEquals(await kv.list({ prefix: "k-" }), new Map([["k-8", 8], ["k-9", 9]]));
 }

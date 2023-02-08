@@ -1,12 +1,21 @@
 {
-  "importMap": "import_map.json",
+  "imports": {
+    "asserts": "https://deno.land/std@0.175.0/testing/asserts.ts",
+    "dotenv": "https://deno.land/std@0.175.0/dotenv/load.ts",
+    "react": "https://esm.sh/react@18.2.0",
+    "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+    "gokv": "./mod.ts",
+    "gokv/react": "./react.ts"
+  },
   "tasks": {
     "test": "deno test -A --no-lock",
-    "test:web": "deno run -A --no-lock --watch test/integration-test-for-browser/_server.ts"
+    "test:web": "deno run -A --no-lock --watch test/integration-tests-in-browser/_server.ts"
   },
   "test": {
     "files": {
-      "include": ["src/"]
+      "include": [
+        "src/"
+      ]
     }
   },
   "fmt": {

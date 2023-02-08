@@ -1,8 +1,10 @@
-import { serve } from "https://deno.land/std@0.170.0/http/server.ts";
+import { serve } from "https://deno.land/std@0.175.0/http/server.ts";
 import html from "https://deno.land/x/htm@0.1.3/mod.ts";
-import { build } from "https://deno.land/x/esbuild@v0.16.12/mod.js";
+import { build } from "https://deno.land/x/esbuild@v0.17.5/mod.js";
 import gokv from "gokv";
 import "dotenv";
+
+const importMap = { imports: JSON.parse(await Deno.readTextFile("./deno.json")).imports };
 
 serve(async (req: Request) => {
   const { pathname } = new URL(req.url);
@@ -58,7 +60,7 @@ serve(async (req: Request) => {
 
   return html({
     scripts: [
-      { type: "importmap", text: await Deno.readTextFile("./import_map.json") },
+      { type: "importmap", text: JSON.stringify(importMap) },
       { type: "module", src: "/_bootstrap.tsx" },
     ],
     styles: [

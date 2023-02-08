@@ -1,6 +1,6 @@
 /** @jsx createElement */
 /** @jsxFrag Fragment */
-import { createElement, Fragment, useState } from "react";
+import { createElement, useState } from "react";
 import { Image } from "gokv/react";
 import { JSONViewer } from "./_components.tsx";
 
