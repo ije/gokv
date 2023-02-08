@@ -39,21 +39,32 @@ jobs:
         with:
           deno-version: v1.x
 
-      - name: Testing
+      - name: Testing (Deno)
         env:
           GOKV_WS_LOG: true
           GOKV_ENV: development
           GOKV_TOKEN: ${{ secrets.GOKV_TOKEN }}
         run: deno test -A
 
-  test2:
-    name: Testing (Node.js)
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Install dependencies
+        run: npm install -g pnpm && pnpm install
+
+      - name: Testing (Node)
+        env:
+          GOKV_WS_LOG: true
+          GOKV_ENV: development
+          GOKV_TOKEN: ${{ secrets.GOKV_TOKEN }}
+        run: pnpm test
+
+  test_node_16:
+    name: Testing (Node 16)
     runs-on: ubuntu-latest
     needs: test
-
-    strategy:
-      matrix:
-        node: [16, 18]
 
     steps:
       - name: Checkout
@@ -67,7 +78,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: ${{ matrix.node }}
+          node-version: 16
 
       - name: Install dependencies
         run: npm install -g pnpm && pnpm install
