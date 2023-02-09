@@ -19,15 +19,15 @@ export default class SessionImpl<StoreType extends Record<string, unknown>> impl
   #options: SessionOptions;
   #storage: Storage;
 
-  static expiresFromNow(maxAge = defaultMaxAge): number {
-    return Date.now() + 1000 * Math.max(maxAge, minMaxAge);
-  }
-
   constructor(options?: SessionOptions & StorageOptions) {
     this.#id = null;
     this.#store = null;
     this.#options = options ?? {};
     this.#storage = SessionImpl.#getStorage(options?.namespace);
+  }
+
+  static #expiresFromNow(maxAge = defaultMaxAge): number {
+    return Date.now() + 1000 * Math.max(maxAge, minMaxAge);
   }
 
   static #getStorage(namespace?: string): Storage {
@@ -49,7 +49,8 @@ export default class SessionImpl<StoreType extends Record<string, unknown>> impl
     if (sid) {
       const [rid, signature] = splitByChar(sid, ".");
       if (signature && signature === toHex(await hmacSign(rid, token, "SHA-256"), 36)) {
-        const value = await this.#storage.get<[data: StoreType, expires: number]>(sid, { noCache: true });
+        const kvOptions = { noCache: this.#options.noCache };
+        const value = await this.#storage.get<[data: StoreType, expires: number]>(sid, kvOptions);
         if (Array.isArray(value)) {
           const now = Date.now();
           const [data, expires] = value;
@@ -57,21 +58,17 @@ export default class SessionImpl<StoreType extends Record<string, unknown>> impl
             store = data;
             if (expires - now < minMaxAge * 1000) {
               // renew the session
-              await this.#storage.put(
-                sid,
-                [store, SessionImpl.expiresFromNow(this.#options.maxAge)],
-                { noCache: true },
-              );
+              await this.#storage.put(sid, [store, SessionImpl.#expiresFromNow(this.#options.maxAge)], kvOptions);
             }
           } else {
             // delete expired session
-            await this.#storage.delete(sid, { noCache: true });
+            await this.#storage.delete(sid, kvOptions);
           }
         }
       }
     }
     if (!sid || !store) {
-      const expirs = SessionImpl.expiresFromNow(this.#options.maxAge);
+      const expirs = SessionImpl.#expiresFromNow(this.#options.maxAge);
       const rid = expirs.toString(36) + toHex(await hashText(crypto.randomUUID(), "SHA-1"), 36);
       const signature = await hmacSign(rid, token, "SHA-256");
       sid = rid + "." + toHex(signature, 36);
@@ -107,17 +104,16 @@ export default class SessionImpl<StoreType extends Record<string, unknown>> impl
       nextStore = store;
     }
 
+    const kvOptions = { noCache: this.#options.noCache };
+
     if (nextStore === null) {
-      await this.#storage.delete(this.id, { noCache: true });
+      await this.#storage.delete(this.id, kvOptions);
       this.#store = null;
-    } else {
-      await this.#storage.put(
-        this.id,
-        [nextStore, SessionImpl.expiresFromNow(this.#options.maxAge)],
-        { noCache: true },
-      );
-      this.#store = nextStore;
+      return;
     }
+
+    await this.#storage.put(this.id, [nextStore, SessionImpl.#expiresFromNow(this.#options.maxAge)], kvOptions);
+    this.#store = nextStore;
   }
 
   async update(store: StoreType | ((prev: StoreType | null) => StoreType)): Promise<void> {

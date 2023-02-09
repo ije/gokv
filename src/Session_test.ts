@@ -15,11 +15,13 @@ Deno.test("Session Storage", { sanitizeOps: false, sanitizeResources: false }, a
   assertEquals(res.headers.get("Location"), "/dashboard");
   assertEquals(res.status, 302);
 
+  const t = performance.now();
   session = await new Session(config).init(
     new Request("https://gokv.io/", {
       headers: { "cookie": `sess=${session.id}` },
     }),
   );
+  console.debug("[timing]", "init session in", (performance.now() - t) + "ms");
   assertEquals(session.store, { username: "saul" });
 
   session = await new Session(config).init({ cookies: { sess: session.id } });

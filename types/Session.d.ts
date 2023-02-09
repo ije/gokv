@@ -7,6 +7,7 @@ export type SessionOptions = {
   cookieSameSite?: "Strict" | "Lax" | "None";
   cookieSecure?: boolean;
   maxAge?: number;
+  noCache?: boolean;
 };
 
 export class Session<T extends Record<string, unknown>> {
