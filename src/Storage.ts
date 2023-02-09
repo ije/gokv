@@ -6,7 +6,7 @@ import type {
   StorageOptions,
   StoragePutOptions,
 } from "../types/mod.d.ts";
-import { checkNamespace, isPlainObject } from "./common/utils.ts";
+import { checkNamespace, checkRegion, isPlainObject } from "./common/utils.ts";
 import { connectRPC, RPCSocket } from "./common/rpc.ts";
 
 const cacheMaxKeys = 100;
@@ -23,13 +23,15 @@ enum StorageMethod {
 
 export default class StorageImpl implements Storage {
   #namespace: string;
+  #region: string | undefined;
   #rpcSocket: RPCSocket | Promise<RPCSocket> | null;
   #cacheStore: Map<string, unknown>;
 
   constructor(options?: StorageOptions) {
-    this.#cacheStore = new Map();
     this.#namespace = checkNamespace(options?.namespace ?? "default");
+    this.#region = checkRegion(options?.region);
     this.#rpcSocket = null;
+    this.#cacheStore = new Map();
   }
 
   async #rpc(): Promise<RPCSocket> {
@@ -39,7 +41,7 @@ export default class StorageImpl implements Storage {
       }
       return this.#rpcSocket;
     }
-    return this.#rpcSocket = connectRPC("kv", this.#namespace, {
+    return this.#rpcSocket = connectRPC("kv", this.#namespace, this.#region, {
       onReconnect: (socket) => {
         const hotKeys = this.#cacheStore.keys();
         socket.invoke<Map<string, unknown>>(StorageMethod.GET, hotKeys, 1).then((entries) =>

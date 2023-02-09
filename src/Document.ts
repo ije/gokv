@@ -4,7 +4,7 @@ import atm from "./AccessTokenManager.ts";
 import { applyPatch, Op, Patch, proxy, remix, restoreArray } from "./common/proxy.ts";
 import { connect, SocketState } from "./common/socket.ts";
 import { deserialize, serialize, serializeStream } from "./common/structured.ts";
-import { checkNamespace, isLegacyNode } from "./common/utils.ts";
+import { checkNamespace, checkRegion, isLegacyNode } from "./common/utils.ts";
 
 enum MessageFlag {
   DOC = 1,
@@ -14,12 +14,14 @@ enum MessageFlag {
 
 export default class DocumentImpl<T extends Record<string, unknown>> implements Document<T> {
   #namespace: string;
+  #region: string | undefined;
   #id: string;
   #doc: T;
   #patchHandler?: (patch: Patch) => void;
 
   constructor(docId: string, options?: DocumentOptions) {
     this.#namespace = checkNamespace(options?.namespace ?? "default");
+    this.#region = checkRegion(options?.region);
     this.#id = checkNamespace(docId);
     this.#doc = proxy({} as T, (patch) => this.#patchHandler?.(patch));
   }
@@ -119,7 +121,7 @@ export default class DocumentImpl<T extends Record<string, unknown>> implements 
       push(id.toString(36), stripedPatch);
     };
 
-    socket = await connect("doc", this.#scope, {
+    socket = await connect("doc", this.#scope, this.#region, {
       signal: options?.signal,
       resolve: (flag) => flag === MessageFlag.DOC,
       initData: () => ({ version: docVersion }),

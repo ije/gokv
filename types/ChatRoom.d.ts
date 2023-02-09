@@ -1,4 +1,4 @@
-import { AuthUser } from "./common.d.ts";
+import { AuthUser, Region } from "./common.d.ts";
 
 export type ChatMessageMarker = {
   id: string;
@@ -38,6 +38,7 @@ export type Chat<U extends AuthUser> = {
 
 export type ChatRoomOptions = {
   namespace?: string;
+  region?: Region;
 };
 
 export type ChatRoomConnectOptions = {

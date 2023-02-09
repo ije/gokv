@@ -2,6 +2,17 @@ export type Permission = "readonly" | "readwrite" | "superuser";
 export type ServiceName = "chat" | "doc" | "fs" | "kv";
 export type RecordOrArray = Record<string, unknown> | Array<unknown>;
 
+export type Region =
+  | "WesternNorthAmerica"
+  | "EasternNorthAmerica"
+  | "SouthAmerica"
+  | "WesternEurope"
+  | "EasternEurope"
+  | "AsiaPacific"
+  | "Oceania"
+  | "Africa"
+  | "MiddleEast";
+
 export interface AuthUser {
   uid: number | string;
   name: string;

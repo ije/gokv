@@ -32,12 +32,20 @@ export type SocketOptions = {
 };
 
 /** Creating a `WebSocket` connection that supports heartbeat checking, gzip compression, inspect, and automatic re-connection. */
-export function connect(service: ServiceName, namespace: string, options: SocketOptions = {}): Promise<Socket> {
+export function connect(
+  service: ServiceName,
+  namespace: string,
+  region?: string,
+  options: SocketOptions = {},
+): Promise<Socket> {
   const debug = getEnv("GOKV_WS_LOG") === "true";
   const newWebSocket = async () => {
     const token = await atm.getAccessToken(`${service}:${namespace}`);
     const url = new URL(`wss://${atm.apiHost}/${service}/${namespace}`);
     url.searchParams.set("authToken", token.join("-"));
+    if (region) {
+      url.searchParams.set("locationHint", region);
+    }
     return await createWebSocket(url.href);
   };
   return new Promise<Socket>((resolve, reject) => {

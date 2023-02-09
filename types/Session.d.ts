@@ -1,13 +1,13 @@
 import { StorageOptions } from "./Storage.d.ts";
 
 export type SessionOptions = {
+  noCache?: boolean;
   cookieName?: string;
   cookieDomain?: string;
   cookiePath?: string;
   cookieSameSite?: "Strict" | "Lax" | "None";
   cookieSecure?: boolean;
   maxAge?: number;
-  noCache?: boolean;
 };
 
 export class Session<T extends Record<string, unknown>> {

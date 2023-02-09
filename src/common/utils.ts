@@ -8,6 +8,33 @@ export function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && Object.getPrototypeOf(v) === Object.prototype;
 }
 
+export function checkRegion(v: unknown): string | undefined {
+  switch (v) {
+    case undefined:
+      return undefined;
+    case "WesternNorthAmerica":
+      return "wnam";
+    case "EasternNorthAmerica":
+      return "enam";
+    case "SouthAmerica":
+      return "sam";
+    case "WesternEurope":
+      return "weur";
+    case "EasternEurope":
+      return "eeur";
+    case "AsiaPacific":
+      return "apac";
+    case "Oceania":
+      return "oc";
+    case "Africa":
+      return "afr";
+    case "MiddleEast":
+      return "me";
+    default:
+      throw new Error("Invalid region: " + v);
+  }
+}
+
 /** Check if the given namespace is valid. */
 export function checkNamespace(namespace: string) {
   if (namespace === "default" || namespace === "default/session") {

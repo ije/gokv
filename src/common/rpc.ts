@@ -20,13 +20,14 @@ export type RPCSocket = {
 export async function connectRPC(
   service: ServiceName,
   namespace: string,
+  region: string | undefined,
   options: {
     onSync: (entries: [string, unknown][]) => void;
     onReconnect: (rpc: RPCSocket) => void;
   },
 ): Promise<RPCSocket> {
   const awaits = new Map<number, (data: ArrayBuffer) => void>();
-  const socket = await connect(service, namespace, {
+  const socket = await connect(service, namespace, region, {
     onMessage: async (flag, message) => {
       switch (flag) {
         case RPCMessageFlag.DATA: {

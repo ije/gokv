@@ -13,10 +13,11 @@ export type DocumentContextProps = {
 export const DocumentContext = createContext<DocumentContextProps>({});
 
 const DocumentConnect: FC<PropsWithChildren<DocumentProviderProps>> = (props) => {
-  const { namespace: parentNamespace } = useContext(Context);
+  const { namespace: parentNamespace, region: defaultRegion } = useContext(Context);
   const { setState: setConnState } = useContext(ConnectStateContext);
   const namespace = props.namespace || parentNamespace;
-  const doc = useMemo(() => new Document(props.id, { namespace }), [props.id, namespace]);
+  const region = props.region || defaultRegion;
+  const doc = useMemo(() => new Document(props.id, { namespace, region }), [props.id, namespace]);
   const [error, setError] = useState<Error | null>(null);
   const [loading, setLoading] = useState(true);
   const value: Required<DocumentContextProps> = useMemo(() => ({ doc }), [doc]);

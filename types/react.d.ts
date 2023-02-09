@@ -1,11 +1,12 @@
 /// <reference lib="dom" />
 
 import type { FC, ImgHTMLAttributes, PropsWithChildren, ReactElement } from "react";
-import { AuthUser, RecordOrArray } from "./common.d.ts";
+import { AuthUser, RecordOrArray, Region } from "./common.d.ts";
 import type { ChatMessage } from "./ChatRoom.d.ts";
 
 export type GokvContextProps = {
   namespace: string;
+  region?: Region;
   imagesHost: string;
 };
 
@@ -40,6 +41,8 @@ export const Image: FC<ImageProps>;
 export type DocumentProviderProps = {
   // the namespace of the document, default to "default"
   namespace?: string;
+  // the region of the chat room
+  region?: Region;
   // the document id
   id: string;
   // fallback UI for when the document is not available, blank by default
@@ -62,6 +65,8 @@ export type ChatHandler = {
 export type ChatRoomProviderProps = {
   // the namespace of the chat room, default to "default"
   namespace?: string;
+  // the region of the chat room
+  region?: Region;
   // the chat room id
   id: string;
   // fallback UI for when the document is not available, blank by default

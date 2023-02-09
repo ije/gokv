@@ -1,6 +1,6 @@
 import type { AuthUser, Socket } from "../types/common.d.ts";
 import type { Chat, ChatMessage, ChatRoom, ChatRoomConnectOptions, ChatRoomOptions } from "../types/ChatRoom.d.ts";
-import { checkNamespace } from "./common/utils.ts";
+import { checkNamespace, checkRegion } from "./common/utils.ts";
 import { connect, SocketState } from "./common/socket.ts";
 import { deserialize } from "./common/structured.ts";
 
@@ -131,10 +131,12 @@ class ChatImpl<U extends AuthUser> implements Chat<U> {
 
 export default class ChatRoomImpl<U extends AuthUser> implements ChatRoom<U> {
   #namespace: string;
+  #region: string | undefined;
   #id: string;
 
   constructor(roomId: string, options?: ChatRoomOptions) {
     this.#namespace = checkNamespace(options?.namespace ?? "default");
+    this.#region = checkRegion(options?.region);
     this.#id = checkNamespace(roomId);
   }
 
@@ -148,7 +150,7 @@ export default class ChatRoomImpl<U extends AuthUser> implements ChatRoom<U> {
 
   async connect(options?: ChatRoomConnectOptions): Promise<Chat<U>> {
     let chat: ChatImpl<U> | null = null;
-    await connect("chat", this.#scope, {
+    await connect("chat", this.#scope, this.#region, {
       signal: options?.signal,
       resolve: (flag) => flag === MessageFlag.CHAT,
       initData: () => ({ ...options, lastMessageId: chat?._lastMessageId }),

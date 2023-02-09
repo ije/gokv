@@ -1,5 +1,8 @@
+import { Region } from "./common.d.ts";
+
 export type DocumentOptions = {
   namespace?: string;
+  region?: Region;
 };
 
 export type DocumentSyncOptions<T> = {

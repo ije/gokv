@@ -1,5 +1,8 @@
+import { Region } from "./common.d.ts";
+
 export type StorageOptions = {
   namespace?: string;
+  region?: Region;
 };
 
 export type StorageGetOptions = {

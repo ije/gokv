@@ -5,7 +5,7 @@ import { hashText, hmacSign, parseCookies, splitByChar, toHex } from "./common/u
 
 const minMaxAge = 60; // one minute
 const defaultMaxAge = 30 * 60; // half an hour
-const storageCache = new Map<string, Storage>();
+const storageMap = new Map<string, Storage>();
 
 // polyfill web crypto for Node.js
 if (!Reflect.has(globalThis, "crypto")) {
@@ -23,19 +23,18 @@ export default class SessionImpl<StoreType extends Record<string, unknown>> impl
     this.#id = null;
     this.#store = null;
     this.#options = options ?? {};
-    this.#storage = SessionImpl.#getStorage(options?.namespace);
+    this.#storage = SessionImpl.#getStorage(options);
   }
 
   static #expiresFromNow(maxAge = defaultMaxAge): number {
     return Date.now() + 1000 * Math.max(maxAge, minMaxAge);
   }
 
-  static #getStorage(namespace?: string): Storage {
-    namespace = (namespace ?? "default") + "/session";
-    if (!storageCache.has(namespace)) {
-      storageCache.set(namespace, new StorageImpl({ namespace }));
-    }
-    return storageCache.get(namespace)!;
+  static #getStorage(options?: StorageOptions): Storage {
+    const namespace = (options?.namespace ?? "default") + "/session";
+    const region = options?.region;
+    const key = namespace + (region ? "_" + region : "");
+    return storageMap.get(key) ?? storageMap.set(key, new StorageImpl({ namespace, region })).get(key)!;
   }
 
   async init(req: Request | { cookies: Record<string, string> }): Promise<this> {
