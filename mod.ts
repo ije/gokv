@@ -22,7 +22,7 @@ import ChatRoomImpl from "./src/ChatRoom.ts";
 import DocumentImpl from "./src/Document.ts";
 import FileStorageImpl from "./src/FileStorage.ts";
 
-export { snapshot, subscribe } from "./src/common/proxy.ts";
+export { ProxyProvider, snapshot, subscribe } from "./src/common/proxy.ts";
 
 export const config = ({ token, tokenSignUrl, tokenMaxAge }: ConfigOptions) => {
   if (token) {

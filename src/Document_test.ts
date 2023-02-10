@@ -43,8 +43,8 @@ Deno.test("Co Document", { sanitizeOps: false, sanitizeResources: false }, async
   await t.step("Update and sync document", async () => {
     const ac = new AbortController();
     // crate two sessions
-    const s1 = await new Document<DocType>(docId).sync({ signal: ac.signal });
-    const s2 = await new Document<DocType>(docId).sync({ signal: ac.signal });
+    const s1 = await doc.sync({ signal: ac.signal });
+    const s2 = await doc.sync({ signal: ac.signal });
     assertEquals(snapshot(s1), initData);
     assertEquals(snapshot(s2), initData);
 

@@ -2,25 +2,28 @@ import type { FC, PropsWithChildren } from "react";
 import { createContext, createElement, useContext, useEffect, useMemo, useState } from "react";
 import type { RecordOrArray } from "../../types/common.d.ts";
 import type { DocumentProviderProps } from "../../types/react.d.ts";
-import { Document, snapshot, subscribe } from "../../mod.ts";
+import { Document, ProxyProvider, snapshot, subscribe } from "../../mod.ts";
 import { Context } from "./Context.ts";
 import { ConnectStateContext, ConnectStateProvider } from "./ConnectState.ts";
 
 export type DocumentContextProps = {
-  doc?: Document<Record<string, unknown>>;
+  doc?: RecordOrArray;
 };
 
 export const DocumentContext = createContext<DocumentContextProps>({});
 
 const DocumentConnect: FC<PropsWithChildren<DocumentProviderProps>> = (props) => {
-  const { namespace: parentNamespace, region: defaultRegion } = useContext(Context);
+  const ctx = useContext(Context);
   const { setState: setConnState } = useContext(ConnectStateContext);
-  const namespace = props.namespace || parentNamespace;
-  const region = props.region || defaultRegion;
-  const doc = useMemo(() => new Document(props.id, { namespace, region }), [props.id, namespace]);
+  const namespace = props.namespace || ctx.namespace;
+  const region = props.region || ctx.region;
+  const [doc, proxyProvider] = useMemo(() => [
+    new Document(props.id, { namespace, region }),
+    new ProxyProvider<RecordOrArray>(),
+  ], [props.id, namespace, region]);
   const [error, setError] = useState<Error | null>(null);
   const [loading, setLoading] = useState(true);
-  const value: Required<DocumentContextProps> = useMemo(() => ({ doc }), [doc]);
+  const value: Required<DocumentContextProps> = useMemo(() => ({ doc: proxyProvider.object }), [doc]);
 
   useEffect(() => {
     const ac = new AbortController();
@@ -28,8 +31,9 @@ const DocumentConnect: FC<PropsWithChildren<DocumentProviderProps>> = (props) =>
       setLoading(true);
       try {
         await doc.sync({
+          proxyProvider: proxyProvider,
           signal: ac.signal,
-          initialData: props.initialData,
+          initial: props.initial,
           onStateChange: setConnState,
         });
         setLoading(false);
@@ -61,14 +65,14 @@ export const DocumentProvider: FC<PropsWithChildren<DocumentProviderProps>> = (p
   return createElement(ConnectStateProvider, null, createElement(DocumentConnect, props));
 };
 
-export const useDocument = <T extends Record<string, unknown>>(): T => {
+export const useDocument = <T extends RecordOrArray>(): T => {
   const { doc } = useContext(DocumentContext);
 
   if (!doc) {
     throw new Error("No document found, please wrap your component within <DocumentProvider />.");
   }
 
-  return doc.DOC as T;
+  return doc as T;
 };
 
 export function useSnapshot<T extends RecordOrArray>(obj: T): T;

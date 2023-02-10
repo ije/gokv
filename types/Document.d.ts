@@ -1,19 +1,26 @@
-import { Region } from "./common.d.ts";
+import { RecordOrArray, Region } from "./common.d.ts";
 
 export type DocumentOptions = {
   namespace?: string;
   region?: Region;
 };
 
-export type DocumentSyncOptions<T> = {
-  initialData?: T;
+export interface ProxyProvider<T extends RecordOrArray> {
+  object: T;
+  // deno-lint-ignore no-explicit-any
+  onPatch: (patch: any) => void;
+}
+
+export type DocumentSyncOptions<T extends RecordOrArray> = {
+  proxyProvider?: ProxyProvider<T>;
+  initial?: T;
   signal?: AbortSignal;
   onError?: (code: string, message: string, details?: Record<string, unknown>) => void;
   onStateChange?: (state: "connecting" | "connected" | "disconnected") => void;
 };
 
 /** `Document` syncs changes between sessions and saved automatically. */
-export class Document<T extends Record<string, unknown>> {
+export class Document<T extends RecordOrArray> {
   constructor(documentId: string, options?: DocumentOptions);
   /** Resets the document with the given `data`. */
   reset(data?: T): Promise<{ version: number }>;

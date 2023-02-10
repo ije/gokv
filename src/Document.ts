@@ -1,10 +1,10 @@
-import { Socket } from "../types/common.d.ts";
+import { RecordOrArray, Socket } from "../types/common.d.ts";
 import type { Document, DocumentOptions, DocumentSyncOptions } from "../types/Document.d.ts";
 import atm from "./AccessTokenManager.ts";
 import { applyPatch, Op, Patch, proxy, remix, restoreArray } from "./common/proxy.ts";
 import { connect, SocketState } from "./common/socket.ts";
 import { deserialize, serialize, serializeStream } from "./common/structured.ts";
-import { checkNamespace, checkRegion, isLegacyNode } from "./common/utils.ts";
+import { checkNamespace, checkRegion, isLegacyNode, isPlainObject } from "./common/utils.ts";
 
 enum MessageFlag {
   DOC = 1,
@@ -12,18 +12,15 @@ enum MessageFlag {
   ACK = 3,
 }
 
-export default class DocumentImpl<T extends Record<string, unknown>> implements Document<T> {
+export default class DocumentImpl<T extends RecordOrArray> implements Document<T> {
   #namespace: string;
   #region: string | undefined;
   #id: string;
-  #doc: T;
-  #patchHandler?: (patch: Patch) => void;
 
   constructor(docId: string, options?: DocumentOptions) {
     this.#namespace = checkNamespace(options?.namespace ?? "default");
     this.#region = checkRegion(options?.region);
     this.#id = checkNamespace(docId);
-    this.#doc = proxy({} as T, (patch) => this.#patchHandler?.(patch));
   }
 
   get #scope() {
@@ -32,10 +29,6 @@ export default class DocumentImpl<T extends Record<string, unknown>> implements 
 
   get id() {
     return this.#id;
-  }
-
-  get DOC() {
-    return this.#doc;
   }
 
   async getSnapshot(): Promise<T> {
@@ -48,7 +41,7 @@ export default class DocumentImpl<T extends Record<string, unknown>> implements 
       res.body?.cancel?.();
       throw new Error(`Failed to get document snapshot: ${res.status} ${res.statusText}`);
     }
-    const snapshot = await deserialize<T>(!isLegacyNode ? res.body! : await res.arrayBuffer());
+    const snapshot = await deserialize<Record<string, unknown>>(!isLegacyNode ? res.body! : await res.arrayBuffer());
     res.body?.cancel?.();
     return restoreArray(snapshot) as T;
   }
@@ -73,12 +66,9 @@ export default class DocumentImpl<T extends Record<string, unknown>> implements 
   }
 
   async sync(options?: DocumentSyncOptions<T>): Promise<T> {
-    if (this.#patchHandler) {
-      return this.#doc;
-    }
-
     let docVersion = -1;
     let patchIndex = 0;
+    let initiated = false;
     let online = false;
     let socket: Socket | null = null;
 
@@ -110,7 +100,7 @@ export default class DocumentImpl<T extends Record<string, unknown>> implements 
       }
     };
 
-    this.#patchHandler = (patch) => {
+    const patchHandler = (patch: Patch) => {
       // todo: merge patches
       const id = patchIndex++;
       const arr = patch.slice(0, patch[0] === Op.DELETE ? 2 : 3);
@@ -121,6 +111,12 @@ export default class DocumentImpl<T extends Record<string, unknown>> implements 
       push(id.toString(36), stripedPatch);
     };
 
+    // todo: init proxy object with offline data
+    let proxyObject = options?.proxyProvider?.object;
+    if (options?.proxyProvider) {
+      options.proxyProvider.onPatch = patchHandler;
+    }
+
     socket = await connect("doc", this.#scope, this.#region, {
       signal: options?.signal,
       resolve: (flag) => flag === MessageFlag.DOC,
@@ -128,14 +124,21 @@ export default class DocumentImpl<T extends Record<string, unknown>> implements 
       onMessage: async (flag, data) => {
         switch (flag) {
           case MessageFlag.DOC: {
-            const [version, snapshot, resetByApi] = await deserialize<[number, T, boolean | undefined]>(data);
-            // update the proxy object with the new snapshot
-            remix(this.#doc, snapshot);
-            // update the doc with the initial data if specified
-            if (options?.initialData) {
-              for (const [k, v] of Object.entries(options.initialData)) {
-                if (!Reflect.has(this.#doc, k)) {
-                  Reflect.set(this.#doc, k, v);
+            const [version, snapshot, resetByApi] = await deserialize<[number, Record<string, unknown>, boolean]>(data);
+            if (!proxyObject) {
+              proxyObject = proxy(snapshot, patchHandler) as T;
+            } else {
+              // update the doc with the snapshot from reconnection
+              remix(proxyObject, snapshot);
+            }
+            if (!initiated) {
+              initiated = true;
+              // update the doc with the initial data if specified
+              if (options?.initial && isPlainObject(options.initial)) {
+                for (const [k, v] of Object.entries(options.initial)) {
+                  if (!Reflect.has(proxyObject, k)) {
+                    Reflect.set(proxyObject, k, v);
+                  }
                 }
               }
             }
@@ -145,7 +148,7 @@ export default class DocumentImpl<T extends Record<string, unknown>> implements 
               if (queue.length > 0) {
                 const patches = queue.splice(0);
                 for (const [, ...patch] of patches) {
-                  applyPatch(this.#doc, patch);
+                  applyPatch(proxyObject, patch);
                 }
                 drain(patches);
               }
@@ -174,7 +177,7 @@ export default class DocumentImpl<T extends Record<string, unknown>> implements 
                   uncomfirmedPatches.set(`${id}-recycle`, true as unknown as Patch);
                 }
               }
-              shouldApply && applyPatch(this.#doc, patch);
+              shouldApply && applyPatch(proxyObject!, patch);
             }
             if (typeof version === "number" && version > docVersion) {
               docVersion = version;
@@ -190,7 +193,7 @@ export default class DocumentImpl<T extends Record<string, unknown>> implements 
               }
               // re-apply the patch for new parent
               if (uncomfirmedPatches.has(`${id}-recycle`)) {
-                applyPatch(this.#doc, uncomfirmedPatches.get(id)!);
+                applyPatch(proxyObject!, uncomfirmedPatches.get(id)!);
                 uncomfirmedPatches.delete(`${id}-recycle`);
               }
               uncomfirmedPatches.delete(id);
@@ -217,7 +220,6 @@ export default class DocumentImpl<T extends Record<string, unknown>> implements 
         online = state === SocketState.READY;
       },
       onClose: () => {
-        this.#patchHandler = undefined;
         queue.length = 0;
         uncomfirmedPatches.clear();
       },
@@ -238,6 +240,9 @@ export default class DocumentImpl<T extends Record<string, unknown>> implements 
       },
     });
 
-    return this.#doc;
+    if (!proxyObject) {
+      throw new Error("Failed to connect to the document");
+    }
+    return proxyObject;
   }
 }

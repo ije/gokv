@@ -40,10 +40,10 @@ const appendMessage = (prev: Array<ChatMessage<AuthUser>>, msg: ChatMessage<Auth
 export const ChatRoomContext = createContext<ChatRoomContextProps>({});
 
 const _ChatRoomProvider: FC<PropsWithChildren<ChatRoomProviderProps>> = (props) => {
-  const { namespace: defaultNS, region: defaultRegion } = useContext(Context);
+  const ctx = useContext(Context);
   const { setState: setConnState } = useContext(ConnectStateContext);
-  const namespace = props.namespace || defaultNS;
-  const region = props.region || defaultRegion;
+  const namespace = props.namespace || ctx.namespace;
+  const region = props.region || ctx.region;
   const room = useMemo(() => new ChatRoom(props.id, { namespace, region }), [props.id, namespace]);
   const [channel, setChannel] = useState<Array<ChatMessage<AuthUser>>>(() => []);
   const [currentUser, setCurrentUser] = useState<AuthUser>(() => ({ uid: 0, name: "unknown" }));

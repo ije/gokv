@@ -399,7 +399,7 @@ export function remix(proxyObject: RecordOrArray, updateObject: Record<string, u
   traverseSet(updateObject);
 }
 
-export function restoreArray(obj: Record<string, unknown>) {
+export function restoreArray(obj: Record<string, unknown>): RecordOrArray {
   const { $$indexs, $$values } = obj;
   if (Array.isArray($$indexs) && isPlainObject($$values)) {
     return $$indexs.map((index) => $$values[index]);
@@ -496,7 +496,7 @@ export function applyPatch(proxyObject: RecordOrArray, patch: Patch): boolean {
 
 export function snapshot<T extends RecordOrArray>(proxyObject: T): T {
   if (!canProxy(proxyObject)) {
-    throw new Error("requires object but got " + typeof proxyObject);
+    return proxyObject;
   }
   return Reflect.get(proxyObject, SNAPSHOT) as T | undefined ?? proxyObject;
 }
@@ -541,4 +541,18 @@ export function subscribe(proxyObject: RecordOrArray, keyOrCallback: string | (C
       proxy.keyListeners.delete(key);
     }
   };
+}
+
+export class ProxyProvider<T extends RecordOrArray> {
+  #object: T;
+
+  onPatch: (patch: Patch) => void = dummyFn;
+
+  constructor(isArray = false) {
+    this.#object = proxy((isArray ? [] : {}) as T, (patch) => this.onPatch(patch));
+  }
+
+  get object() {
+    return this.#object;
+  }
 }
