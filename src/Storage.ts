@@ -111,8 +111,8 @@ export default class StorageImpl implements Storage {
       if (keyOrKeys.length === 0) {
         return new Map();
       }
-      if (keyOrKeys.length > 100) {
-        throw new Error("only support get less than 100 keys");
+      if (keyOrKeys.length > 128) {
+        throw new Error("only support get less than 128 keys at a time");
       }
       const hitKeys: string[] = [];
       const keys: string[] = [];
