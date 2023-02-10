@@ -34,8 +34,8 @@ await test("Update and sync document", async () => {
   const ac = new AbortController();
 
   // crate two sessions
-  const s1 = await gokv.Document(docId).sync({ signal: ac.signal });
-  const s2 = await gokv.Document(docId).sync({ signal: ac.signal });
+  const s1 = await doc.sync({ signal: ac.signal });
+  const s2 = await doc.sync({ signal: ac.signal });
   assertEquals(snapshot(s1), initData);
   assertEquals(snapshot(s2), initData);
 
