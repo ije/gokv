@@ -13,11 +13,11 @@ const cacheMaxKeys = 100;
 
 enum StorageMethod {
   GET = 1,
-  PUT = 2,
-  DELETE = 3,
-  LIST = 4,
+  LIST = 2,
+  SUM = 3,
+  PUT = 4,
   UPDATE_NUMBER = 5,
-  SUM = 6,
+  DELETE = 6,
   FORGET = 7,
 }
 
@@ -64,15 +64,15 @@ export default class StorageImpl implements Storage {
       store.delete(key);
       store.set(key, value);
     }
-    const forgetKeys: string[] = [];
-    while (store.size > cacheMaxKeys) {
-      const key = store.keys().next().value;
-      store.delete(key);
-      forgetKeys.push(key);
+    const overSize = store.size - cacheMaxKeys;
+    if (overSize <= 0) {
+      return;
     }
-    if (forgetKeys.length > 0) {
-      this.#rpc().then((rpc) => rpc.invoke(StorageMethod.FORGET, forgetKeys));
+    const forgetKeys = new Array<string>(overSize);
+    for (let i = 0; i < overSize; i++) {
+      forgetKeys[i] = store.keys().next().value;
     }
+    this.#rpc().then((rpc) => rpc.invoke(StorageMethod.FORGET, forgetKeys));
   }
 
   async preload(keys: string[]): Promise<void> {
@@ -141,12 +141,14 @@ export default class StorageImpl implements Storage {
 
   async put(
     keyOrEntries: string | Record<string, unknown>,
-    value?: unknown,
+    valueOrOptions?: unknown,
     options?: StoragePutOptions,
   ): Promise<void> {
-    const hot = !options?.noCache ? 1 : 0;
+    const opts = typeof keyOrEntries === "string" ? options : valueOrOptions as StoragePutOptions;
+    const hot = !opts?.noCache;
     const rpc = await this.#rpc();
     if (typeof keyOrEntries === "string") {
+      const value = valueOrOptions;
       await rpc.invoke(StorageMethod.PUT, keyOrEntries, value ?? null, hot);
       if (hot || this.#isHot(keyOrEntries)) {
         this.#cache([[keyOrEntries, value ?? null]]);
@@ -166,7 +168,7 @@ export default class StorageImpl implements Storage {
     options?: StoragePutOptions,
     // deno-lint-ignore no-explicit-any
   ): Promise<any> {
-    const hot = !options?.noCache ? 1 : 0;
+    const hot = !options?.noCache;
     const rpc = await this.#rpc();
     const ret = await rpc.invoke(StorageMethod.DELETE, keyOrKeysOrOptions, hot);
     if (typeof keyOrKeysOrOptions === "string" && keyOrKeysOrOptions.length > 0 && ret === true) {
@@ -190,14 +192,29 @@ export default class StorageImpl implements Storage {
     return rpc.invoke(StorageMethod.LIST, options);
   }
 
-  async updateNumber(key: string, delta: number, options?: StoragePutOptions): Promise<number> {
+  async updateNumber(key: string, delta: number, options?: StoragePutOptions & { sumKey?: string }): Promise<number> {
     if (!(typeof key === "string" && key.length > 0 && typeof delta === "number" && !Number.isNaN(delta))) {
       throw new Error("Invalid key or delta");
     }
-    const hot = !options?.noCache ? 1 : 0;
+    const sumKey = options?.sumKey;
+    const hot = !options?.noCache;
     const rpc = await this.#rpc();
-    const ret = await rpc.invoke<number>(StorageMethod.UPDATE_NUMBER, key, delta, hot);
-    if (hot || this.#isHot(key)) {
+    const ret = await rpc.invoke<number>(
+      StorageMethod.UPDATE_NUMBER,
+      sumKey ? [key, sumKey] : key,
+      delta,
+      hot,
+    );
+    if (sumKey) {
+      if (this.#isHot(key)) {
+        const cacheValue = this.#cacheStore.get(key);
+        if (cacheValue === undefined) {
+          this.#cache([[key, { [sumKey]: ret }]]);
+        } else if (isPlainObject(cacheValue)) {
+          this.#cache([[key, { ...cacheValue, [sumKey]: ret }]]);
+        }
+      }
+    } else if (hot || this.#isHot(key)) {
       this.#cache([[key, ret]]);
     }
     return ret;

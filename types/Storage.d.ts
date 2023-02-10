@@ -42,6 +42,6 @@ export class Storage {
   delete(keys: string[], options?: StoragePutOptions): Promise<number>;
   delete(options: StorageDeleteOptions): Promise<number>;
   delete(options: { ALL: true } & StoragePutOptions): Promise<void>;
-  updateNumber: (key: string, delta: number, options?: StoragePutOptions) => Promise<number>;
+  updateNumber: (key: string, delta: number, options?: StoragePutOptions & { subKey?: string }) => Promise<number>;
   sum(options?: StorageListOptions & { sumKey?: string }): Promise<{ items: number; sum: number }>;
 }

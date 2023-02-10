@@ -39,12 +39,17 @@ Deno.test("KV Storage", { sanitizeOps: false, sanitizeResources: false }, async 
   );
 
   // update number
-  await kv.put("num", 1);
+  await kv.put({
+    num: 1,
+    counter: { total: 1 },
+  }, { noCache: true });
   assertEquals(await kv.get("num"), 1);
-  await kv.updateNumber("num", 2);
+  assertEquals(await kv.updateNumber("num", 2), 3);
   assertEquals(await kv.get("num"), 3);
-  await kv.updateNumber("num", -0.5);
+  assertEquals(await kv.updateNumber("num", -0.5), 2.5);
   assertEquals(await kv.get("num"), 2.5);
+  assertEquals(await kv.updateNumber("counter", 1, { sumKey: "total", noCache: true }), 2);
+  assertEquals(await kv.get("counter"), { total: 2 });
 
   // sum
   assertEquals(await kv.sum({ prefix: "k-" }), {
