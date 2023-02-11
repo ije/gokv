@@ -54,7 +54,7 @@ export default class StorageImpl implements Storage {
     });
   }
 
-  #isHot(key: string): boolean {
+  #cacheHit(key: string): boolean {
     return this.#cacheStore.has(key);
   }
 
@@ -79,7 +79,7 @@ export default class StorageImpl implements Storage {
     if (keys.length > cacheMaxKeys) {
       throw new Error("only support preload less than 100 keys");
     }
-    keys = keys.filter((key) => !this.#isHot(key));
+    keys = keys.filter((key) => !this.#cacheHit(key));
     if (keys.length === 0) {
       return;
     }
@@ -97,7 +97,7 @@ export default class StorageImpl implements Storage {
 
     // get single key-value pair
     if (typeof keyOrKeys === "string" && keyOrKeys.length > 0) {
-      if (this.#isHot(keyOrKeys)) {
+      if (this.#cacheHit(keyOrKeys)) {
         return this.#cacheStore.get(keyOrKeys);
       }
       const rpc = await this.#rpc();
@@ -117,7 +117,7 @@ export default class StorageImpl implements Storage {
       const hitKeys: string[] = [];
       const keys: string[] = [];
       for (const key of keyOrKeys) {
-        if (this.#isHot(key)) {
+        if (this.#cacheHit(key)) {
           hitKeys.push(key);
         } else {
           keys.push(key);
@@ -150,7 +150,7 @@ export default class StorageImpl implements Storage {
     if (typeof keyOrEntries === "string") {
       const value = valueOrOptions;
       await rpc.invoke(StorageMethod.PUT, keyOrEntries, value ?? null, hot);
-      if (hot || this.#isHot(keyOrEntries)) {
+      if (hot || this.#cacheHit(keyOrEntries)) {
         this.#cache([[keyOrEntries, value ?? null]]);
       }
     } else if (isPlainObject(keyOrEntries)) {
@@ -158,7 +158,7 @@ export default class StorageImpl implements Storage {
       if (hot) {
         this.#cache(Object.entries(keyOrEntries));
       } else {
-        this.#cache(Object.entries(keyOrEntries).filter(([key]) => this.#isHot(key)));
+        this.#cache(Object.entries(keyOrEntries).filter(([key]) => this.#cacheHit(key)));
       }
     }
   }
@@ -206,7 +206,7 @@ export default class StorageImpl implements Storage {
       hot,
     );
     if (sumKey) {
-      if (this.#isHot(key)) {
+      if (this.#cacheHit(key)) {
         const cacheValue = this.#cacheStore.get(key);
         if (cacheValue === undefined) {
           this.#cache([[key, { [sumKey]: ret }]]);
@@ -214,7 +214,7 @@ export default class StorageImpl implements Storage {
           this.#cache([[key, { ...cacheValue, [sumKey]: ret }]]);
         }
       }
-    } else if (hot || this.#isHot(key)) {
+    } else if (hot || this.#cacheHit(key)) {
       this.#cache([[key, ret]]);
     }
     return ret;

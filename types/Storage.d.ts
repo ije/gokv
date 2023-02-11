@@ -17,6 +17,7 @@ export type StorageListOptions = {
   start?: string;
   startAfter?: string;
   end?: string;
+  prefixs?: string[];
   prefix?: string;
   limit?: number;
   reverse?: boolean;
@@ -43,5 +44,5 @@ export class Storage {
   delete(options: StorageDeleteOptions): Promise<number>;
   delete(options: { ALL: true } & StoragePutOptions): Promise<void>;
   updateNumber: (key: string, delta: number, options?: StoragePutOptions & { subKey?: string }) => Promise<number>;
-  sum(options?: StorageListOptions & { sumKey?: string }): Promise<{ items: number; sum: number }>;
+  sum(options?: Omit<StorageListOptions, "prefixs"> & { sumKey?: string }): Promise<{ items: number; sum: number }>;
 }
