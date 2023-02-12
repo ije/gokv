@@ -37,13 +37,13 @@ export function checkRegion(v: unknown): string | undefined {
 
 /** Check if the given namespace is valid. */
 export function checkNamespace(namespace: string) {
-  if (namespace === "default" || namespace === "default/session") {
+  if (namespace === "default" || namespace === "default/auth") {
     return namespace;
   }
-  const sessionSuffix = "/session";
-  const withSessionSuffix = namespace.endsWith(sessionSuffix);
-  if (withSessionSuffix) {
-    namespace = namespace.slice(0, -sessionSuffix.length);
+  const authSuffix = "/auth";
+  const withAuthSuffix = namespace.endsWith(authSuffix);
+  if (withAuthSuffix) {
+    namespace = namespace.slice(0, -authSuffix.length);
   }
   if (namespace === "") {
     throw new Error("Namespace is empty");
@@ -54,7 +54,7 @@ export function checkNamespace(namespace: string) {
   if (!/^[\w\-]+$/.test(namespace)) {
     throw new Error("Namespace contains invalid characters, only [\\w\\-] are allowed");
   }
-  return namespace.toLowerCase() + (withSessionSuffix ? sessionSuffix : "");
+  return namespace.toLowerCase() + (withAuthSuffix ? authSuffix : "");
 }
 
 /** From T, pick a set of properties whose keys are in the union K. */

@@ -24,12 +24,14 @@ enum StorageMethod {
 export default class StorageImpl implements Storage {
   #namespace: string;
   #region: string | undefined;
+  #noCache: boolean;
   #rpcSocket: RPCSocket | Promise<RPCSocket> | null;
   #cacheStore: Map<string, unknown>;
 
   constructor(options?: StorageOptions) {
     this.#namespace = checkNamespace(options?.namespace ?? "default");
     this.#region = checkRegion(options?.region);
+    this.#noCache = Boolean(options?.noCache);
     this.#rpcSocket = null;
     this.#cacheStore = new Map();
   }
@@ -90,7 +92,8 @@ export default class StorageImpl implements Storage {
 
   // deno-lint-ignore no-explicit-any
   async get(keyOrKeys: string | string[], options?: StorageGetOptions): Promise<any> {
-    if (options?.noCache) {
+    const noCache = options?.noCache ?? this.#noCache;
+    if (noCache) {
       const rpc = await this.#rpc();
       return await rpc.invoke(StorageMethod.GET, keyOrKeys);
     }
@@ -101,7 +104,7 @@ export default class StorageImpl implements Storage {
         return this.#cacheStore.get(keyOrKeys);
       }
       const rpc = await this.#rpc();
-      const ret = await rpc.invoke(StorageMethod.GET, keyOrKeys, 1);
+      const ret = await rpc.invoke(StorageMethod.GET, keyOrKeys, true);
       this.#cache([[keyOrKeys, ret]]);
       return ret;
     }
@@ -128,7 +131,7 @@ export default class StorageImpl implements Storage {
         return kv;
       }
       const rpc = await this.#rpc();
-      const ret = await rpc.invoke<Map<string, unknown>>(StorageMethod.GET, keys, 1);
+      const ret = await rpc.invoke<Map<string, unknown>>(StorageMethod.GET, keys, true);
       this.#cache(ret.entries());
       for (const [key, value] of ret) {
         kv.set(key, value);
@@ -145,7 +148,7 @@ export default class StorageImpl implements Storage {
     options?: StoragePutOptions,
   ): Promise<void> {
     const opts = typeof keyOrEntries === "string" ? options : valueOrOptions as StoragePutOptions;
-    const hot = !opts?.noCache;
+    const hot = !(opts?.noCache ?? this.#noCache);
     const rpc = await this.#rpc();
     if (typeof keyOrEntries === "string") {
       const value = valueOrOptions;
@@ -164,11 +167,11 @@ export default class StorageImpl implements Storage {
   }
 
   async delete(
-    keyOrKeysOrOptions: string | string[] | StorageDeleteOptions | ({ ALL: true } & StoragePutOptions),
+    keyOrKeysOrOptions: string | string[] | StorageDeleteOptions | { ALL: true },
     options?: StoragePutOptions,
     // deno-lint-ignore no-explicit-any
   ): Promise<any> {
-    const hot = !options?.noCache;
+    const hot = !(options?.noCache ?? this.#noCache);
     const rpc = await this.#rpc();
     const ret = await rpc.invoke(StorageMethod.DELETE, keyOrKeysOrOptions, hot);
     if (typeof keyOrKeysOrOptions === "string" && keyOrKeysOrOptions.length > 0 && ret === true) {
@@ -197,7 +200,7 @@ export default class StorageImpl implements Storage {
       throw new Error("Invalid key or delta");
     }
     const sumKey = options?.sumKey;
-    const hot = !options?.noCache;
+    const hot = !(options?.noCache ?? this.#noCache);
     const rpc = await this.#rpc();
     const ret = await rpc.invoke<number>(
       StorageMethod.UPDATE_NUMBER,

@@ -3,6 +3,7 @@ import { Region } from "./common.d.ts";
 export type StorageOptions = {
   namespace?: string;
   region?: Region;
+  noCache?: boolean;
 };
 
 export type StorageGetOptions = {
@@ -28,8 +29,7 @@ export type StorageDeleteOptions =
     valueEq?: string;
     valueIn?: string[];
   }
-  & StorageListOptions
-  & StoragePutOptions;
+  & StorageListOptions;
 
 export class Storage {
   constructor(options: StorageOptions);
@@ -42,7 +42,7 @@ export class Storage {
   delete(key: string, options?: StoragePutOptions): Promise<boolean>;
   delete(keys: string[], options?: StoragePutOptions): Promise<number>;
   delete(options: StorageDeleteOptions): Promise<number>;
-  delete(options: { ALL: true } & StoragePutOptions): Promise<void>;
+  delete(options: { ALL: true }): Promise<void>;
   updateNumber: (key: string, delta: number, options?: StoragePutOptions & { subKey?: string }) => Promise<number>;
   sum(options?: Omit<StorageListOptions, "prefixs"> & { sumKey?: string }): Promise<{ items: number; sum: number }>;
 }

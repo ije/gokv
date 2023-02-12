@@ -1,6 +1,6 @@
 import gokv from "../../dist/index.mjs";
 
-const config = { cookieName: "sess" };
+const config = { cookie: { name: "sess" } };
 
 await test("Session Storage", async () => {
   let session = await gokv.Session(new Request("https://gokv.io/"), config);

@@ -1,4 +1,6 @@
 import type {
+  AuthenticationFn,
+  AuthenticationOptions,
   AuthUser,
   ChatRoom,
   ChatRoomOptions,
@@ -9,6 +11,7 @@ import type {
   FileStorageOptions,
   Module,
   Permission,
+  RecordOrArray,
   ServiceName,
   Session,
   SessionOptions,
@@ -16,6 +19,7 @@ import type {
   StorageOptions,
 } from "./types/mod.d.ts";
 import atm from "./src/AccessTokenManager.ts";
+import AuthenticationImpl from "./src/Authentication.ts";
 import StorageImpl from "./src/Storage.ts";
 import SessionImpl from "./src/Session.ts";
 import ChatRoomImpl from "./src/ChatRoom.ts";
@@ -57,18 +61,26 @@ export function signAccessToken<U extends AuthUser>(
 export default {
   config,
   signAccessToken,
+  Authentication<U extends AuthUser>(options?: AuthenticationOptions): AuthenticationFn<U> {
+    const auth = new AuthenticationImpl<U>(options);
+    const authFn = auth.auth.bind(auth) as AuthenticationFn<U>;
+    authFn.callback = auth.callback.bind(auth);
+    authFn.logout = auth.logout.bind(auth);
+    authFn.logout = auth.logout.bind(auth);
+    return authFn;
+  },
   ChatRoom<U extends AuthUser>(roomId: string, options?: ChatRoomOptions): ChatRoom<U> {
     return new ChatRoomImpl(roomId, options);
   },
-  Document<T extends Record<string, unknown>>(documentId: string, options?: DocumentOptions): Document<T> {
+  Document<T extends RecordOrArray>(documentId: string, options?: DocumentOptions): Document<T> {
     return new DocumentImpl<T>(documentId, options);
   },
   FileStorage(options?: FileStorageOptions): FileStorage {
     return new FileStorageImpl(options);
   },
-  Session<T extends Record<string, unknown> = Record<string, unknown>>(
+  Session<T extends Record<string, unknown>>(
     req: Request | { cookies: Record<string, string> },
-    options?: SessionOptions & StorageOptions,
+    options?: SessionOptions,
   ): Promise<Session<T>> {
     return new SessionImpl<T>(options).init(req);
   },
