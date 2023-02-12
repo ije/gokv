@@ -1,11 +1,6 @@
 import type { Authentication, AuthenticationOptions, AuthUser, OAuthProviderOptions } from "../types/mod.d.ts";
 import SeesionImpl from "./Session.ts";
 
-type OAuthCallbackOptions = OAuthProviderOptions & {
-  code: string;
-  state: string;
-};
-
 type OAuthCallbackResult = {
   id: string | number;
   name: string;
@@ -17,15 +12,18 @@ type OAuthCallbackResult = {
 const providers = {
   // ref https://docs.github.com/en/developers/apps/building-oauth-apps/authorizing-oauth-apps
   github: {
-    authUrl: "https://github.com/login/oauth/authorize?scope=read:user+user:email",
-    callback: async (options: OAuthCallbackOptions): Promise<OAuthCallbackResult> => {
+    authUrl: "https://github.com/login/oauth/authorize",
+    params: {
+      scope: "read:user+user:email",
+    },
+    callback: async (code: string, options: OAuthProviderOptions): Promise<OAuthCallbackResult> => {
       const ret = await fetch("https://github.com/login/oauth/access_token", {
         method: "POST",
         body: JSON.stringify({
           client_id: options.clientId,
           client_secret: options.clientSecret,
-          code: options.code,
-          state: options.state,
+          redirect_uri: options.redirectUrl!,
+          code,
         }),
         headers: {
           "Content-Type": "application/json",
@@ -35,11 +33,10 @@ const providers = {
       if (ret.error) {
         throw new Error(ret.error);
       }
-
       const oauth = await fetch("https://api.github.com/user", {
         headers: {
-          "Authorization": `${ret.token_type} ${ret.access_token}`,
           "Accept": "application/json",
+          "Authorization": `${ret.token_type} ${ret.access_token}`,
         },
       }).then((res) => res.json());
       if (oauth.error) {
@@ -56,18 +53,23 @@ const providers = {
   },
   // ref https://developers.google.com/identity/openid-connect/openid-connect
   google: {
-    authUrl: "https://accounts.google.com/o/oauth2/v2/auth?response_type=code?scope=openid%20email%20profile",
-    callback: async (options: OAuthCallbackOptions): Promise<OAuthCallbackResult> => {
+    authUrl: "https://accounts.google.com/o/oauth2/v2/auth",
+    params: {
+      scope: "openid email profile",
+      response_type: "code",
+    },
+    callback: async (code: string, options: OAuthProviderOptions): Promise<OAuthCallbackResult> => {
       const ret = await fetch("https://oauth2.googleapis.com/token", {
         method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
         body: new URLSearchParams({
           client_id: options.clientId,
           client_secret: options.clientSecret,
-          code: options.code,
-          // state: options.state,
           redirect_uri: options.redirectUrl!,
           grant_type: "authorization_code",
+          code,
         }),
       }).then((res) => res.json());
       const idToken = ret.id_token;
@@ -103,6 +105,9 @@ export default class AuthenticationImpl<U extends AuthUser> implements Authentic
     }
     if (redirectUrl) {
       url.searchParams.set("redirect_uri", redirectUrl);
+    }
+    for (const [k, v] of Object.entries(providers[provider].params)) {
+      url.searchParams.set(k, v);
     }
     url.searchParams.set("state", state);
     return url;
@@ -144,12 +149,7 @@ export default class AuthenticationImpl<U extends AuthUser> implements Authentic
         return new Response("State not matched ", { status: 400 });
       }
       try {
-        const { oauthData, id, name, email, avatarUrl } = await providers[provider].callback({
-          ...providerOptions,
-          code,
-          state: store.state as string,
-        });
-
+        const { oauthData, id, name, email, avatarUrl } = await providers[provider].callback(code, providerOptions);
         const idStr = id.toString(16);
         const signed = await this.#seesion._storage.get<{ uid: string; createdAt: number } | undefined>(
           `${provider}-${idStr}`,
