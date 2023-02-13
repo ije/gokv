@@ -4,7 +4,7 @@ import atm from "./AccessTokenManager.ts";
 import { applyPatch, Op, Patch, proxy, remix, restoreArray } from "./common/proxy.ts";
 import { connect, SocketState } from "./common/socket.ts";
 import { deserialize, serialize, serializeStream } from "./common/structured.ts";
-import { checkNamespace, checkRegion, isLegacyNode, isPlainObject } from "./common/utils.ts";
+import { checkNamespace, checkRegion, isPlainObject } from "./common/utils.ts";
 
 enum MessageFlag {
   DOC = 1,
@@ -41,23 +41,25 @@ export default class DocumentImpl<T extends RecordOrArray> implements Document<T
       res.body?.cancel?.();
       throw new Error(`Failed to get document snapshot: ${res.status} ${res.statusText}`);
     }
-    const snapshot = await deserialize<Record<string, unknown>>(!isLegacyNode ? res.body! : await res.arrayBuffer());
+    const body = Reflect.has(fetch, "legacy") ? await res.arrayBuffer() : res.body!;
+    const snapshot = await deserialize<Record<string, unknown>>(body);
     res.body?.cancel?.();
     return restoreArray(snapshot) as T;
   }
 
   async reset(data: T): Promise<{ version: number }> {
+    const legacyFetch = Reflect.has(fetch, "legacy");
     const res = await fetch(`https://${atm.apiHost}/doc/${this.#scope}`, {
       method: "PUT",
       headers: {
         "Authorization": (await atm.getAccessToken(`doc:${this.#scope}`)).join(" "),
         "Content-Type": "binary/structured",
       },
-      body: !isLegacyNode ? serializeStream(data) : await serialize(data),
+      body: legacyFetch ? await serialize(data) : serializeStream(data),
       // to fix "The `duplex` member must be specified for a request with a streaming body"
       // deno-lint-ignore ban-ts-comment
       // @ts-ignore
-      duplex: !isLegacyNode ? "half" : undefined,
+      duplex: !legacyFetch ? "half" : undefined,
     });
     if (!res.ok) {
       throw new Error(`Failed to reset document: ${res.status} ${await res.text()}`);
