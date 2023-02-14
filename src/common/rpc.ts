@@ -1,7 +1,6 @@
 import { ServiceName } from "../../types/common.d.ts";
 import { connect } from "./socket.ts";
-import { deserialize, serialize } from "./structured.ts";
-import { conactBytes } from "./utils.ts";
+import { serialize } from "./structured.ts";
 
 const invokeTimeout = 15 * 1000; // invoke timeout in 15 seconds
 
@@ -26,40 +25,40 @@ export async function connectRPC(
     onReconnect: (rpc: RPCSocket) => void;
   },
 ): Promise<RPCSocket> {
-  const awaits = new Map<number, (data: ArrayBuffer) => void>();
+  const awaits = new Map<number, (data: unknown) => void>();
   const socket = await connect(service, namespace, region, {
-    onMessage: async (flag, message) => {
+    onMessage: (flag, message) => {
       switch (flag) {
         case RPCMessageFlag.DATA: {
-          const id = new DataView(message.slice(0, 4)).getInt32(0);
-          awaits.get(id)?.(message.slice(4));
+          const [id, data] = message as [number, unknown];
+          awaits.get(id)?.(data);
           break;
         }
         case RPCMessageFlag.SYNC:
-          options.onSync(await deserialize(message));
+          options.onSync(message as [string, unknown][]);
           break;
       }
     },
     onReconnect: (socket) => {
+      awaits.forEach((resolve) => serialize(new Error("Cancelled")).then(resolve));
       awaits.clear();
       options.onReconnect({ invoke, close: socket.close });
     },
     // for debug
-    inspect: async (flag, gzFlag, message) => {
+    inspect: (flag, gzFlag, message) => {
       const gzTip = gzFlag ? "(gzipped)" : "";
       switch (flag) {
         case RPCMessageFlag.INVOKE: {
-          const invokeId = new DataView(message, 0, 4).getUint32(0).toString(36);
-          const kvMethods = ["GET", "PUT", "DELETE", "LIST", "UPDATE_NUMBER", "SUM", "FORGET"];
-          const method = kvMethods[new DataView(message, 4, 1).getUint8(0) - 1] ?? "UNKNOWN";
-          return [`INVOKE${gzTip} 0x${invokeId} ${method}`, await deserialize(message.slice(5))];
+          const kvMethods = ["GET", "LIST", "SUM", "PUT", "UPDATE_NUMBER", "DELETE", "FORGET"];
+          const [invokeId, method, args] = message as [number, number, unknown[]];
+          return [`INVOKE${gzTip} 0x${invokeId.toString(16)} ${kvMethods[method] ?? "UNKNOWN"}`, args];
         }
         case RPCMessageFlag.DATA: {
-          const invokeId = new DataView(message, 0, 4).getUint32(0).toString(36);
-          return [`DATA${gzTip} 0x${invokeId} `, await deserialize(message.slice(4))];
+          const [invokeId, data] = message as [number, unknown];
+          return [`DATA${gzTip} 0x${invokeId.toString(16)}`, data];
         }
         case RPCMessageFlag.SYNC:
-          return [`SYNC${gzTip}`, await deserialize(message)];
+          return [`SYNC${gzTip}`, message];
         default:
           return `UNKNOWN FLAG ${flag}`;
       }
@@ -67,27 +66,24 @@ export async function connectRPC(
   });
 
   let invokeIndex = 0;
-  const invoke = async <T = unknown>(method: number, ...args: unknown[]): Promise<T> => {
-    const argsData = await serialize(args);
+  const invoke = <T = unknown>(method: number, ...args: unknown[]): Promise<T> => {
     return new Promise((resolve, reject) => {
       const invokeId = invokeIndex++;
       try {
         const idBuf = new ArrayBuffer(4);
         new DataView(idBuf).setUint32(0, invokeId);
-        const data = conactBytes(new Uint8Array(idBuf), new Uint8Array([method]), argsData);
-        socket.send(RPCMessageFlag.INVOKE, data);
+        socket.send(RPCMessageFlag.INVOKE, [invokeId, method, ...args]);
         const timer = setTimeout(() => {
           awaits.delete(invokeId);
           reject(new Error("Invoke PRC timeout"));
         }, invokeTimeout);
-        awaits.set(invokeId, (data) => {
+        awaits.set(invokeId, (result) => {
           clearTimeout(timer);
           awaits.delete(invokeId);
-          const result = deserialize<T>(data);
           if (result instanceof Error) {
             reject(result);
           } else {
-            resolve(result);
+            resolve(result as T);
           }
         });
       } catch (err) {

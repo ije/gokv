@@ -1,16 +1,20 @@
 import type { ServiceName, Socket } from "../../types/common.d.ts";
 import atm from "../AccessTokenManager.ts";
 import { deserialize, serialize } from "./structured.ts";
-import { conactBytes, getEnv, gzip, ungzip } from "./utils.ts";
+import { conactBytes, getEnv, gzip } from "./utils.ts";
 
 const pingTimeout = 5 * 1000; // wait for ping message for 5 seconds
 const pingInterval = 30 * 1000; // send ping message pre 30 seconds
-const gzipMinLength = 1000; // gzip if message size is larger than 1KB
+const gzipMinLength = 1024; // gzip if message size is larger than 1KB
 
-const SocketMessageFlags = {
+const MessageFlags = {
   ERROR: 0xf0,
   INIT: 0xf1,
   PING: 0xf2,
+  PONG: 0xf3,
+  STREAM_START: 0xf4,
+  STREAM_CHUNK: 0xf5,
+  STREAM_END: 0xf6,
 };
 
 export enum SocketState {
@@ -23,8 +27,8 @@ export type SocketOptions = {
   signal?: AbortSignal;
   resolve?: (flag: number) => boolean;
   initData?: () => Record<string, unknown>;
-  inspect?: (flag: number, gzFlag: number, message: ArrayBufferLike) => string | string[] | Promise<string | string[]>;
-  onMessage?: (flag: number, message: ArrayBufferLike, socket: Socket) => void | Promise<void>;
+  inspect?: (flag: number, gzFlag: number, message: unknown) => string | unknown[];
+  onMessage?: (flag: number, message: unknown, socket: Socket) => void;
   onError?: (code: string, message: string, details?: Record<string, unknown>) => void;
   onClose?: () => void;
   onReconnect?: (socket: Socket) => void;
@@ -57,24 +61,22 @@ export function connect(
     let hbTimer: number | undefined;
 
     // send data and compress it with gzip if possible
-    const send = async (flag: number, data: Uint8Array | Record<string, unknown> | Array<unknown>) => {
+    const send = async (flag: number, data: Record<string, unknown> | unknown[]) => {
       let gzFlag = 0;
-      if (!(data instanceof Uint8Array)) {
-        data = await serialize(data);
-      }
-      if (typeof CompressionStream === "function" && data.byteLength > gzipMinLength) {
-        data = new Uint8Array(await gzip(data));
+      let buf = await serialize(data);
+      if (typeof CompressionStream === "function" && buf.byteLength > gzipMinLength) {
+        buf = new Uint8Array(await gzip(buf));
         gzFlag = 1;
       }
-      ws?.send(conactBytes(new Uint8Array([flag, gzFlag]), data));
+      ws?.send(conactBytes(new Uint8Array([flag, gzFlag]), buf));
       heartbeat();
       if (debug) {
         const message: unknown[] = [];
         if (flag >= 0xf0) {
-          message.push(Object.entries(SocketMessageFlags).find(([, f]) => flag === f)?.[0] ?? flag);
-          message.push(await deserialize(data.buffer));
+          message.push(Object.entries(MessageFlags).find(([, f]) => flag === f)?.[0] ?? flag);
+          message.push(data);
         } else if (options.inspect) {
-          message.push(...[await options.inspect(flag, gzFlag, data.buffer)].flat());
+          message.push(...[options.inspect(flag, gzFlag, data)].flat());
         } else {
           message.push(flag);
         }
@@ -100,6 +102,7 @@ export function connect(
     };
 
     const socket = Object.freeze({ send, close });
+    const streams = new Map<number, TransformStream<Uint8Array, Uint8Array>>();
 
     const heartbeat = () => {
       if (pingTimer) {
@@ -110,7 +113,7 @@ export function connect(
         clearTimeout(hbTimer);
       }
       hbTimer = setTimeout(() => {
-        ws?.send(new Uint8Array([SocketMessageFlags.PING]));
+        ws?.send(new Uint8Array([MessageFlags.PING]));
         pingTimer = setTimeout(() => {
           pingTimer = undefined;
           if (ws?.readyState === WebSocket.OPEN) {
@@ -141,7 +144,9 @@ export function connect(
     };
 
     const onOpen = () => {
-      send(SocketMessageFlags.INIT, { ...options.initData?.(), acceptGzip: typeof DecompressionStream === "function" });
+      const acceptGzip = typeof DecompressionStream === "function";
+      const acceptStream = typeof TransformStream === "function";
+      send(MessageFlags.INIT, { ...options.initData?.(), acceptGzip, acceptStream });
       heartbeat();
       if (!options.resolve) {
         onReady();
@@ -152,37 +157,94 @@ export function connect(
       if (!(e.data instanceof ArrayBuffer && e.data.byteLength > 0)) {
         return;
       }
-      const [flag, gzFlag] = new Uint8Array(e.data, 0, Math.min(e.data.byteLength, 2));
-      const data = gzFlag === 1 ? await ungzip(e.data.slice(2)) : e.data.slice(2);
-      switch (flag) {
-        case SocketMessageFlags.PING: {
-          heartbeat();
-          break;
+      const view = new DataView(e.data);
+      const flag = view.getUint8(0);
+      let data: unknown;
+      const getData = async (): Promise<unknown> => {
+        if (data) return data;
+        if (e.data.byteLength < 2) throw new Error("invliad data length");
+        const gzFlag = view.getUint8(1);
+        if (gzFlag === 1) {
+          data = await deserialize(new Blob([e.data.slice(2)]).stream().pipeThrough(new DecompressionStream("gzip")));
+        } else {
+          data = await deserialize(e.data.slice(2));
         }
-        case SocketMessageFlags.ERROR: {
-          const { code, message, ...rest } = await deserialize<{ code: string; message: string }>(data);
-          options.onError?.(code, message, rest);
-          console.error(`[gokv] socket(${service}/${namespace}): <${code}> ${message}`);
-          break;
-        }
-        default: {
-          await options.onMessage?.(flag, data, socket);
-          if (options.resolve?.(flag)) {
-            onReady();
-          }
-        }
-      }
+        return data;
+      };
       if (debug) {
         const message: unknown[] = [];
         if (flag >= 0xf0) {
-          message.push(Object.entries(SocketMessageFlags).find(([, f]) => flag === f)?.[0] ?? flag);
-          message.push(await deserialize(data));
+          message.push(Object.entries(MessageFlags).find(([, f]) => flag === f)?.[0] ?? flag);
+          if (flag >= MessageFlags.STREAM_START) {
+            message.push("0x" + view.getUint16(1).toString(16));
+          }
+          if (flag === MessageFlags.STREAM_START && options.inspect) {
+            const flag = view.getUint8(3);
+            const gzFlag = view.getUint8(4);
+            message.push(...[options.inspect(flag, gzFlag, "<ReadableStream>")].flat());
+          }
+          if (flag === MessageFlags.ERROR) {
+            message.push(await getData());
+          }
         } else if (options.inspect) {
-          message.push(...[await options.inspect(flag, gzFlag, data)].flat());
+          const gzFlag = view.getUint8(1);
+          message.push(...[options.inspect(flag, gzFlag, await getData())].flat());
         } else {
           message.push(flag);
         }
         console.debug("%cgokv.io %c↓", "color:grey", "color:blue", ...message);
+      }
+      switch (flag) {
+        case MessageFlags.PONG: {
+          heartbeat();
+          break;
+        }
+        case MessageFlags.ERROR: {
+          const { code, message, ...rest } = await getData() as { code: string; message: string };
+          options.onError?.(code, message, rest);
+          console.error(`[gokv] socket(${service}/${namespace}): <${code}> ${message}`);
+          break;
+        }
+        case MessageFlags.STREAM_START: {
+          const streamId = view.getUint16(1);
+          const flag = view.getUint8(3);
+          const gzFlag = view.getUint8(4);
+          const stream = new TransformStream<Uint8Array, Uint8Array>();
+          const readable = gzFlag === 1
+            ? stream.readable.pipeThrough(new DecompressionStream("gzip"))
+            : stream.readable;
+          streams.set(streamId, stream);
+          options.onMessage?.(flag, await deserialize(readable), socket);
+          if (options.resolve?.(flag)) {
+            onReady();
+          }
+          break;
+        }
+        case MessageFlags.STREAM_CHUNK: {
+          const streamId = view.getUint16(1);
+          const stream = streams.get(streamId);
+          if (stream) {
+            const wr = stream.writable.getWriter();
+            wr.write(new Uint8Array(e.data.slice(3)));
+            wr.releaseLock();
+          }
+          break;
+        }
+        case MessageFlags.STREAM_END: {
+          const streamId = view.getUint16(1);
+          const stream = streams.get(streamId);
+          if (stream) {
+            streams.delete(streamId);
+            stream.writable.getWriter().close();
+          }
+          break;
+        }
+        default: {
+          options.onMessage?.(flag, await getData(), socket);
+          if (options.resolve?.(flag)) {
+            onReady();
+          }
+        }
       }
     };
 

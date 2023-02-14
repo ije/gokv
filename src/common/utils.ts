@@ -110,12 +110,6 @@ export function gzip(data: ArrayBufferLike): Promise<ArrayBuffer> {
     .arrayBuffer();
 }
 
-/** Decompress data with gzip encoding, needs `DecompressionStream` enabled. */
-export function ungzip(data: ArrayBufferLike): Promise<ArrayBuffer> {
-  return new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream("gzip")))
-    .arrayBuffer();
-}
-
 /** Convert ArrayBuffer to hex string. You can specify the radix, default is 16. */
 export function toHex(buf: ArrayBuffer, radix = 16): string {
   return Array.from(new Uint8Array(buf)).map((b) => b.toString(radix).padStart(2, "0")).join("");

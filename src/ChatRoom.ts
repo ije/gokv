@@ -2,7 +2,6 @@ import type { AuthUser, Socket } from "../types/common.d.ts";
 import type { Chat, ChatMessage, ChatRoom, ChatRoomConnectOptions, ChatRoomOptions } from "../types/ChatRoom.d.ts";
 import { checkNamespace, checkRegion } from "./common/utils.ts";
 import { connect, SocketState } from "./common/socket.ts";
-import { deserialize } from "./common/structured.ts";
 
 enum MessageFlag {
   CHAT = 1,
@@ -154,10 +153,10 @@ export default class ChatRoomImpl<U extends AuthUser> implements ChatRoom<U> {
       signal: options?.signal,
       resolve: (flag) => flag === MessageFlag.CHAT,
       initData: () => ({ ...options, lastMessageId: chat?._lastMessageId }),
-      onMessage: async (flag, message, socket) => {
+      onMessage: (flag, message, socket) => {
         switch (flag) {
           case MessageFlag.CHAT: {
-            const [history, onlineUsers, currentUser] = await deserialize<[ChatMessage<U>[], U[], U]>(message);
+            const [history, onlineUsers, currentUser] = message as [ChatMessage<U>[], U[], U];
             if (chat !== null) {
               for (const msg of history) {
                 chat._pushMessage(msg);
@@ -170,12 +169,12 @@ export default class ChatRoomImpl<U extends AuthUser> implements ChatRoom<U> {
             break;
           }
           case MessageFlag.MESSAGE: {
-            const chatMessage = await deserialize<ChatMessage<U>>(message);
+            const chatMessage = message as ChatMessage<U>;
             chat?._pushMessage(chatMessage);
             break;
           }
           case MessageFlag.EVENT: {
-            const evt = await deserialize<{ type: string }>(message);
+            const evt = message as { type: string };
             const listeners = chat?._listeners.get(evt.type);
             if (listeners) {
               for (const listener of listeners) {
@@ -216,15 +215,15 @@ export default class ChatRoomImpl<U extends AuthUser> implements ChatRoom<U> {
         }
       },
       // for debug
-      inspect: async (flag, gzFlag, message) => {
+      inspect: (flag, gzFlag, message) => {
         const gzTip = gzFlag ? "(gzipped)" : "";
         switch (flag) {
           case MessageFlag.CHAT:
-            return [`CHAT${gzTip}`, await deserialize(message)];
+            return [`CHAT${gzTip}`, message];
           case MessageFlag.MESSAGE:
-            return [`MESSAGE${gzTip}`, await deserialize(message)];
+            return [`MESSAGE${gzTip}`, message];
           case MessageFlag.EVENT:
-            return [`EVENT${gzTip}`, await deserialize(message)];
+            return [`EVENT${gzTip}`, message];
           default:
             return `UNKNOWN FLAG ${flag}`;
         }

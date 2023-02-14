@@ -41,10 +41,13 @@ export default class DocumentImpl<T extends RecordOrArray> implements Document<T
       res.body?.cancel?.();
       throw new Error(`Failed to get document snapshot: ${res.status} ${res.statusText}`);
     }
-    const body = Reflect.has(fetch, "legacy") ? await res.arrayBuffer() : res.body!;
-    const snapshot = await deserialize<Record<string, unknown>>(body);
-    res.body?.cancel?.();
-    return restoreArray(snapshot) as T;
+    try {
+      const body = Reflect.has(fetch, "legacy") ? await res.arrayBuffer() : res.body!;
+      const snapshot = await deserialize<Record<string, unknown>>(body);
+      return restoreArray(snapshot) as T;
+    } finally {
+      res.body?.cancel?.();
+    }
   }
 
   async reset(data: T): Promise<{ version: number }> {
@@ -68,14 +71,15 @@ export default class DocumentImpl<T extends RecordOrArray> implements Document<T
   }
 
   async sync(options?: DocumentSyncOptions<T>): Promise<T> {
-    let docVersion = -1;
+    let version = -1;
     let patchIndex = 0;
     let initiated = false;
-    let online = false;
+    let state: SocketState = SocketState.PENDING;
     let socket: Socket | null = null;
 
     const queue: [string, ...Patch][] = [];
     const uncomfirmedPatches = new Map<string, Patch>();
+    const blockedPatches: Patch[] = [];
 
     const push = (() => {
       let promise: Promise<void> | undefined;
@@ -91,7 +95,7 @@ export default class DocumentImpl<T extends RecordOrArray> implements Document<T
 
     const drain = (patches: [string, ...Patch][]) => {
       try {
-        if (!socket || !online) {
+        if (!socket || state !== SocketState.READY) {
           throw new Error("Bad socket");
         }
         socket.send(MessageFlag.PATCH, patches);
@@ -113,6 +117,30 @@ export default class DocumentImpl<T extends RecordOrArray> implements Document<T
       push(id.toString(36), stripedPatch);
     };
 
+    const applyPatches = (patches: Patch[]) => {
+      for (const patch of patches) {
+        const [$op, $path, $values] = patch;
+        let discard = false;
+        for (const [id, patch] of uncomfirmedPatches) {
+          const [op, path] = patch;
+          if (
+            $op <= Op.DELETE && op <= Op.DELETE &&
+            $path.length === path.length && $path.every((v, i) => v === path[i])
+          ) {
+            // mark to discard the patch to avoid "flickering" of conflicts
+            discard = true;
+          } else if (
+            ($op === Op.SET && typeof $values === "object" && $values !== null) &&
+            ($path.length < path.length && $path.every((v, i) => v === path[i]))
+          ) {
+            // mark to re-apply the changes for new parent
+            uncomfirmedPatches.set(`${id}-recycle`, true as unknown as Patch);
+          }
+        }
+        !discard && applyPatch(proxyObject!, patch);
+      }
+    };
+
     // todo: init proxy object with offline data
     let proxyObject = options?.proxyProvider?.object;
     if (options?.proxyProvider) {
@@ -122,15 +150,15 @@ export default class DocumentImpl<T extends RecordOrArray> implements Document<T
     socket = await connect("doc", this.#scope, this.#region, {
       signal: options?.signal,
       resolve: (flag) => flag === MessageFlag.DOC,
-      initData: () => ({ version: docVersion }),
-      onMessage: async (flag, data) => {
+      initData: () => ({ version }),
+      onMessage: (flag, message) => {
         switch (flag) {
           case MessageFlag.DOC: {
-            const [version, snapshot, resetByApi] = await deserialize<[number, Record<string, unknown>, boolean]>(data);
+            const [docVersion, snapshot, resetByApi] = message as [number, Record<string, unknown> | null, boolean];
             if (!proxyObject) {
+              if (!snapshot) throw new Error("Missing snapshot");
               proxyObject = proxy(snapshot, patchHandler) as T;
-            } else {
-              // update the doc with the snapshot from reconnection
+            } else if (snapshot) {
               remix(proxyObject, snapshot);
             }
             if (!initiated) {
@@ -144,6 +172,11 @@ export default class DocumentImpl<T extends RecordOrArray> implements Document<T
                 }
               }
             }
+            // apply blocked patches
+            if (blockedPatches.length > 0) {
+              applyPatches(blockedPatches);
+              blockedPatches.length = 0;
+            }
             // drain queued patches
             if (!resetByApi) {
               uncomfirmedPatches.clear();
@@ -155,39 +188,23 @@ export default class DocumentImpl<T extends RecordOrArray> implements Document<T
                 drain(patches);
               }
             }
-            docVersion = version;
+            version = docVersion;
             break;
           }
           case MessageFlag.PATCH: {
-            const [version, ...patches] = await deserialize<[number, ...Patch[]]>(data);
-            for (const patch of patches) {
-              const [$op, $path, $values] = patch;
-              let shouldApply = true;
-              for (const [id, patch] of uncomfirmedPatches) {
-                const [op, path] = patch;
-                if (
-                  $op <= Op.DELETE && op <= Op.DELETE &&
-                  $path.length === path.length && $path.every((v, i) => v === path[i])
-                ) {
-                  // mark to discard the patch to avoid "flickering" of conflicts
-                  shouldApply = false;
-                } else if (
-                  ($op === Op.SET && typeof $values === "object" && $values !== null) &&
-                  ($path.length < path.length && $path.every((v, i) => v === path[i]))
-                ) {
-                  // mark to re-apply the changes for new parent
-                  uncomfirmedPatches.set(`${id}-recycle`, true as unknown as Patch);
-                }
-              }
-              shouldApply && applyPatch(proxyObject!, patch);
+            const [docVersion, ...patches] = message as [number, ...Patch[]];
+            if (state === SocketState.READY) {
+              applyPatches(patches);
+            } else if (state === SocketState.PENDING) {
+              blockedPatches.push(...patches);
             }
-            if (typeof version === "number" && version > docVersion) {
-              docVersion = version;
+            if (docVersion > version) {
+              version = docVersion;
             }
             break;
           }
           case MessageFlag.ACK: {
-            const ids = await deserialize<string[]>(data);
+            const ids = message as string[];
             for (const id of ids) {
               if (!uncomfirmedPatches.has(id)) {
                 // ignore invalid id
@@ -204,9 +221,10 @@ export default class DocumentImpl<T extends RecordOrArray> implements Document<T
           }
         }
       },
-      onStateChange: (state) => {
-        const onStateChange = options?.onStateChange;
-        if (onStateChange) {
+      onStateChange: (s) => {
+        state = s;
+        if (options?.onStateChange) {
+          const { onStateChange } = options;
           switch (state) {
             case SocketState.PENDING:
               onStateChange("connecting");
@@ -219,23 +237,23 @@ export default class DocumentImpl<T extends RecordOrArray> implements Document<T
               break;
           }
         }
-        online = state === SocketState.READY;
       },
       onClose: () => {
         queue.length = 0;
+        blockedPatches.length = 0;
         uncomfirmedPatches.clear();
       },
       onError: options?.onError,
       // for debug
-      inspect: async (flag, gzFlag, message) => {
+      inspect: (flag, gzFlag, message) => {
         const gzTip = gzFlag ? "(gzipped)" : "";
         switch (flag) {
           case MessageFlag.DOC:
-            return [`DOC${gzTip}`, await deserialize(message)];
+            return [`DOC${gzTip}`, message];
           case MessageFlag.PATCH:
-            return [`PATCH${gzTip}`, await deserialize(message)];
+            return [`PATCH${gzTip}`, message];
           case MessageFlag.ACK:
-            return [`ACK${gzTip}`, await deserialize(message)];
+            return [`ACK${gzTip}`, message];
           default:
             return `UNKNOWN FLAG ${flag}`;
         }
