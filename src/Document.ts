@@ -142,7 +142,7 @@ export default class DocumentImpl<T extends RecordOrArray> implements Document<T
     };
 
     // todo: init proxy object with offline data
-    let proxyObject = options?.proxyProvider?.object;
+    let proxyObject = options?.proxyProvider?.proxy;
     if (options?.proxyProvider) {
       options.proxyProvider.onPatch = patchHandler;
     }

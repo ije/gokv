@@ -46,7 +46,7 @@ const _ChatRoomProvider: FC<PropsWithChildren<ChatRoomProviderProps>> = (props) 
   const region = props.region || ctx.region;
   const room = useMemo(() => new ChatRoom(props.id, { namespace, region }), [props.id, namespace]);
   const [channel, setChannel] = useState<Array<ChatMessage<AuthUser>>>(() => []);
-  const [currentUser, setCurrentUser] = useState<AuthUser>(() => ({ uid: 0, name: "unknown" }));
+  const [currentUser, setCurrentUser] = useState<AuthUser>(() => ({ uid: 0, name: "-", email: "-" }));
   const [onlineUsers, setOnlineUsers] = useState<Array<AuthUser>>(() => []);
   const [handler, setHandler] = useState<ChatHandler>(() => badHandler);
   const [pending, setPending] = useState(true);

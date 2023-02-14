@@ -23,7 +23,7 @@ const DocumentConnect: FC<PropsWithChildren<DocumentProviderProps>> = (props) =>
   ], [props.id, namespace, region]);
   const [error, setError] = useState<Error | null>(null);
   const [loading, setLoading] = useState(true);
-  const value: Required<DocumentContextProps> = useMemo(() => ({ doc: proxyProvider.object }), [doc]);
+  const value: Required<DocumentContextProps> = useMemo(() => ({ doc: proxyProvider.proxy }), [doc]);
 
   useEffect(() => {
     const ac = new AbortController();

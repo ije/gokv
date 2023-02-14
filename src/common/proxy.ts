@@ -544,15 +544,15 @@ export function subscribe(proxyObject: RecordOrArray, keyOrCallback: string | (C
 }
 
 export class ProxyProvider<T extends RecordOrArray> {
-  #object: T;
+  #proxy: T;
 
   onPatch: (patch: Patch) => void = dummyFn;
 
   constructor(isArray = false) {
-    this.#object = proxy((isArray ? [] : {}) as T, (patch) => this.onPatch(patch));
+    this.#proxy = proxy((isArray ? [] : {}) as T, (patch) => this.onPatch(patch));
   }
 
-  get object() {
-    return this.#object;
+  get proxy() {
+    return this.#proxy;
   }
 }
