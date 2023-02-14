@@ -1,5 +1,5 @@
 // Serializing and deserializing complex JavaScript objects in structured binary format with streams support.
-// The serialized data is smaller than output of `JSON.stringify`, but it's not human readable.
+// These functions are slower than `JSON.stringify` and `JSON.parse`, but support more types.
 
 enum Type {
   UNDEFINED,
@@ -27,6 +27,7 @@ enum Type {
   REGEXP,
   URL,
   ERROR,
+  JSON,
 }
 
 const TypedArraryTypes = [
@@ -44,14 +45,14 @@ const TypedArraryTypes = [
 ];
 
 class Buffer {
-  #buffer = new Uint8Array();
+  #buffer = new Uint8Array(1024);
   #offset = 0;
 
   write(chunk: Uint8Array): Promise<void> {
     if (this.#offset + chunk.byteLength > this.#buffer.byteLength) {
-      const newBuffer = new Uint8Array(this.#offset + chunk.byteLength);
-      newBuffer.set(this.#buffer);
-      this.#buffer = newBuffer;
+      const buffer = new Uint8Array(this.#offset + chunk.byteLength + 1024);
+      buffer.set(this.#buffer);
+      this.#buffer = buffer;
     }
     this.#buffer.set(chunk, this.#offset);
     this.#offset += chunk.byteLength;
@@ -64,6 +65,7 @@ class Buffer {
 }
 
 class StructuredWriter {
+  #enc = new TextEncoder();
   #writer: { write(chunk: Uint8Array): Promise<void> } = new Buffer();
 
   async serialize(v: unknown): Promise<Uint8Array> {
@@ -82,104 +84,85 @@ class StructuredWriter {
   }
 
   serializeWrite(v: unknown): Promise<void> {
-    if (v === undefined) {
-      return this.writeByte(Type.UNDEFINED);
-    }
-
-    if (v === null) {
-      return this.writeByte(Type.NULL);
-    }
-
-    if (typeof v === "boolean") {
-      return this.writeByte(Type.BOOL, v ? 1 : 0);
-    }
-
-    if (typeof v === "number") {
-      if (Number.isNaN(v)) {
-        return this.writeByte(Type.NAN);
-      }
-      if (v === Infinity) {
-        return this.writeByte(Type.INFINITY);
-      }
-      if (Number.isInteger(v)) {
-        if (v >= 2 ** 32) {
-          return this.writeInt64(v);
+    switch (typeof v) {
+      case "undefined":
+        return this.writeByte(Type.UNDEFINED);
+      case "boolean":
+        return this.writeByte(Type.BOOL, v ? 1 : 0);
+      case "number": {
+        if (Number.isNaN(v)) {
+          return this.writeByte(Type.NAN);
         }
+        if (v === Infinity) {
+          return this.writeByte(Type.INFINITY);
+        }
+        if (Number.isInteger(v)) {
+          if (v >= 2 ** 32) {
+            return this.writeInt64(v);
+          }
+          if (v >= 0) {
+            return this.writeUint(v);
+          }
+          if (v < -(2 ** 31)) {
+            return this.writeInt64(v);
+          }
+          return this.writeInt(v);
+        }
+        if (v === Math.fround(v)) {
+          return this.writeFloat32(v);
+        }
+        return this.writeFloat64(v);
+      }
+      case "bigint":
         if (v >= 0) {
-          return this.writeUint(v);
+          return this.writeBigUInt(v);
         }
-        if (v < -(2 ** 31)) {
-          return this.writeInt64(v);
+        return this.writeBigInt(v);
+      case "string":
+        return this.writeString(v);
+      case "object":
+        if (v === null) {
+          return this.writeByte(Type.NULL);
         }
-        return this.writeInt(v);
-      }
-      if (v === Math.fround(v)) {
-        return this.writeFloat32(v);
-      }
-      return this.writeFloat64(v);
+        if (Array.isArray(v)) {
+          return this.writeArray(v);
+        }
+        if (Object.getPrototypeOf(v) === Object.prototype) {
+          return this.writeObject(v as Record<string, unknown>);
+        }
+        if (v instanceof Set) {
+          return this.writeSet(v);
+        }
+        if (v instanceof Map) {
+          return this.writeMap(v);
+        }
+        if (v instanceof Uint8Array) {
+          return this.writeUint8Array(v);
+        }
+        if (v instanceof ArrayBuffer) {
+          return this.writeArrayBuffer(v);
+        }
+        if (TypedArraryTypes.some((t) => v instanceof t)) {
+          return this.writeTypedArray(v as { byteLength: number; buffer: ArrayBufferLike });
+        }
+        if (v instanceof Date) {
+          return this.writeDate(v);
+        }
+        if (v instanceof RegExp) {
+          return this.writeRegExp(v);
+        }
+        if (v instanceof URL) {
+          return this.writeURL(v);
+        }
+        if (v instanceof Error) {
+          return this.writeError(v);
+        }
     }
-
-    if (typeof v === "bigint") {
-      if (v >= 0) {
-        return this.writeBigUInt(v);
-      }
-      return this.writeBigInt(v);
-    }
-
-    if (typeof v === "string") {
-      return this.writeString(v);
-    }
-
-    if (v instanceof Uint8Array) {
-      return this.writeUint8Array(v);
-    }
-
-    if (v instanceof ArrayBuffer) {
-      return this.writeArrayBuffer(v);
-    }
-
-    if (TypedArraryTypes.some((t) => v instanceof t)) {
-      return this.writeTypedArray(v as { byteLength: number; buffer: ArrayBufferLike });
-    }
-
-    if (v instanceof Set) {
-      return this.writeSet(v);
-    }
-
-    if (Array.isArray(v)) {
-      return this.writeArray(v);
-    }
-
-    if (typeof v === "object") {
-      if (v instanceof Date) {
-        return this.writeDate(v);
-      }
-      if (v instanceof RegExp) {
-        return this.writeRegExp(v);
-      }
-      if (v instanceof URL) {
-        return this.writeURL(v);
-      }
-      if (v instanceof Error) {
-        return this.writeError(v);
-      }
-      if (v instanceof Map) {
-        return this.writeMap(v);
-      }
-      if (Object.getPrototypeOf(v) === Object.prototype) {
-        return this.writeObject(v as Record<string, unknown>);
-      }
-    }
-
     throw new Error(`Unsupported type: ${v}`);
   }
 
-  write(chunk: Uint8Array): Promise<void> {
-    return this.#writer.write(chunk);
-  }
-
   writeByte(...a: number[]): Promise<void> {
-    return this.write(new Uint8Array(a));
+    return this.#writer.write(new Uint8Array(a));
   }
 
   writeInt(v: number): Promise<void> {
@@ -190,7 +173,7 @@ class StructuredWriter {
     if (v >= -128 && v < 128) {
       buf[0] = Type.INT;
       view.setInt8(1, v);
-      return this.write(buf.slice(0, 2));
+      return this.#writer.write(buf.slice(0, 2));
     }
 
     // 2 bytes for size when v >= -32768 and v < 32768 (2^15)
@@ -198,13 +181,13 @@ class StructuredWriter {
     if (v >= -32768 && v < 32768) {
       buf[0] = Type.INT + 100;
       view.setInt16(1, v);
-      return this.write(buf.slice(0, 3));
+      return this.#writer.write(buf.slice(0, 3));
     }
 
     // add 200 to type to indicate 4 bytes size
     buf[0] = Type.INT + 200;
     view.setInt32(1, v);
-    return this.write(buf);
+    return this.#writer.write(buf);
   }
 
   writeInt64(v: number): Promise<void> {
@@ -212,7 +195,7 @@ class StructuredWriter {
     const view = new DataView(buf.buffer);
     buf[0] = Type.INT64;
     view.setBigInt64(1, BigInt(v));
-    return this.write(buf);
+    return this.#writer.write(buf);
   }
 
   writeUint(v: number): Promise<void> {
@@ -223,7 +206,7 @@ class StructuredWriter {
     if (v < 256) {
       buf[0] = Type.UINT;
       view.setUint8(1, v);
-      return this.write(buf.slice(0, 2));
+      return this.#writer.write(buf.slice(0, 2));
     }
 
     // 2 bytes for size when v >= 0 and v < 65536 (2^16)
@@ -231,13 +214,13 @@ class StructuredWriter {
     if (v < 65536) {
       buf[0] = Type.UINT + 100;
       view.setUint16(1, v);
-      return this.write(buf.slice(0, 3));
+      return this.#writer.write(buf.slice(0, 3));
     }
 
     // add 200 to type to indicate 4 bytes size
     buf[0] = Type.UINT + 200;
     view.setUint32(1, v);
-    return this.write(buf);
+    return this.#writer.write(buf);
   }
 
   writeUint64(v: number): Promise<void> {
@@ -245,7 +228,7 @@ class StructuredWriter {
     const view = new DataView(buf.buffer);
     buf[0] = Type.UINT64;
     view.setBigUint64(1, BigInt(v));
-    return this.write(buf);
+    return this.#writer.write(buf);
   }
 
   writeBigUInt(v: bigint): Promise<void> {
@@ -253,7 +236,7 @@ class StructuredWriter {
     const view = new DataView(buf.buffer);
     buf[0] = Type.BIGUINT;
     view.setBigUint64(1, v);
-    return this.write(buf);
+    return this.#writer.write(buf);
   }
 
   writeBigInt(v: bigint): Promise<void> {
@@ -261,7 +244,7 @@ class StructuredWriter {
     const view = new DataView(buf.buffer);
     buf[0] = Type.BIGINT;
     view.setBigInt64(1, v);
-    return this.write(buf);
+    return this.#writer.write(buf);
   }
 
   writeFloat32(v: number): Promise<void> {
@@ -269,7 +252,7 @@ class StructuredWriter {
     const view = new DataView(buf.buffer);
     buf[0] = Type.FLOAT32;
     view.setFloat32(1, v);
-    return this.write(buf);
+    return this.#writer.write(buf);
   }
 
   writeFloat64(v: number): Promise<void> {
@@ -277,18 +260,18 @@ class StructuredWriter {
     const view = new DataView(buf.buffer);
     buf[0] = Type.FLOAT64;
     view.setFloat64(1, v);
-    return this.write(buf);
+    return this.#writer.write(buf);
   }
 
   async writeString(v: string): Promise<void> {
-    const data = new TextEncoder().encode(v); // use utf-8 as default
-    await this.write(this.#headerBox(Type.STRING, data.byteLength));
-    await this.write(data);
+    const data = this.#enc.encode(v); // use utf-8 as default
+    await this.#writer.write(this.#headerBox(Type.STRING, data.byteLength));
+    await this.#writer.write(data);
   }
 
   async writeUint8Array(v: Uint8Array): Promise<void> {
-    await this.write(this.#headerBox(Type.UINT8_ARRAY, v.byteLength));
-    await this.write(v);
+    await this.#writer.write(this.#headerBox(Type.UINT8_ARRAY, v.byteLength));
+    await this.#writer.write(v);
   }
 
   async writeTypedArray(v: { byteLength: number; buffer: ArrayBufferLike }): Promise<void> {
@@ -296,25 +279,28 @@ class StructuredWriter {
     if (t === -1) {
       throw new Error("Unknown typed array type");
     }
-    await this.write(this.#headerBox(Type.TYPED_ARRAY, v.byteLength));
+    await this.#writer.write(this.#headerBox(Type.TYPED_ARRAY, v.byteLength));
     await this.writeByte(t);
-    await this.write(new Uint8Array(v.buffer));
+    await this.#writer.write(new Uint8Array(v.buffer));
   }
 
   async writeArrayBuffer(v: ArrayBuffer): Promise<void> {
-    await this.write(this.#headerBox(Type.ARRAY_BUFFER, v.byteLength));
-    await this.write(new Uint8Array(v));
+    await this.#writer.write(this.#headerBox(Type.ARRAY_BUFFER, v.byteLength));
+    await this.#writer.write(new Uint8Array(v));
+  }
+
+  async writeJSON(v: unknown): Promise<void> {
+    const json = JSON.stringify(v);
+    const data = this.#enc.encode(json);
+    await this.#writer.write(this.#headerBox(Type.JSON, data.byteLength));
+    await this.#writer.write(data);
   }
 
   async writeArray(v: Array<unknown>): Promise<void> {
-    await this.write(this.#headerBox(Type.ARRAY, v.length));
-    for (const e of v) {
-      await this.serializeWrite(e);
+    if (isSimpleObject(v)) {
+      return this.writeJSON(v);
     }
-  }
-
-  async writeSet(v: Set<unknown>): Promise<void> {
-    await this.write(this.#headerBox(Type.SET, v.size));
+    await this.#writer.write(this.#headerBox(Type.ARRAY, v.length));
     for (const e of v) {
       await this.serializeWrite(e);
     }
@@ -323,15 +309,21 @@ class StructuredWriter {
   async writeObject(v: Record<string, unknown>): Promise<void> {
     const keys = Object.keys(v);
     await this.writeByte(Type.OBJECT);
-    await this.serializeWrite(keys);
-    await this.serializeWrite(keys.map((k) => v[k]));
+    await this.writeJSON(keys);
+    await this.writeArray(keys.map((k) => v[k]));
+  }
+
+  async writeSet(v: Set<unknown>): Promise<void> {
+    const values = Array.from(v.values());
+    await this.#writer.write(this.#headerBox(Type.SET, v.size));
+    await this.writeArray(values);
   }
 
   async writeMap(v: Map<unknown, unknown>): Promise<void> {
     const entries = Array.from(v.entries());
     await this.writeByte(Type.MAP);
-    await this.serializeWrite(entries.map(([k]) => k));
-    await this.serializeWrite(entries.map(([, v]) => v));
+    await this.writeArray(entries.map(([k]) => k));
+    await this.writeArray(entries.map(([, v]) => v));
   }
 
   writeDate(v: Date): Promise<void> {
@@ -339,23 +331,23 @@ class StructuredWriter {
     const view = new DataView(header.buffer);
     header[0] = Type.DATE;
     view.setFloat64(1, v.getTime());
-    return this.write(header);
+    return this.#writer.write(header);
   }
 
   async writeRegExp(v: RegExp): Promise<void> {
     await this.writeByte(Type.REGEXP);
-    await this.serializeWrite([v.source, v.flags]);
+    await this.writeJSON([v.source, v.flags]);
   }
 
   async writeURL(v: URL): Promise<void> {
-    const data = new TextEncoder().encode(v.toString());
-    await this.write(this.#headerBox(Type.URL, data.byteLength));
-    await this.write(data);
+    const data = this.#enc.encode(v.toString());
+    await this.#writer.write(this.#headerBox(Type.URL, data.byteLength));
+    await this.#writer.write(data);
   }
 
   async writeError(v: Error): Promise<void> {
     await this.writeByte(Type.ERROR);
-    await this.serializeWrite({
+    await this.writeJSON({
       name: v.name,
       message: v.message,
       stack: v.stack,
@@ -390,6 +382,7 @@ class StructuredWriter {
 
 class StructuredReader {
   #input: ArrayBuffer | ReadableStream<Uint8Array>;
+  #dec = new TextDecoder();
   #streamBuffer = new Uint8Array(0);
   #offset = 0;
 
@@ -487,6 +480,10 @@ class StructuredReader {
         const size = await getSizeMarker();
         return this.read(size) as T;
       }
+      case Type.JSON: {
+        const size = await getSizeMarker();
+        return JSON.parse(await this.readString(size)) as T;
+      }
       case Type.ARRAY: {
         const arrayLen = await getSizeMarker();
         const array: unknown[] = new Array(arrayLen);
@@ -495,14 +492,6 @@ class StructuredReader {
         }
         return array as T;
       }
-      case Type.SET: {
-        const setSize = await getSizeMarker();
-        const set = new Set();
-        for (let i = 0; i < setSize; i++) {
-          set.add(await this.deserialize());
-        }
-        return set as T;
-      }
       case Type.OBJECT: {
         const keys = await this.deserialize<unknown[]>();
         const values = await this.deserialize<unknown[]>();
@@ -510,6 +499,14 @@ class StructuredReader {
           throw new Error("Invalid object");
         }
         return Object.fromEntries(keys.map((k, i) => [k, values[i]])) as T;
+      }
+      case Type.SET: {
+        const setSize = await getSizeMarker();
+        const values = await this.deserialize<unknown[]>();
+        if (!Array.isArray(values) || values.length !== setSize) {
+          throw new Error("Invalid set");
+        }
+        return new Set(values) as T;
       }
       case Type.MAP: {
         const keys = await this.deserialize<unknown[]>();
@@ -550,7 +547,7 @@ class StructuredReader {
     if (this.#input instanceof ReadableStream) {
       if (this.#streamBuffer.byteLength < n) {
         const reader = this.#input.getReader();
-        while (this.#streamBuffer.byteLength < n) {
+        while (this.#streamBuffer.byteLength < n + 1024) {
           const { done, value } = await reader.read();
           if (done) {
             break;
@@ -575,7 +572,7 @@ class StructuredReader {
   }
 
   async readString(n: number): Promise<string> {
-    return new TextDecoder().decode(await this.read(n));
+    return this.#dec.decode(await this.read(n));
   }
 
   async readInt8(): Promise<number> {
@@ -627,6 +624,25 @@ class StructuredReader {
     const view = new DataView(await this.read(8));
     return view.getBigInt64(0);
   }
+}
+
+function isSimpleObject(v: unknown): boolean {
+  const t = typeof v;
+  if (t === "string" || t === "number" || t === "boolean" || v === null) {
+    return true;
+  }
+  if (t === "object") {
+    if (Array.isArray(v)) {
+      return v.every(isSimpleObject);
+    }
+    if (Object.getPrototypeOf(v) === Object.prototype) {
+      return Object.entries(v!).every(([key, value]) => {
+        const kt = typeof key;
+        return (kt === "string" || kt === "number") && isSimpleObject(value);
+      });
+    }
+  }
+  return false;
 }
 
 /**

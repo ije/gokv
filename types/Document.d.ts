@@ -6,7 +6,7 @@ export type DocumentOptions = {
 };
 
 export interface ProxyProvider<T extends RecordOrArray> {
-  object: T;
+  proxy: T;
   // deno-lint-ignore no-explicit-any
   onPatch: (patch: any) => void;
 }
