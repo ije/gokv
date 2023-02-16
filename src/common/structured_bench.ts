@@ -1,22 +1,20 @@
 import { deserialize, serialize, serializeStream } from "./structured.ts";
 
-const benchData = {
-  users: Object.fromEntries(
-    new Array(1000).fill(null).map((_, i) => [
-      i.toString(16),
-      {
-        uuid: crypto.randomUUID(),
-        id: 123,
-        name: "buzz lightyear",
-        from: "earth",
-        habbits: ["travel", "fight", "save the world"],
-        profile: {
-          website: "https://buzz.lightyear",
-        },
+const benchData = Object.fromEntries(
+  new Array(1000).fill(null).map((_, i) => [
+    i.toString(16),
+    {
+      uuid: crypto.randomUUID(),
+      id: 123,
+      name: "buzz lightyear",
+      from: "earth",
+      habbits: ["travel", "fight", "save the world"],
+      profile: {
+        website: "https://buzz.lightyear",
       },
-    ]),
-  ),
-};
+    },
+  ]),
+);
 const data = await serialize(benchData);
 const jsonData = JSON.stringify(benchData);
 
