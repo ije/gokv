@@ -605,7 +605,7 @@ class StructuredReader {
     if (this.#input instanceof ReadableStream) {
       if (this.#streamBuffer.byteLength < n) {
         const reader = this.#input.getReader();
-        while (this.#streamBuffer.byteLength < n + 1024) {
+        while (this.#streamBuffer.byteLength < n) {
           const { done, value } = await reader.read();
           if (done) {
             break;
@@ -686,7 +686,7 @@ class StructuredReader {
 
 function isSimpleObject(v: unknown): boolean {
   const t = typeof v;
-  if (t === "string" || t === "number" || t === "boolean" || t === "undefined" || v === null) {
+  if (t === "string" || t === "number" || t === "boolean" || v === null) {
     return true;
   }
   if (typeof v === "object") {

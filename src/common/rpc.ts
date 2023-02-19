@@ -50,8 +50,8 @@ export async function connectRPC(
       switch (flag) {
         case RPCMessageFlag.INVOKE: {
           const kvMethods = ["GET", "LIST", "SUM", "PUT", "UPDATE_NUMBER", "DELETE", "FORGET"];
-          const [invokeId, method, args] = message as [number, number, unknown[]];
-          return [`INVOKE${gzTip} 0x${invokeId.toString(16)} ${kvMethods[method] ?? "UNKNOWN"}`, args];
+          const [invokeId, method, ...args] = message as [number, number, unknown[]];
+          return [`INVOKE${gzTip} 0x${invokeId.toString(16)} ${kvMethods[method - 1] ?? "UNKNOWN"}`, args];
         }
         case RPCMessageFlag.DATA: {
           const [invokeId, data] = message as [number, unknown];

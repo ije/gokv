@@ -9,6 +9,7 @@ Deno.test("KV Storage", { sanitizeOps: false, sanitizeResources: false }, async 
   await kv.put(Object.fromEntries(
     new Array(10).fill(null).map((_, index) => [`k-${index}`, index]),
   ));
+  assertEquals(await kv.get("nil"), undefined);
   assertEquals(
     await kv.get(["k-0", "k-1", "k-2"]),
     new Map(new Array(3).fill(null).map((_, index) => [`k-${index}`, index])),
