@@ -5,7 +5,7 @@ type OAuthCallbackResult = {
   name: string;
   email: string;
   avatarUrl: string;
-  oauthData: Record<string, unknown>;
+  data: Record<string, unknown>;
 };
 
 export const providers = {
@@ -34,21 +34,21 @@ export const providers = {
       if (ret.error) {
         throw new Error(ret.error);
       }
-      const oauth = await fetch("https://api.github.com/user", {
+      const user = await fetch("https://api.github.com/user", {
         headers: {
           "Accept": "application/json",
           "Authorization": `${ret.token_type} ${ret.access_token}`,
         },
       }).then((res) => res.json());
-      if (oauth.error) {
-        throw new Error(oauth.error);
+      if (user.error) {
+        throw new Error(user.error);
       }
       return {
-        id: oauth.id,
-        name: oauth.name ?? oauth.login,
-        email: oauth.email,
-        avatarUrl: oauth.avatar_url,
-        oauthData: oauth,
+        id: user.id,
+        name: user.name ?? user.login,
+        email: user.email,
+        avatarUrl: user.avatar_url,
+        data: user,
       };
     },
   },
@@ -79,13 +79,13 @@ export const providers = {
       if (!idToken) {
         throw new Error("id_token not found");
       }
-      const oauth = JSON.parse(atob(idToken.split(".")[1]));
+      const profile = JSON.parse(atob(idToken.split(".")[1]));
       return {
-        id: oauth.sub,
-        name: oauth.name,
-        email: oauth.email,
-        avatarUrl: oauth.picture,
-        oauthData: oauth,
+        id: profile.sub,
+        name: profile.name,
+        email: profile.email,
+        avatarUrl: profile.picture,
+        data: profile,
       };
     },
   },

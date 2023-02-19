@@ -61,7 +61,7 @@ export function signAccessToken<U extends AuthUser>(
 export default {
   config,
   signAccessToken,
-  Auth<U extends AuthUser>(options?: AuthenticationOptions): AuthenticationFn<U> {
+  Auth<U extends AuthUser>(options?: AuthenticationOptions<U>): AuthenticationFn<U> {
     const auth = new AuthenticationImpl<U>(options);
     const authFn = auth.default.bind(auth) as AuthenticationFn<U>;
     authFn.callback = auth.callback.bind(auth);

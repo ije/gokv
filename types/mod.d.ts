@@ -35,7 +35,7 @@ export interface Module {
     user: U,
     perm: Permission,
   ): Promise<Response>;
-  Auth<U extends AuthUser>(options?: AuthenticationOptions): AuthenticationFn<U>;
+  Auth<U extends AuthUser>(options?: AuthenticationOptions<U>): AuthenticationFn<U>;
   ChatRoom<U extends AuthUser>(roomId: string, options?: ChatRoomOptions): ChatRoom<U>;
   Document<T extends Record<string, unknown>>(documentId: string, options?: DocumentOptions): Document<T>;
   FileStorage(options?: FileStorageOptions): FileStorage;

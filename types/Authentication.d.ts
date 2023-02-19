@@ -21,19 +21,20 @@ export type LoginPageRenderProps = {
   redirectUrl?: string;
 };
 
-export type AuthenticationOptions = {
+export type AuthenticationOptions<U extends AuthUser> = {
+  appName?: string;
+  routes?: AuthRoutesOptions;
   github?: OAuthProviderOptions;
   google?: Required<OAuthProviderOptions>;
   session?: SessionOptions;
-  routes?: AuthRoutesOptions;
-  appName?: string;
-  getLoginPageHTML?: (props: LoginPageRenderProps) => string;
+  getUserInfo?: (data: Record<string, unknown>) => Partial<U>;
   getUserPermission?: (user: AuthUser) => Permission;
+  getCustomLoginPageHTML?: (props: LoginPageRenderProps) => string;
 };
 
 export class Authentication<U extends AuthUser> {
-  constructor(options?: AuthenticationOptions);
-  default(req: Request): Promise<Response | { user: U } | null>;
+  constructor(options?: AuthenticationOptions<U>);
+  default(req: Request): Promise<Response | { user: U; provider: string } | null>;
   auth(req: Request): Promise<{ user: U } | null>;
   callback(req: Request): Promise<Response>;
   login(req: Request): Promise<Response>;
@@ -42,7 +43,7 @@ export class Authentication<U extends AuthUser> {
 }
 
 export interface AuthenticationFn<U extends AuthUser> {
-  (req: Request): Promise<Response | { user: U } | null>;
+  (req: Request): Promise<Response | { user: U; provider: string } | null>;
   callback(req: Request): Promise<Response>;
   login(req: Request): Promise<Response>;
   logout(req: Request): Promise<Response>;
