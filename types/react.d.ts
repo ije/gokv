@@ -45,7 +45,7 @@ export type DocumentProviderProps = {
   region?: Region;
   // the document id
   id: string;
-  // fallback UI for when the document is not available, blank by default
+  // fallback UI for when the document is loading, blank by default
   fallback?: ReactElement;
   // the initial data of the document, optional
   initial?: Record<string, unknown>;
@@ -69,7 +69,7 @@ export type ChatRoomProviderProps = {
   region?: Region;
   // the chat room id
   id: string;
-  // fallback UI for when the document is not available, blank by default
+  // fallback UI for when the chat room is loading, blank by default
   fallback?: ReactElement;
 };
 export const ChatRoomProvider: FC<PropsWithChildren<ChatRoomProviderProps>>;

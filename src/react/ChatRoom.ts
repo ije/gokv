@@ -64,6 +64,11 @@ const _ChatRoomProvider: FC<PropsWithChildren<ChatRoomProviderProps>> = (props) 
         const chat = await room.connect({
           signal: ac.signal,
         });
+        const loop = async () => {
+          for await (const msg of chat.channel) {
+            setChannel((prev) => appendMessage(prev, msg));
+          }
+        };
         chat.on("statechange", () => setConnState(chat.state));
         chat.on("error", (err) => setError(new Error(err.message)));
         chat.on("userjoin", (e) => {
@@ -100,11 +105,7 @@ const _ChatRoomProvider: FC<PropsWithChildren<ChatRoomProviderProps>> = (props) 
           },
         });
         setPending(false);
-        (async () => {
-          for await (const msg of chat.channel) {
-            setChannel((prev) => appendMessage(prev, msg));
-          }
-        })();
+        loop();
       } catch (err) {
         if (err.message !== "aborted" && retryTimes < 3) {
           const delay = (retryTimes + 1) * 100;
