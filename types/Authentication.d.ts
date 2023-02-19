@@ -17,6 +17,7 @@ export type AuthRoutesOptions = {
 export type LoginPageRenderProps = {
   loginPath: string;
   providers: string[];
+  appName?: string;
   redirectUrl?: string;
 };
 
@@ -25,6 +26,7 @@ export type AuthenticationOptions = {
   google?: Required<OAuthProviderOptions>;
   session?: SessionOptions;
   routes?: AuthRoutesOptions;
+  appName?: string;
   getLoginPageHTML?: (props: LoginPageRenderProps) => string;
   getUserPermission?: (user: AuthUser) => Permission;
 };

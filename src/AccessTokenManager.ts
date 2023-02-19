@@ -66,11 +66,16 @@ export class AccessTokenManager {
     if (!token) {
       throw new Error(
         "Please config `token` or set `GOKV_TOKEN` env, check https://gokv.io/docs/access-token",
+        {
+          cause: "missing-token",
+        },
       );
     }
     const scope = typeof scopeOrReq === "string" ? scopeOrReq : new URL(scopeOrReq.url).searchParams.get("scope");
     if (!scope) {
-      throw new Error("Missing scope parameter");
+      throw new Error("Missing `scope` parameter", {
+        cause: "missing-scope",
+      });
     }
     const promise = fetch(`https://${this.apiHost}/sign-access-token`, {
       method: "POST",
@@ -84,6 +89,7 @@ export class AccessTokenManager {
     }
     const res = await promise;
     if (!res.ok) {
+      res.body?.cancel();
       throw new Error(`Failed to sign access token: ${res.status} ${res.statusText}`);
     }
     return res.text();

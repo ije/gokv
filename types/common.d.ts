@@ -16,7 +16,7 @@ export type Region =
 export interface AuthUser {
   uid: number | string;
   name: string;
-  email: string;
+  email?: string;
   avatarUrl?: string;
 }
 

@@ -3,121 +3,134 @@ import type {
   AuthenticationOptions,
   AuthUser,
   LoginPageRenderProps,
-  OAuthProviderOptions,
   Permission,
 } from "../types/mod.d.ts";
 import SeesionImpl from "./Session.ts";
 import atm from "./AccessTokenManager.ts";
+import { providers } from "./AuthProviders.ts";
 
-const defaultLoginPage = (options: LoginPageRenderProps) => {
-  const loginLink = (provider: string) => {
+const DefaultLoginPage = (options: LoginPageRenderProps) => {
+  const LoginLink = (provider: string) => {
     const name = provider.charAt(0).toUpperCase() + provider.slice(1);
     const url = new URL(options.loginPath, "http://localhost");
     url.searchParams.set("provider", provider);
     if (options.redirectUrl) {
       url.searchParams.set("redirect_url", options.redirectUrl);
     }
-    return `<a href="${url.pathname}${url.search}">Login with ${name}</a>`;
+    const icon = providers[provider as keyof typeof providers]?.icon ?? "";
+    return `<a href="${url.pathname}${url.search}">${icon}<span>Login with ${name}</span></a>`;
   };
   return `<!DOCTYPE html>
 <html>
   <head>
-    <title>Login</title>
+    <title>${["Login", options.appName].filter(Boolean).join(" - ")}</title>
   </head>
+  <style>
+    * {
+      padding: 0;
+      margin: 0;
+      font: inherit;
+    }
+    body {
+      display: flex;
+      height: 100vh;
+      font-family: Inter,sans-serif;
+      overflow: hidden;
+    }
+    header {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      justify-content: center;
+      width: 40vw;
+      height: 100vh;
+      padding-right: 2.4rem;
+    }
+    header  h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      line-height: 2;
+      color: #24292e;
+    }
+    header p {
+      font-size: 1rem;
+      color: #586069;
+    }
+    .links {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: flex-start;
+      width: 60vw;
+      height: 100vh;
+      padding-left: 2.4rem;
+      border-left: 1px solid #e9e9e9;
+      background-color: #f9f9f9;
+    }
+    a {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.5rem 1.2rem;
+      border: 1px solid #e1e4e8;
+      border-radius: 0.5rem;
+      font-size: 16px;
+      line-height: 1;
+      color: #333;
+      background-color: #fff;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.2s ease-in-out;
+    }
+    a span {
+      display: inline-block;
+      min-width: 8rem;
+    }
+    a:visited {
+      color: #333;
+    }
+    a:hover {
+      color: #000;
+      border-color: #d9d9d9;
+      background-color: #f6f8fa;
+    }
+    a + a {
+      margin-top: 0.6rem;
+    }
+    a svg {
+      display: inline-block;
+      width: 1.2rem;
+    }
+    @media (max-width: 768px) {
+      body {
+        flex-direction: column;
+        overflow: auto;
+      }
+      header {
+        width: 100vw;
+        height: 10rem;
+        align-items: center;
+        padding-right: 0;
+      }
+      .links {
+        width: 100vw;
+        height: auto;
+        align-items: center;
+        padding-left: 0;
+        background-color: #fff;
+      }
+    }
+  </style>
   <body>
-    <h1>Login</h1>
-    <ul>
-      ${options.providers.map((provider) => `<li>${loginLink(provider)}</li>`).join("")}
-    </ul>
+    <header>
+      <h1>${["Log in", options.appName].filter(Boolean).join(" to ")}</h1>
+      <p>Choose a login method below</p>
+    </header>
+    <div class="links">
+      ${options.providers.map(LoginLink).join("")}
+    </div>
   </body>
 </html>`;
-};
-
-type OAuthCallbackResult = {
-  id: string | number;
-  name: string;
-  email: string;
-  avatarUrl: string;
-  oauthData: Record<string, unknown>;
-};
-
-const providers = {
-  // ref https://docs.github.com/en/developers/apps/building-oauth-apps/authorizing-oauth-apps
-  github: {
-    authUrl: "https://github.com/login/oauth/authorize",
-    params: {
-      scope: "read:user+user:email",
-    },
-    callback: async (code: string, options: OAuthProviderOptions): Promise<OAuthCallbackResult> => {
-      const ret = await fetch("https://github.com/login/oauth/access_token", {
-        method: "POST",
-        body: JSON.stringify({
-          client_id: options.clientId,
-          client_secret: options.clientSecret,
-          redirect_uri: options.redirectUrl,
-          code,
-        }),
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json",
-        },
-      }).then((res) => res.json());
-      if (ret.error) {
-        throw new Error(ret.error);
-      }
-      const oauth = await fetch("https://api.github.com/user", {
-        headers: {
-          "Accept": "application/json",
-          "Authorization": `${ret.token_type} ${ret.access_token}`,
-        },
-      }).then((res) => res.json());
-      if (oauth.error) {
-        throw new Error(oauth.error);
-      }
-      return {
-        id: oauth.id,
-        name: oauth.name ?? oauth.login,
-        email: oauth.email,
-        avatarUrl: oauth.avatar_url,
-        oauthData: oauth,
-      };
-    },
-  },
-  // ref https://developers.google.com/identity/openid-connect/openid-connect
-  google: {
-    authUrl: "https://accounts.google.com/o/oauth2/v2/auth",
-    params: {
-      scope: "openid email profile",
-      response_type: "code",
-    },
-    callback: async (code: string, options: OAuthProviderOptions): Promise<OAuthCallbackResult> => {
-      const ret = await fetch("https://oauth2.googleapis.com/token", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: new URLSearchParams({
-          client_id: options.clientId,
-          client_secret: options.clientSecret,
-          redirect_uri: options.redirectUrl!,
-          grant_type: "authorization_code",
-          code,
-        }),
-      }).then((res) => res.json());
-      const idToken = ret.id_token;
-      if (!idToken) {
-        throw new Error("id_token not found");
-      }
-      const oauth = JSON.parse(atob(idToken.split(".")[1]));
-      return {
-        id: oauth.sub,
-        name: oauth.name,
-        email: oauth.email,
-        avatarUrl: oauth.picture,
-        oauthData: oauth,
-      };
-    },
-  },
 };
 
 export default class AuthenticationImpl<U extends AuthUser> implements Authentication<U> {
@@ -158,7 +171,11 @@ export default class AuthenticationImpl<U extends AuthUser> implements Authentic
     }
     const permission = (typeof perm === "function" ? perm(auth.user) : perm) ??
       this.#options.getUserPermission?.(auth.user) ?? "readwrite";
-    return atm.signAccessToken(req, auth.user, permission);
+    try {
+      return await atm.signAccessToken(req, auth.user, permission);
+    } catch (e) {
+      return new Response(e.message, { status: e.cause.startsWith?.("missing-") ? 400 : 500 });
+    }
   }
 
   default(req: Request): Promise<Response | { user: U } | null> {
@@ -172,9 +189,10 @@ export default class AuthenticationImpl<U extends AuthUser> implements Authentic
       case routes.oauth ?? "/oauth":
         return this.callback(req, url);
       case routes.signAccessToken ?? "/sign-gokv-token":
-        return this.signAccessToken(req, "superuser");
+        return this.signAccessToken(req);
+      default:
+        return this.auth(req);
     }
-    return this.auth(req);
   }
 
   async auth(req: Request): Promise<{ user: U } | null> {
@@ -259,11 +277,12 @@ export default class AuthenticationImpl<U extends AuthUser> implements Authentic
     const redirectUrl = url.searchParams.get("redirect_url") ?? undefined;
     if (!provider || !(provider in providers)) {
       const renderProps = {
+        appName: this.#options.appName,
         loginPath: this.#options.routes?.login ?? "/login",
         providers: Object.keys(providers).filter((name) => name in providers),
         redirectUrl,
       };
-      return new Response((this.#options.getLoginPageHTML ?? defaultLoginPage)(renderProps), {
+      return new Response((this.#options.getLoginPageHTML ?? DefaultLoginPage)(renderProps), {
         headers: { "Content-Type": "text/html" },
       });
     }
