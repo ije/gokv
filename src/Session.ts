@@ -3,8 +3,8 @@ import atm from "./AccessTokenManager.ts";
 import StorageImpl from "./Storage.ts";
 import { hashText, hmacSign, parseCookies, splitByChar, toHex } from "./common/utils.ts";
 
-const minTTL = 60; // one minute
-const defaultTTL = 30 * 60; // half an hour
+const minMaxAge = 60; // one minute
+const defaultMaxAge = 30 * 60; // half an hour
 const storageMap = new Map<string, Storage>();
 
 // polyfill web crypto for Node.js
@@ -34,7 +34,7 @@ export default class SessionImpl<StoreType extends Record<string, unknown>> impl
   }
 
   #expiresFromNow(): number {
-    return Date.now() + 1000 * Math.max(this.#options?.ttl ?? defaultTTL, minTTL);
+    return Date.now() + 1000 * Math.max(this.#options?.maxAge ?? defaultMaxAge, minMaxAge);
   }
 
   get _storage(): Storage {
@@ -62,7 +62,7 @@ export default class SessionImpl<StoreType extends Record<string, unknown>> impl
           const [data, expires] = value;
           if (now < expires) {
             store = data;
-            if (expires - now < minTTL * 1000) {
+            if (expires - now < minMaxAge * 1000) {
               // renew the session
               await this.#storage.put(sid, [store, this.#expiresFromNow()]);
             }
@@ -98,6 +98,33 @@ export default class SessionImpl<StoreType extends Record<string, unknown>> impl
     return this.#store;
   }
 
+  get cookie(): string {
+    if (!this.#id) {
+      throw new Error("session is not initialized");
+    }
+    const { name = "session", domain, path, sameSite, secure } = this.#options.cookie ?? {};
+    const cookie = [];
+    if (this.store === null) {
+      cookie.push(`${name}=`, "Expires=Thu, 01 Jan 1970 00:00:01 GMT");
+    } else {
+      cookie.push(`${name}=${this.#id}`);
+    }
+    if (domain) {
+      cookie.push(`Domain=${domain}`);
+    }
+    if (path) {
+      cookie.push(`Path=${path}`);
+    }
+    if (sameSite) {
+      cookie.push(`SameSite=${sameSite}`);
+    }
+    if (secure || sameSite === "None") {
+      cookie.push("Secure");
+    }
+    cookie.push("HttpOnly");
+    return cookie.join("; ");
+  }
+
   async #update(store: StoreType | null | ((prev: StoreType | null) => StoreType | null)): Promise<void> {
     if (typeof store !== "object" && typeof store !== "function") {
       throw new Error("store must be a valid object or a function");
@@ -129,26 +156,6 @@ export default class SessionImpl<StoreType extends Record<string, unknown>> impl
   }
 
   redirect(to: string, status = 302): Response {
-    const { name = "session", domain, path, sameSite, secure } = this.#options.cookie ?? {};
-    const cookie = [];
-    if (this.store === null) {
-      cookie.push(`${name}=`, "Expires=Thu, 01 Jan 1970 00:00:01 GMT");
-    } else {
-      cookie.push(`${name}=${this.#id}`);
-    }
-    if (domain) {
-      cookie.push(`Domain=${domain}`);
-    }
-    if (path) {
-      cookie.push(`Path=${path}`);
-    }
-    if (sameSite) {
-      cookie.push(`SameSite=${sameSite}`);
-    }
-    if (secure || sameSite === "None") {
-      cookie.push("Secure");
-    }
-    cookie.push("HttpOnly");
-    return new Response(null, { status, headers: { "Set-Cookie": cookie.join("; "), "Location": to } });
+    return new Response(null, { status, headers: { "Set-Cookie": this.cookie, "Location": to } });
   }
 }

@@ -61,9 +61,9 @@ export function signAccessToken<U extends AuthUser>(
 export default {
   config,
   signAccessToken,
-  Authentication<U extends AuthUser>(options?: AuthenticationOptions): AuthenticationFn<U> {
+  Auth<U extends AuthUser>(options?: AuthenticationOptions): AuthenticationFn<U> {
     const auth = new AuthenticationImpl<U>(options);
-    const authFn = auth.auth.bind(auth) as AuthenticationFn<U>;
+    const authFn = auth.default.bind(auth) as AuthenticationFn<U>;
     authFn.callback = auth.callback.bind(auth);
     authFn.logout = auth.logout.bind(auth);
     authFn.logout = auth.logout.bind(auth);
@@ -90,6 +90,7 @@ export default {
 } as Module;
 
 export {
+  AuthenticationImpl as Authentication,
   ChatRoomImpl as ChatRoom,
   DocumentImpl as Document,
   FileStorageImpl as FileStorage,

@@ -112,6 +112,16 @@ export class AccessTokenManager {
       const url = new URL(this.#tokenSignUrl, location?.href);
       url.searchParams.append("scope", scope);
       const res = await fetch(url, { headers: { scope } });
+      if (res.status === 401 && res.headers.get("content-type") === "application/json") {
+        const { message, loginUrl } = await res.json();
+        if (loginUrl) {
+          const url = new URL(loginUrl, location.href);
+          url.searchParams.append("redirect_url", location.pathname + location.search);
+          location.href = url.href;
+          await new Promise((resolve) => setTimeout(resolve));
+        }
+        throw new Error(message);
+      }
       if (res.status >= 400 && res.status !== 404) {
         throw new Error(await res.text());
       }
@@ -129,7 +139,7 @@ export class AccessTokenManager {
     }
 
     throw new Error(
-      "Please config `token` or set `GOKV_TOKEN` env, if you are using gokv in browser you need to implement the `tokenSignUrl` API, check https://gokv.io/docs/access-token",
+      "Please config `token` or set `GOKV_TOKEN` env, if you are using gokv in browser you need to config the `tokenSignUrl`, see https://gokv.io/docs/access-token",
     );
   }
 }

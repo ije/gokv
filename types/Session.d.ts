@@ -11,13 +11,14 @@ export type CookieOptions = {
 export type SessionOptions = {
   storage?: StorageOptions;
   cookie?: CookieOptions;
-  ttl?: number;
+  maxAge?: number;
   secret?: string;
 };
 
 export class Session<T extends Record<string, unknown>> {
   readonly id: string;
   readonly store: T | null;
+  readonly cookie: string;
   constructor(options?: SessionOptions);
   init(from: Request | { cookies: Record<string, string> }): Promise<this>;
   update(store: T | ((store: T | null) => T)): Promise<void>;

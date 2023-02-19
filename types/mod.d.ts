@@ -29,14 +29,13 @@ export interface Module {
     scope: `${ServiceName}:${string}`,
     user: U,
     perm: Permission,
-    maxAge?: number,
   ): Promise<string>;
   signAccessToken<U extends AuthUser>(
     request: Request,
     user: U,
     perm: Permission,
   ): Promise<Response>;
-  Authentication<U extends AuthUser>(options?: AuthenticationOptions): AuthenticationFn<U>;
+  Auth<U extends AuthUser>(options?: AuthenticationOptions): AuthenticationFn<U>;
   ChatRoom<U extends AuthUser>(roomId: string, options?: ChatRoomOptions): ChatRoom<U>;
   Document<T extends Record<string, unknown>>(documentId: string, options?: DocumentOptions): Document<T>;
   FileStorage(options?: FileStorageOptions): FileStorage;

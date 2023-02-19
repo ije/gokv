@@ -1,5 +1,37 @@
-import type { Authentication, AuthenticationOptions, AuthUser, OAuthProviderOptions } from "../types/mod.d.ts";
+import type {
+  Authentication,
+  AuthenticationOptions,
+  AuthUser,
+  LoginPageRenderProps,
+  OAuthProviderOptions,
+  Permission,
+} from "../types/mod.d.ts";
 import SeesionImpl from "./Session.ts";
+import atm from "./AccessTokenManager.ts";
+
+const defaultLoginPage = (options: LoginPageRenderProps) => {
+  const loginLink = (provider: string) => {
+    const name = provider.charAt(0).toUpperCase() + provider.slice(1);
+    const url = new URL(options.loginPath, "http://localhost");
+    url.searchParams.set("provider", provider);
+    if (options.redirectUrl) {
+      url.searchParams.set("redirect_url", options.redirectUrl);
+    }
+    return `<a href="${url.pathname}${url.search}">Login with ${name}</a>`;
+  };
+  return `<!DOCTYPE html>
+<html>
+  <head>
+    <title>Login</title>
+  </head>
+  <body>
+    <h1>Login</h1>
+    <ul>
+      ${options.providers.map((provider) => `<li>${loginLink(provider)}</li>`).join("")}
+    </ul>
+  </body>
+</html>`;
+};
 
 type OAuthCallbackResult = {
   id: string | number;
@@ -22,7 +54,7 @@ const providers = {
         body: JSON.stringify({
           client_id: options.clientId,
           client_secret: options.clientSecret,
-          redirect_uri: options.redirectUrl!,
+          redirect_uri: options.redirectUrl,
           code,
         }),
         headers: {
@@ -97,7 +129,7 @@ export default class AuthenticationImpl<U extends AuthUser> implements Authentic
     this.#seesion = new SeesionImpl(this.#options.session);
   }
 
-  #loginUrl(provider: "github" | "google", state: string): URL {
+  #loginUrl(provider: keyof typeof providers, state: string): URL {
     const { clientId, redirectUrl } = this.#options?.[provider] ?? {};
     const url = new URL(providers[provider].authUrl);
     if (clientId) {
@@ -113,6 +145,38 @@ export default class AuthenticationImpl<U extends AuthUser> implements Authentic
     return url;
   }
 
+  async signAccessToken(req: Request, perm?: Permission | ((user: U) => Permission)): Promise<Response> {
+    const auth = await this.auth(req);
+    if (!auth) {
+      return new Response(
+        JSON.stringify({ code: 401, message: "Unauthorized", loginUrl: this.#options.routes?.login ?? "/login" }),
+        {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    }
+    const permission = (typeof perm === "function" ? perm(auth.user) : perm) ??
+      this.#options.getUserPermission?.(auth.user) ?? "readwrite";
+    return atm.signAccessToken(req, auth.user, permission);
+  }
+
+  default(req: Request): Promise<Response | { user: U } | null> {
+    const routes = this.#options.routes ?? {};
+    const url = new URL(req.url);
+    switch (url.pathname) {
+      case routes.login ?? "/login":
+        return this.login(req, url);
+      case routes.logout ?? "/logout":
+        return this.logout(req, url);
+      case routes.oauth ?? "/oauth":
+        return this.callback(req, url);
+      case routes.signAccessToken ?? "/sign-gokv-token":
+        return this.signAccessToken(req, "superuser");
+    }
+    return this.auth(req);
+  }
+
   async auth(req: Request): Promise<{ user: U } | null> {
     await this.#seesion.init(req);
     if (this.#seesion.store && "user" in this.#seesion.store) {
@@ -121,8 +185,8 @@ export default class AuthenticationImpl<U extends AuthUser> implements Authentic
     return null;
   }
 
-  async callback(req: Request): Promise<Response> {
-    const url = new URL(req.url);
+  async callback(req: Request, _url?: URL): Promise<Response> {
+    const url = _url ?? new URL(req.url);
     const code = url.searchParams.get("code");
     const state = url.searchParams.get("state");
     if (!code || !state) {
@@ -135,6 +199,9 @@ export default class AuthenticationImpl<U extends AuthUser> implements Authentic
     }
     const store = this.#seesion.store;
     if (store && "provider" in store && "state" in store) {
+      if (state !== store.state) {
+        return new Response("State not matched ", { status: 400 });
+      }
       const provider = store.provider as keyof typeof providers;
       if (!(provider in providers)) {
         return new Response("Invalid provider, supported providers: " + Object.keys(providers).join(","), {
@@ -145,9 +212,6 @@ export default class AuthenticationImpl<U extends AuthUser> implements Authentic
       if (!providerOptions) {
         return new Response("Missing client ID/secret", { status: 400 });
       }
-      if (state !== store.state) {
-        return new Response("State not matched ", { status: 400 });
-      }
       try {
         const { oauthData, id, name, email, avatarUrl } = await providers[provider].callback(code, providerOptions);
         const idStr = id.toString(16);
@@ -157,7 +221,7 @@ export default class AuthenticationImpl<U extends AuthUser> implements Authentic
         const now = Date.now();
 
         let uid: string;
-        if (signed === undefined || !signed.uid) {
+        if (!signed?.uid) {
           uid = now.toString(16) + idStr; // time ordered uid
         } else {
           uid = signed.uid;
@@ -174,7 +238,7 @@ export default class AuthenticationImpl<U extends AuthUser> implements Authentic
             createdAt: signed?.createdAt ?? now,
           },
         };
-        if (signed === undefined || !signed.uid) {
+        if (!signed?.uid) {
           updates[`github-${idStr}`] = { uid, createdAt: now };
         }
         await this.#seesion._storage.put(updates);
@@ -189,33 +253,46 @@ export default class AuthenticationImpl<U extends AuthUser> implements Authentic
     return new Response("Missing provider/state", { status: 400 });
   }
 
-  async login(req: Request): Promise<Response> {
-    const url = new URL(req.url);
+  async login(req: Request, _url?: URL): Promise<Response> {
+    const url = _url ?? new URL(req.url);
     const provider = url.searchParams.get("provider") as keyof typeof providers | null;
-    const redirectUrl = url.searchParams.get("redirectUrl") ?? undefined;
-    const state = url.searchParams.get("state") ?? Math.random().toString(36).slice(2);
+    const redirectUrl = url.searchParams.get("redirect_url") ?? undefined;
     if (!provider || !(provider in providers)) {
-      return new Response("Invalid provider, supported providers: " + Object.keys(providers).join(","), {
-        status: 400,
+      const renderProps = {
+        loginPath: this.#options.routes?.login ?? "/login",
+        providers: Object.keys(providers).filter((name) => name in providers),
+        redirectUrl,
+      };
+      return new Response((this.#options.getLoginPageHTML ?? defaultLoginPage)(renderProps), {
+        headers: { "Content-Type": "text/html" },
       });
     }
+    const state = url.searchParams.get("state") ?? Math.random().toString(36).slice(2);
     try {
       await this.#seesion.init(req);
       await this.#seesion.update({ provider, state, redirectUrl });
     } catch (e) {
       return new Response(e.message, { status: 500 });
     }
-    switch (provider) {
-      case "github":
-        return Response.redirect(this.#loginUrl("github", state), 301);
-      case "google":
-        return Response.redirect(this.#loginUrl("google", state), 301);
-    }
+    const loginUrl = this.#loginUrl(provider, state);
+    return new Response(
+      [
+        `<script>location.href=${JSON.stringify(loginUrl.href)}</script>`,
+        `<noscript>Redircting to ${loginUrl.href} ...</noscript>`,
+      ].join("\n"),
+      {
+        status: 200,
+        headers: {
+          "Content-Type": "text/html",
+          "Set-Cookie": this.#seesion.cookie,
+        },
+      },
+    );
   }
 
-  async logout(req: Request): Promise<Response> {
-    const url = new URL(req.url);
-    const redirectUrl = url.searchParams.get("redirectUrl");
+  async logout(req: Request, _url?: URL): Promise<Response> {
+    const url = _url ?? new URL(req.url);
+    const redirectUrl = url.searchParams.get("redirect_url");
     try {
       await this.#seesion.init(req);
       if (this.#seesion.store !== null) {

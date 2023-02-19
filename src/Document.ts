@@ -51,18 +51,17 @@ export default class DocumentImpl<T extends RecordOrArray> implements Document<T
   }
 
   async reset(data: T): Promise<{ version: number }> {
-    const legacyFetch = Reflect.has(fetch, "legacy");
     const res = await fetch(`https://${atm.apiHost}/doc/${this.#scope}`, {
       method: "PUT",
       headers: {
         "Authorization": (await atm.getAccessToken(`doc:${this.#scope}`)).join(" "),
         "Content-Type": "binary/structured",
       },
-      body: legacyFetch ? await serialize(data) : serializeStream(data),
+      body: Reflect.has(fetch, "legacy") ? await serialize(data) : serializeStream(data),
       // to fix "The `duplex` member must be specified for a request with a streaming body"
       // deno-lint-ignore ban-ts-comment
       // @ts-ignore
-      duplex: !legacyFetch ? "half" : undefined,
+      duplex: !Reflect.has(fetch, "legacy") ? "half" : undefined,
     });
     if (!res.ok) {
       throw new Error(`Failed to reset document: ${res.status} ${await res.text()}`);

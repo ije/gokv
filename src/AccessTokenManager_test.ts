@@ -8,7 +8,7 @@ Deno.test("Sign Access Token", async () => {
     {
       uid: 123,
       name: "Guest",
-      email: "guest@localhost",
+      email: "guest@lightyear.com",
       avatarUrl: "avatar.png",
     },
     "superuser",
@@ -31,7 +31,7 @@ Deno.test("Sign Access Token", async () => {
   assertEquals(scope, "doc:default/doc-id");
   assertEquals(user.uid, 123);
   assertEquals(user.name, "Guest");
-  assertEquals(user.email, "guest@localhost");
+  assertEquals(user.email, "guest@lightyear.com");
   assertEquals(user.avatarUrl, "avatar.png");
   assertEquals(perm, 3);
   assertEquals(typeof expires, "number");
