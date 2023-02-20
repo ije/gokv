@@ -45,6 +45,16 @@ ul {
   padding-left: 16px;
 }
 
+header h1 {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+header + ul {
+  margin-top: 30px;
+}
+
 /* common */
 
 .flex {

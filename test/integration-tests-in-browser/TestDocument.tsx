@@ -4,7 +4,7 @@ import { createElement, Fragment, useState } from "react";
 import { DocumentProvider, useConnectState, useDocument, useSnapshot } from "gokv/react";
 import { ErrorBoundary, JSONViewer, TextInput } from "./_components.tsx";
 
-export function TestReactDocument() {
+export default function TestDocument() {
   return (
     <>
       <div style={{ minHeight: 300 }}>

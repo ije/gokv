@@ -1,17 +1,30 @@
 import { serve } from "https://deno.land/std@0.175.0/http/server.ts";
-import html from "https://deno.land/x/htm@0.1.3/mod.ts";
+import html from "https://deno.land/x/htm@0.1.4/mod.ts";
 import { build } from "https://deno.land/x/esbuild@v0.17.5/mod.js";
 import gokv from "gokv";
 import "dotenv";
+
+const auth = gokv.Auth({
+  appName: "Gokv",
+  github: {
+    clientId: Deno.env.get("GITHUB_CLIENT_ID")!,
+    clientSecret: Deno.env.get("GITHUB_CLIENT_SECRET")!,
+  },
+  google: {
+    clientId: Deno.env.get("GOOGLE_CLIENT_ID")!,
+    clientSecret: Deno.env.get("GOOGLE_CLIENT_SECRET")!,
+    redirectUrl: "http://localhost:8000/oauth",
+  },
+  getUserInfo: (data) => {
+    console.log("OAuth data", data);
+    return {};
+  },
+});
 
 const importMap = { imports: JSON.parse(await Deno.readTextFile("./deno.json")).imports };
 
 serve(async (req: Request) => {
   const { pathname } = new URL(req.url);
-
-  if (pathname === "/sign-gokv-token") {
-    return gokv.signAccessToken(req, { uid: 1, name: "admin" }, "superuser");
-  }
 
   if (/\.(jsx?|tsx?)$/.test(pathname)) {
     let entryPoint = import.meta.resolve("." + pathname).slice(7);
@@ -58,10 +71,16 @@ serve(async (req: Request) => {
     }
   }
 
+  const authRes = await auth(req);
+  if (authRes instanceof Response) {
+    return authRes;
+  }
+
   return html({
     scripts: [
       { type: "importmap", text: JSON.stringify(importMap) },
       { type: "module", src: "/_bootstrap.tsx" },
+      !!authRes && { id: "auth-info", type: "application/json", text: JSON.stringify(authRes) },
     ],
     styles: [
       { href: "/_style.css" },

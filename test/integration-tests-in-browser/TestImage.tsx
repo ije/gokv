@@ -4,7 +4,7 @@ import { createElement, useState } from "react";
 import { Image } from "gokv/react";
 import { JSONViewer } from "./_components.tsx";
 
-export function TestReactImage() {
+export default function TestImage() {
   const [mode, setMode] = useState(0);
   const [image, setImage] = useState<{ src?: string; alt?: string }>({});
 
