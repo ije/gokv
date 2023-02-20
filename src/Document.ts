@@ -171,14 +171,17 @@ export default class DocumentImpl<T extends RecordOrArray> implements Document<T
                 }
               }
             }
-            // apply blocked patches
-            if (blockedPatches.length > 0) {
-              applyPatches(blockedPatches);
+            uncomfirmedPatches.clear();
+            if (resetByApi) {
               blockedPatches.length = 0;
-            }
-            // drain queued patches
-            if (!resetByApi) {
-              uncomfirmedPatches.clear();
+              queue.length = 0;
+            } else {
+              // apply blocked patches
+              if (blockedPatches.length > 0) {
+                applyPatches(blockedPatches);
+                blockedPatches.length = 0;
+              }
+              // drain queued patches
               if (queue.length > 0) {
                 const patches = queue.splice(0);
                 for (const [, ...patch] of patches) {
