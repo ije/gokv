@@ -1,7 +1,7 @@
 import type { OAuthProviderOptions } from "../types/mod.d.ts";
 
 type OAuthCallbackResult = {
-  id: string | number;
+  id: string;
   name: string;
   email: string;
   avatarUrl: string;
@@ -44,7 +44,7 @@ export const providers = {
         throw new Error(user.error);
       }
       return {
-        id: user.id,
+        id: user.id.toString(16),
         name: user.name ?? user.login,
         email: user.email,
         avatarUrl: user.avatar_url,

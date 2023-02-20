@@ -14,22 +14,27 @@ export type AuthRoutesOptions = {
   signAccessToken?: string;
 };
 
-export type LoginPageRenderProps = {
+export type LoginPageConfig = {
+  appName?: string;
+  appIcon?: string;
+  banner?: string;
+};
+
+export type LoginPageProps = LoginPageConfig & {
   loginPath: string;
   providers: string[];
-  appName?: string;
   redirectUrl?: string;
 };
 
 export type AuthenticationOptions<U extends AuthUser> = {
-  appName?: string;
-  routes?: AuthRoutesOptions;
   github?: OAuthProviderOptions;
   google?: Required<OAuthProviderOptions>;
   session?: SessionOptions;
+  routes?: AuthRoutesOptions;
+  loginPage?: LoginPageConfig;
   getUserInfo?: (data: Record<string, unknown>) => Partial<U>;
   getUserPermission?: (user: AuthUser) => Permission;
-  getCustomLoginPageHTML?: (props: LoginPageRenderProps) => string;
+  renderLoginPage?: (props: LoginPageProps) => string;
 };
 
 export class Authentication<U extends AuthUser> {
