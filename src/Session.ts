@@ -155,7 +155,7 @@ export default class SessionImpl<StoreType extends Record<string, unknown>> impl
     await this.#update(null);
   }
 
-  redirect(to: string, status = 302): Response {
-    return new Response(null, { status, headers: { "Set-Cookie": this.cookie, "Location": to } });
+  redirect(to: URL | string, status = 302): Response {
+    return new Response(null, { status, headers: { "Set-Cookie": this.cookie, "Location": to.toString() } });
   }
 }

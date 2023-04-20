@@ -3,7 +3,7 @@ import atm from "../AccessTokenManager.ts";
 import { deserialize, serialize } from "./structured.ts";
 import { conactBytes, getEnv, gzip } from "./utils.ts";
 
-const pingTimeout = 5 * 1000; // wait for ping message for 5 seconds
+const pingTimeout = 5 * 1000; // wait for pong message for 5 seconds
 const pingInterval = 30 * 1000; // send ping message pre 30 seconds
 const gzipMinLength = 1024; // gzip if message size is larger than 1KB
 

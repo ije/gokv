@@ -40,7 +40,7 @@ const DefaultLoginPage = (options: LoginPageProps) => {
 
 export default class AuthenticationImpl<U extends AuthUser> implements Authentication<U> {
   #options: AuthenticationOptions<U>;
-  #seesion: SeesionImpl<{ user: AuthUser } | { provider: string; state: string; redirectUrl?: string }>;
+  #seesion: SeesionImpl<({ user: U } | { state: string; redirectUrl?: string }) & { provider: string }>;
 
   constructor(options?: AuthenticationOptions<U>) {
     this.#options = options ?? {};
@@ -64,8 +64,8 @@ export default class AuthenticationImpl<U extends AuthUser> implements Authentic
   }
 
   async signAccessToken(req: Request, perm?: Permission | ((user: U) => Permission)): Promise<Response> {
-    const auth = await this.auth(req);
-    if (!auth) {
+    const [user] = await this.auth(req);
+    if (!user) {
       return new Response(
         JSON.stringify({ code: 401, message: "Unauthorized", loginUrl: this.#options.routes?.login ?? "/login" }),
         {
@@ -74,16 +74,16 @@ export default class AuthenticationImpl<U extends AuthUser> implements Authentic
         },
       );
     }
-    const permission = (typeof perm === "function" ? perm(auth.user) : perm) ??
-      this.#options.getUserPermission?.(auth.user) ?? "readwrite";
+    const permission = (typeof perm === "function" ? perm(user) : perm) ??
+      this.#options.getUserPermission?.(user) ?? "readwrite";
     try {
-      return await atm.signAccessToken(req, auth.user, permission);
+      return await atm.signAccessToken(req, user, permission);
     } catch (e) {
       return new Response(e.message, { status: e.cause.startsWith?.("missing-") ? 400 : 500 });
     }
   }
 
-  default(req: Request): Promise<Response | { user: U; provider: string } | null> {
+  async default(req: Request, next: (user?: U, provider?: string) => Promise<Response> | Response): Promise<Response> {
     const routes = this.#options.routes ?? {};
     const url = new URL(req.url);
     switch (url.pathname) {
@@ -96,16 +96,17 @@ export default class AuthenticationImpl<U extends AuthUser> implements Authentic
       case routes.signAccessToken ?? "/sign-gokv-token":
         return this.signAccessToken(req);
       default:
-        return this.auth(req);
+        return next(...await this.auth(req));
     }
   }
 
-  async auth(req: Request): Promise<{ user: U; provider: string } | null> {
+  async auth(req: Request): Promise<[user?: U, provider?: string]> {
     await this.#seesion.init(req);
     if (this.#seesion.store && "user" in this.#seesion.store) {
-      return { ...this.#seesion.store as { user: U; provider: string } };
+      const { user, provider } = this.#seesion.store;
+      return [user, provider];
     }
-    return null;
+    return [];
   }
 
   async callback(req: Request, _url?: URL): Promise<Response> {
@@ -150,12 +151,12 @@ export default class AuthenticationImpl<U extends AuthUser> implements Authentic
         }
 
         const userInfo = {
-          uid,
-          name,
-          email,
           avatarUrl,
+          email,
+          name,
+          uid,
           ...this.#options.getUserInfo?.(data),
-        };
+        } as U;
         const updates: Record<string, unknown> = {
           [`user-${uid}`]: { ...userInfo, loginedAt: now, createdAt: marker?.createdAt ?? now },
         };
@@ -165,7 +166,7 @@ export default class AuthenticationImpl<U extends AuthUser> implements Authentic
         await this.#seesion._storage.put(updates);
 
         // update session and redirect page
-        await this.#seesion.update({ user: { uid, name, email, avatarUrl }, provider });
+        await this.#seesion.update({ user: userInfo, provider });
         return Response.redirect(new URL((store.redirectUrl ?? "/") as string, req.url), 302);
       } catch (e) {
         return new Response(e.message, { status: 500 });
@@ -197,19 +198,7 @@ export default class AuthenticationImpl<U extends AuthUser> implements Authentic
       return new Response(e.message, { status: 500 });
     }
     const loginUrl = this.#loginUrl(provider, state);
-    return new Response(
-      [
-        `<script>location.href=${JSON.stringify(loginUrl.href)}</script>`,
-        `<noscript>Redircting to ${loginUrl.href} ...</noscript>`,
-      ].join("\n"),
-      {
-        status: 200,
-        headers: {
-          "Content-Type": "text/html",
-          "Set-Cookie": this.#seesion.cookie,
-        },
-      },
-    );
+    return this.#seesion.redirect(loginUrl);
   }
 
   async logout(req: Request, _url?: URL): Promise<Response> {
@@ -223,6 +212,6 @@ export default class AuthenticationImpl<U extends AuthUser> implements Authentic
     } catch (e) {
       return new Response(e.message, { status: 500 });
     }
-    return Response.redirect(new URL(redirectUrl ?? "/", url), 301);
+    return this.#seesion.redirect(new URL(redirectUrl ?? "/", url));
   }
 }

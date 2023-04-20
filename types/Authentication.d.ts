@@ -39,8 +39,8 @@ export type AuthenticationOptions<U extends AuthUser> = {
 
 export class Authentication<U extends AuthUser> {
   constructor(options?: AuthenticationOptions<U>);
-  default(req: Request): Promise<Response | { user: U; provider: string } | null>;
-  auth(req: Request): Promise<{ user: U } | null>;
+  default(req: Request, next: (user?: U, provider?: string) => Promise<Response> | Response): Promise<Response>;
+  auth(req: Request): Promise<[user?: U, provider?: string]>;
   callback(req: Request): Promise<Response>;
   login(req: Request): Promise<Response>;
   logout(req: Request): Promise<Response>;
@@ -48,7 +48,7 @@ export class Authentication<U extends AuthUser> {
 }
 
 export interface AuthenticationFn<U extends AuthUser> {
-  (req: Request): Promise<Response | { user: U; provider: string } | null>;
+  (req: Request, next: (user?: U, provider?: string) => Promise<Response> | Response): Promise<Response>;
   callback(req: Request): Promise<Response>;
   login(req: Request): Promise<Response>;
   logout(req: Request): Promise<Response>;
