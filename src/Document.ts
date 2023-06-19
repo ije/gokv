@@ -1,5 +1,5 @@
 import { RecordOrArray, Socket } from "../types/common.d.ts";
-import type { Document, DocumentOptions, DocumentSyncOptions } from "../types/Document.d.ts";
+import type { Document, DocumentOptions, DocumentSyncOptions, Path } from "../types/Document.d.ts";
 import atm from "./AccessTokenManager.ts";
 import { applyPatch, Op, Patch, proxy, remix, restoreArray } from "./common/proxy.ts";
 import { connect, SocketState } from "./common/socket.ts";
@@ -48,6 +48,10 @@ export default class DocumentImpl<T extends RecordOrArray> implements Document<T
     } finally {
       res.body?.cancel?.();
     }
+  }
+
+  applyPatch(_op: "set" | "delete" | "splice", _path: Path, _value?: unknown): Promise<{ version: number }> {
+    throw new Error("Not implemented");
   }
 
   async reset(data: T): Promise<{ version: number }> {

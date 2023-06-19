@@ -1,3 +1,3 @@
 # gokv
 
-A _WIP_  project, do NOT use.
+A _WIP_ project, do NOT use.

@@ -1,6 +1,4 @@
 import type {
-  AuthenticationFn,
-  AuthenticationOptions,
   AuthUser,
   ConfigOptions,
   Document,
@@ -13,7 +11,6 @@ import type {
   ServiceName,
 } from "./types/mod.d.ts";
 import atm from "./src/AccessTokenManager.ts";
-import AuthenticationImpl from "./src/Authentication.ts";
 import DocumentImpl from "./src/Document.ts";
 import FileStorageImpl from "./src/FileStorage.ts";
 
@@ -52,14 +49,6 @@ export function signAccessToken<U extends AuthUser>(
 export default {
   config,
   signAccessToken,
-  Auth<U extends AuthUser>(options?: AuthenticationOptions<U>): AuthenticationFn<U> {
-    const auth = new AuthenticationImpl<U>(options);
-    const authFn = auth.default.bind(auth) as AuthenticationFn<U>;
-    authFn.callback = auth.callback.bind(auth);
-    authFn.logout = auth.logout.bind(auth);
-    authFn.logout = auth.logout.bind(auth);
-    return authFn;
-  },
   Document<T extends RecordOrArray>(documentId: string, options?: DocumentOptions): Document<T> {
     return new DocumentImpl<T>(documentId, options);
   },
@@ -68,4 +57,4 @@ export default {
   },
 } as Module;
 
-export { AuthenticationImpl as Authentication, DocumentImpl as Document, FileStorageImpl as FileStorage };
+export { DocumentImpl as Document, FileStorageImpl as FileStorage };
