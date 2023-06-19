@@ -3,8 +3,6 @@ import type {
   ConfigOptions,
   Document,
   DocumentOptions,
-  FileStorage,
-  FileStorageOptions,
   Module,
   Permission,
   RecordOrArray,
@@ -12,7 +10,6 @@ import type {
 } from "./types/mod.d.ts";
 import atm from "./src/AccessTokenManager.ts";
 import DocumentImpl from "./src/Document.ts";
-import FileStorageImpl from "./src/FileStorage.ts";
 
 export { ProxyProvider, snapshot, subscribe } from "./src/common/proxy.ts";
 
@@ -52,9 +49,6 @@ export default {
   Document<T extends RecordOrArray>(documentId: string, options?: DocumentOptions): Document<T> {
     return new DocumentImpl<T>(documentId, options);
   },
-  FileStorage(options?: FileStorageOptions): FileStorage {
-    return new FileStorageImpl(options);
-  },
 } as Module;
 
-export { DocumentImpl as Document, FileStorageImpl as FileStorage };
+export { DocumentImpl as Document };

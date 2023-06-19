@@ -21,6 +21,5 @@ console.log("\x1b[2mRunning integration tests...\x1b[0m");
 
 await import("./TestAccessToken.mjs");
 await import("./TestDocument.mjs");
-await import("./TestFileStorage.mjs");
 
 process.exit(0);

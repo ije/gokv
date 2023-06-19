@@ -1,10 +1,8 @@
 import { AuthUser, Permission, ServiceName } from "./common.d.ts";
 import { Document, DocumentOptions } from "./Document.d.ts";
-import { FileStorage, FileStorageOptions } from "./FileStorage.d.ts";
 
 export * from "./common.d.ts";
 export * from "./Document.d.ts";
-export * from "./FileStorage.d.ts";
 
 export type ConfigOptions = {
   token?: string;
@@ -28,7 +26,6 @@ export interface Module {
     perm: Permission,
   ): Promise<Response>;
   Document<T extends Record<string, unknown>>(documentId: string, options?: DocumentOptions): Document<T>;
-  FileStorage(options?: FileStorageOptions): FileStorage;
 }
 
 export default Module;
