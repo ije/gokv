@@ -1,9 +1,4 @@
-import type {
-  FileStorage,
-  FileStorageObject,
-  FileStorageOptions,
-  FileStoragePutOptions,
-} from "../types/FileStorage.d.ts";
+import type { FilePutOptions, FilePutResult, FileStorage, FileStorageOptions } from "../types/FileStorage.d.ts";
 import atm from "./AccessTokenManager.ts";
 import { checkNamespace, pick } from "./common/utils.ts";
 import xxhash from "./vendor/xxhash.js";
@@ -36,13 +31,13 @@ export default class FileStorageImpl implements FileStorage {
     return `https://${atm.apiHost}/fs/${this.#namespace}`;
   }
 
-  async list(): Promise<FileStorageObject[]> {
+  async list(): Promise<FilePutResult[]> {
     const res = await fetch(this.#apiUrl);
     const ret = await res.json();
     return ret.files;
   }
 
-  async put(file: File, options?: FileStoragePutOptions): Promise<FileStorageObject> {
+  async put(file: File, options?: FilePutOptions): Promise<FilePutResult> {
     if (file.size > 100 * MB) throw new Error("File size is too large");
 
     // calculate file hash using xxhash64

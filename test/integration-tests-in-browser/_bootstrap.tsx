@@ -4,20 +4,11 @@
 import type { FC, ReactNode } from "react";
 import { createElement, Fragment } from "react";
 import { createRoot } from "react-dom/client";
-import TestChatRoom from "./TestChatRoom.tsx";
 import TestDocument from "./TestDocument.tsx";
 import TestFileStorage from "./TestFileStorage.tsx";
 import TestImage from "./TestImage.tsx";
-import TestKVStorage from "./TestKVStorage.tsx";
 
 const tests: [string, FC, ReactNode][] = [
-  [
-    "/test-chatroom",
-    TestChatRoom,
-    <>
-      Test <code>`ChatRoom`</code> class
-    </>,
-  ],
   [
     "/test-document",
     TestDocument,
@@ -37,13 +28,6 @@ const tests: [string, FC, ReactNode][] = [
     TestImage,
     <>
       Test <code>`Image`</code> component
-    </>,
-  ],
-  [
-    "/test-kvstorage",
-    TestKVStorage,
-    <>
-      Test <code>`TestKVStorage`</code> class
     </>,
   ],
 ];

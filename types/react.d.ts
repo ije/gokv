@@ -1,9 +1,7 @@
 /// <reference lib="dom" />
 
 import type { FC, ImgHTMLAttributes, PropsWithChildren, ReactElement } from "react";
-import { AuthUser, RecordOrArray, Region } from "./common.d.ts";
-import type { ChatMessage } from "./ChatRoom.d.ts";
-
+import { RecordOrArray, Region } from "./common.d.ts";
 export type GokvContextProps = {
   namespace: string;
   region?: Region;
@@ -56,25 +54,3 @@ export const useDocument: <T extends Record<string, unknown>>() => T;
 
 export function useSnapshot<T extends RecordOrArray>(obj: T): T;
 export function useSnapshot<T extends RecordOrArray, K extends keyof T>(obj: T, key: K): T[K];
-
-export type ChatHandler = {
-  pullHistory(n?: number): Promise<void>;
-  send(content: string, options?: { contentType?: string }): void;
-};
-
-export type ChatRoomProviderProps = {
-  // the namespace of the chat room, default to "default"
-  namespace?: string;
-  // the region of the chat room
-  region?: Region;
-  // the chat room id
-  id: string;
-  // fallback UI for when the chat room is loading, blank by default
-  fallback?: ReactElement;
-};
-export const ChatRoomProvider: FC<PropsWithChildren<ChatRoomProviderProps>>;
-
-export const useChatChannel: <U extends AuthUser>() => Array<ChatMessage<U>>;
-export const useChatCurrentUser: <U extends AuthUser>() => U;
-export const useChatOnlineUsers: <U extends AuthUser>() => Array<U>;
-export const useChatHandler: () => ChatHandler;

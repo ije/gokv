@@ -11,8 +11,12 @@ export interface ProxyProvider<T extends RecordOrArray> {
   onPatch: (patch: any) => void;
 }
 
+/** The path (array) for the `Patch`. */
+export type Path = ReadonlyArray<string>;
+
 export type DocumentSyncOptions<T extends RecordOrArray> = {
   proxyProvider?: ProxyProvider<T>;
+  path?: Path;
   initial?: T;
   signal?: AbortSignal;
   onError?: (code: string, message: string, details?: Record<string, unknown>) => void;
@@ -22,10 +26,13 @@ export type DocumentSyncOptions<T extends RecordOrArray> = {
 /** `Document` syncs changes between sessions and saved automatically. */
 export class Document<T extends RecordOrArray> {
   constructor(documentId: string, options?: DocumentOptions);
-  /** Resets the document with the given `data`. */
-  reset(data?: T): Promise<{ version: number }>;
   /** Gets snapshot of the document. */
   getSnapshot(): Promise<T>;
+  getSnapshot<S = unknown>(path: Path): Promise<S>;
+  /** Applies the given `patch` to the document. */
+  applyPatch(op: "set" | "delete" | "splice", path: Path, value?: unknown): Promise<{ version: number }>;
+  /** Resets the document with the given `data`. */
+  reset(data?: T): Promise<{ version: number }>;
   /**
    * Syncs the document, it returns a proxy object which allows you to use the document as a normal object.
    * Changes will be broadcasted to other sessions and saved automatically.
@@ -39,6 +46,7 @@ export class Document<T extends RecordOrArray> {
    * obj.foo = "baz";
    */
   sync(options?: DocumentSyncOptions<T>): Promise<T>;
+
   // todo: delete the document
   // delete(): Promise<void>;
 }
