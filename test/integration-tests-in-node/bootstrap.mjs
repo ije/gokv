@@ -1,7 +1,6 @@
 import process from "node:process";
 import { config as dotenv } from "dotenv";
 
-
 globalThis.crypto = await import(`node:crypto`);
 globalThis.assert = await import(`node:assert`);
 globalThis.assertEquals = (a, b) => assert.deepEqual(a, b);
