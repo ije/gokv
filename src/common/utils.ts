@@ -65,16 +65,6 @@ export function pick<T, K extends keyof T>(obj: T, ...keys: K[]): Pick<T, K> {
   return ret as Pick<T, K>;
 }
 
-/** Split a string by the first occurrence of the given char. */
-export function splitByChar(str: string, char: string): [left: string, right: string] {
-  for (let i = 0; i < str.length; i++) {
-    if (str.charAt(i) === char) {
-      return [str.slice(0, i), str.slice(i + 1)];
-    }
-  }
-  return [str, ""];
-}
-
 /** Get the environment variable by the given key from Deno.env, Node process or browser localStorage. */
 export function getEnv(key: string): string | undefined {
   const denoNs = Reflect.get(globalThis, "Deno");
@@ -130,19 +120,4 @@ export async function hmacSign(data: string, secret: string, hasher = "SHA-256")
     ["sign", "verify"],
   );
   return crypto.subtle.sign("HMAC", key, enc.encode(data));
-}
-
-/** Parses cookies from request header. */
-export function parseCookies(req: Request): Map<string, string> {
-  const cookie: Map<string, string> = new Map();
-  const value = req.headers.get("cookie");
-  if (value) {
-    value.split(";").forEach((part) => {
-      const [key, value] = splitByChar(part.trim(), "=");
-      if (key && value) {
-        cookie.set(key, value);
-      }
-    });
-  }
-  return cookie;
 }
