@@ -1,11 +1,10 @@
 import { serve } from "https://deno.land/std@0.175.0/http/server.ts";
-import html from "https://deno.land/x/htm@0.1.4/mod.ts";
-import { build } from "https://deno.land/x/esbuild@v0.17.5/mod.js";
+import html from "https://deno.land/x/htm@0.2.1/mod.ts";
+import assets from "https://deno.land/x/assets@0.0.3/mod.ts";
 import gokv from "gokv";
 import "dotenv";
 
 const auth = gokv.Auth({
-  appName: "Gokv",
   github: {
     clientId: Deno.env.get("GITHUB_CLIENT_ID")!,
     clientSecret: Deno.env.get("GITHUB_CLIENT_SECRET")!,
@@ -15,6 +14,11 @@ const auth = gokv.Auth({
     clientSecret: Deno.env.get("GOOGLE_CLIENT_SECRET")!,
     redirectUrl: "http://localhost:8000/oauth",
   },
+  loginPage: {
+    appName: "Gokv",
+    appIcon: "https://gokv.dev/favicon.svg",
+    banner: "Welcome to Gokv, a simple key-value store, built with Deno and React.",
+  },
   getUserInfo: (data) => {
     console.log("OAuth data", data);
     return {};
@@ -22,72 +26,24 @@ const auth = gokv.Auth({
 });
 
 const importMap = { imports: JSON.parse(await Deno.readTextFile("./deno.json")).imports };
+const root = import.meta.resolve("./").slice(7);
 
-serve(async (req: Request) => {
-  const { pathname } = new URL(req.url);
-
-  if (/\.(jsx?|tsx?)$/.test(pathname)) {
-    let entryPoint = import.meta.resolve("." + pathname).slice(7);
-    try {
-      await Deno.stat(entryPoint);
-    } catch (err) {
-      if (err instanceof Deno.errors.NotFound) {
-        entryPoint = Deno.cwd() + pathname;
-      } else {
-        return new Response(err.message, { status: 500 });
-      }
-    }
-    const ret = await build({
-      entryPoints: [entryPoint],
-      format: "esm",
-      target: "es2022",
-      bundle: false,
-      write: false,
-      minify: true,
-      sourcemap: "inline",
-    });
-    return new Response(ret.outputFiles?.[0].text, {
-      headers: {
-        "Content-Type": "application/javascript; charset=utf-8",
-        "Cache-Control": "no-cache, no-store, must-revalidate",
-      },
-    });
-  }
-
-  if (/\.(css)$/.test(pathname)) {
-    try {
-      const fp = import.meta.resolve("." + pathname).slice(7);
-      return new Response(await Deno.readTextFile(fp), {
-        headers: {
-          "Content-Type": "text/css; charset=utf-8",
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-        },
-      });
-    } catch (err) {
-      if (err instanceof Deno.errors.NotFound) {
-        return new Response("File not found", { status: 404 });
-      }
-      return new Response(err.message, { status: 500 });
-    }
-  }
-
-  const authRes = await auth(req);
-  if (authRes instanceof Response) {
-    return authRes;
-  }
-
-  return html({
-    scripts: [
-      { type: "importmap", text: JSON.stringify(importMap) },
-      { type: "module", src: "/_bootstrap.tsx" },
-      !!authRes && { id: "auth-info", type: "application/json", text: JSON.stringify(authRes) },
-    ],
-    styles: [
-      { href: "/_style.css" },
-    ],
-    body: `<div id="root"></div>`,
-    headers: {
-      "Cache-Control": "no-cache, no-store, must-revalidate",
-    },
-  });
-});
+serve((req) => (
+  assets(req, { root, transform: true }, () =>
+    assets(req, { transform: true }, () =>
+      auth(req, (user) =>
+        html({
+          scripts: [
+            { type: "importmap", text: JSON.stringify(importMap) },
+            { type: "module", src: "/_bootstrap.tsx" },
+            !!user && { id: "auth-info", type: "application/json", text: JSON.stringify({ user }) },
+          ],
+          styles: [
+            { href: "/_style.css" },
+          ],
+          body: `<div id="root"></div>`,
+          headers: {
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+          },
+        }))))
+));

@@ -58,17 +58,17 @@ const routes: Record<string, FC> = {
       <>
         <header>
           <h1>Gokv Testing</h1>
-          {authInfo.user
-            ? (
-              <p>
-                Signed in as <strong>{authInfo.user.name}</strong> with <em>{authInfo.provider}</em>
-              </p>
-            )
-            : (
-              <p>
-                <a href="/login">Login</a>
-              </p>
-            )}
+          {authInfo.user && (
+            <p>
+              Signed in as <img src={authInfo.user.avatarUrl} /> <strong>{authInfo.user.name}</strong> with{" "}
+              <em>{authInfo.provider}</em>
+            </p>
+          )}
+          {!authInfo.user && (
+            <p>
+              <a href="/login">Login</a>
+            </p>
+          )}
         </header>
         <ul>
           {tests.map(([path, _, children]) => (

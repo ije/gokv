@@ -32,7 +32,7 @@ i {
 }
 
 code {
-  font-family: "Dank Mono", monospace;
+  font-family: monospace
 }
 
 pre {
@@ -53,6 +53,33 @@ header h1 {
 
 header + ul {
   margin-top: 30px;
+}
+
+header p {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+header p img {
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+}
+
+a,
+a:visited {
+  color: #0157ba;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+li a code {
+  font-weight: bold;
 }
 
 /* common */
